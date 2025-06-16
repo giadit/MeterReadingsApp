@@ -8,7 +8,7 @@ import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.widget.EditText
 import android.widget.DatePicker
-import android.widget.Toast // Still used for general errors like empty reading value
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
 import androidx.lifecycle.ViewModelProvider
@@ -27,7 +27,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
-import com.example.mypostsapp.data.Reading // Ensure Reading is imported
+import com.example.mypostsapp.data.Reading
 
 class MainActivity : AppCompatActivity() {
 
@@ -64,10 +64,18 @@ class MainActivity : AppCompatActivity() {
 
         val apiService = RetrofitClient.getService(ApiService::class.java)
         val database = AppDatabase.getDatabase(applicationContext)
-        val locationDao = database.locationDao() // Get LocationDao
+        val locationDao = database.locationDao()
         val meterDao = database.meterDao()
         val readingDao = database.readingDao()
-        val repository = MeterRepository(apiService, meterDao, readingDao, locationDao) // Pass LocationDao here
+        val queuedRequestDao = database.queuedRequestDao() // FIX: Get QueuedRequestDao
+        val repository = MeterRepository(
+            apiService,
+            meterDao,
+            readingDao,
+            locationDao,
+            queuedRequestDao, // FIX: Pass QueuedRequestDao
+            applicationContext // FIX: Pass applicationContext
+        )
 
         locationViewModel = ViewModelProvider(this, LocationViewModelFactory(repository))
             .get(LocationViewModel::class.java)
@@ -78,7 +86,6 @@ class MainActivity : AppCompatActivity() {
 
         observeLocations()
         observeMeters()
-        // Removed: observeMeterUpdateResult() as it's no longer needed for PATCH approach
 
         // Initial UI state: Toolbar title is visible, search view is iconified (handled by XML), back button is hidden
         binding.backButton.visibility = View.GONE
@@ -92,7 +99,6 @@ class MainActivity : AppCompatActivity() {
                 locationViewModel.selectedLocationId.value?.let { locationId ->
                     val parts = locationId.split("|")
                     if (parts.size == 3) {
-                        // FIX: Use refreshAllMeters as there is no specific refresh for meters by location in viewmodel
                         locationViewModel.refreshAllMeters()
                         Log.d("MainActivity", "Refreshing meters for location: $locationId (by refreshing all meters)")
                     }
@@ -257,7 +263,6 @@ class MainActivity : AppCompatActivity() {
                         created_by = null,
                         read_by = "App User"
                     )
-                    // FIX: Call postMeterReading instead of updateMeterReading
                     locationViewModel.postMeterReading(newReading)
                 } else {
                     Log.w("MainActivity", "Reading value cannot be empty.")

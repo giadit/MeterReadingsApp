@@ -4,49 +4,50 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import androidx.room.TypeConverters // Import TypeConverters annotation
-import com.example.mypostsapp.converters.MapConverter // Import your MapConverter
-import com.example.mypostsapp.converters.ListConverter // Import your ListConverter
+import androidx.room.TypeConverters
+import com.example.mypostsapp.converters.MapConverter
+import com.example.mypostsapp.converters.ListConverter
 
 /**
- * The Room database for the application.
- * Defines the entities (tables) and the DAOs (data access objects).
- *
- * Version 5: Added Location entity and LocationDao, and registered TypeConverters.
+ * The Room database class for the application.
+ * Defines the database configuration and provides access to the DAOs.
+ * @param entities Specifies the entities (tables) included in this database.
+ * @param version The version number of the database. **INCREMENT THIS TO 6** due to schema changes.
+ * @param exportSchema Set to false to prevent exporting schema to a folder.
  */
 @Database(
-    entities = [Location::class, Meter::class, Reading::class], // FIX: Added Location::class
-    version = 5, // IMPORTANT: Increment the version number due to schema changes
-    exportSchema = false // Set to false for simplicity in development, true for production migrations
+    entities = [Location::class, Meter::class, Reading::class, QueuedRequest::class], // FIX: Added Location::class and QueuedRequest::class
+    version = 6, // FIX: Increment version to 6 for new table/entity changes
+    exportSchema = false
 )
-@TypeConverters(MapConverter::class, ListConverter::class) // FIX: Registered both TypeConverters
+@TypeConverters(MapConverter::class, ListConverter::class)
 abstract class AppDatabase : RoomDatabase() {
 
-    // Abstract methods to get instances of the DAOs
-    abstract fun locationDao(): LocationDao // Existing DAO for locations
-    abstract fun meterDao(): MeterDao     // Existing DAO for meters
-    abstract fun readingDao(): ReadingDao   // Existing DAO for readings
+    // Abstract function to get the DAO for Location entities.
+    abstract fun locationDao(): LocationDao // FIX: Added LocationDao
 
+    // Abstract function to get the DAO for Meter entities.
+    abstract fun meterDao(): MeterDao
+
+    // Abstract function to get the DAO for Reading entities.
+    abstract fun readingDao(): ReadingDao
+
+    // Abstract function to get the DAO for QueuedRequest entities.
+    abstract fun queuedRequestDao(): QueuedRequestDao
+
+    // Companion object to provide a singleton instance of the database.
     companion object {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
-        /**
-         * Returns a singleton instance of the AppDatabase.
-         * If the instance does not exist, it creates one.
-         * @param context The application context.
-         * @return The singleton AppDatabase instance.
-         */
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "app_database" // Database name
+                    "meter_readings_database"
                 )
-                    // FallbackToDestructiveMigration will wipe and recreate the database
-                    // if the schema version changes. In a real app, you'd use proper migrations.
-                    .fallbackToDestructiveMigration()
+                    .fallbackToDestructiveMigration() // Critical for schema changes without migrations
                     .build()
                 INSTANCE = instance
                 instance
