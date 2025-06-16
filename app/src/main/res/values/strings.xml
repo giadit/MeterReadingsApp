@@ -5,4 +5,8 @@
     <string name="no_data_found">No data found.</string>
     <string name="energy_type_icon_description">Energy type icon</string>
     <string name="search_locations_hint">Search locations...</string>
+    <string name="select_date_button_description">Select Reading Date</string>
+    <string name="energy_type_icon_description">Energy Type Icon</string>
+    <string name="send_readings_button_description">Send Readings</string>
+    <string name="enter_reading_hint">New Reading (Leave blank to skip)</string>
 </resources>

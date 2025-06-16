@@ -117,18 +117,125 @@
             app:layout_constraintTop_toTopOf="parent"
             tools:listitem="@layout/item_location" />
 
-        <!-- RecyclerView for displaying Meters (initially hidden) -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/metersRecyclerView"
-            android:layout_width="0dp"
-            android:layout_height="0dp"
+        <!-- Container for Meters UI (initially hidden) -->
+        <LinearLayout
+            android:id="@+id/metersContainer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
             android:visibility="gone"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            tools:listitem="@layout/item_meter" />
+            app:layout_constraintTop_toTopOf="parent">
+
+            <!-- Date Selection -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="8dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Reading Date:"
+                    android:textStyle="bold"
+                    android:textAppearance="?attr/textAppearanceSubtitle1" />
+
+                <TextView
+                    android:id="@+id/selectedDateTextView"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:textAppearance="?attr/textAppearanceBody1"
+                    tools:text="2025-06-16"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="?attr/selectableItemBackground"
+                    android:padding="8dp"/>
+
+                <ImageButton
+                    android:id="@+id/selectDateButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:src="@drawable/ic_calendar"
+                    android:contentDescription="@string/select_date_button_description"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:padding="8dp" />
+
+            </LinearLayout>
+
+            <!-- Type Filter -->
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:scrollbars="none">
+                <RadioGroup
+                    android:id="@+id/meterTypeFilterGroup"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.radiobutton.MaterialRadioButton
+                        android:id="@+id/filterAll"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="All"
+                        android:checked="true"
+                        android:layout_marginEnd="8dp"/>
+                    <com.google.android.material.radiobutton.MaterialRadioButton
+                        android:id="@+id/filterElectricity"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Electricity"
+                        android:layout_marginEnd="8dp"/>
+                    <com.google.android.material.radiobutton.MaterialRadioButton
+                        android:id="@+id/filterHeat"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Heat"
+                        android:layout_marginEnd="8dp"/>
+                    <com.google.android.material.radiobutton.MaterialRadioButton
+                        android:id="@+id/filterGas"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Gas"
+                        android:layout_marginEnd="8dp"/>
+                    <!-- Add more types if needed -->
+                </RadioGroup>
+            </HorizontalScrollView>
+
+            <!-- Scrollable list of meters -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/metersRecyclerView"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:padding="8dp"
+                tools:listitem="@layout/item_meter" />
+
+        </LinearLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <!-- Send Button (FAB) -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/sendReadingsFab"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="16dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:src="@drawable/ic_send"
+        android:contentDescription="@string/send_readings_button_description"
+        app:tint="@android:color/white"
+        tools:visibility="visible"
+        android:visibility="gone"/> <!-- Initially hidden, shown when metersContainer is visible -->
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
