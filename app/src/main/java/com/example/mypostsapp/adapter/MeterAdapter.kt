@@ -1,63 +1,107 @@
 package com.example.mypostsapp.adapter
 
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import com.example.mypostsapp.R // Import your R file to access drawable resources
+import com.example.mypostsapp.R // Import R for drawable and color resources
 import com.example.mypostsapp.data.Meter
 import com.example.mypostsapp.databinding.ItemMeterBinding
+import java.util.concurrent.ConcurrentHashMap // Use ConcurrentHashMap for thread-safe map operations if needed, or just HashMap
 
 /**
- * RecyclerView adapter for displaying a list of Meter objects.
- * Uses DiffUtil for efficient updates to the list.
+ * RecyclerView adapter for displaying a list of Meter objects in the batch reading view.
+ * It manages the state of the editable reading fields and uses DiffUtil for efficient updates.
  *
- * @param onItemClicked Lambda function to be invoked when a meter item is clicked.
+ * This adapter no longer handles individual item clicks for opening a dialog.
+ * Instead, it captures reading values entered by the user.
  */
-class MeterAdapter(private val onItemClicked: (Meter) -> Unit) :
+class MeterAdapter :
     ListAdapter<Meter, MeterAdapter.MeterViewHolder>(DiffCallback) {
+
+    // A map to store the entered reading values, keyed by meter ID.
+    // This allows us to retrieve all readings when the "Send" button is clicked.
+    // Use ConcurrentHashMap if you anticipate multi-threaded access outside of UI thread,
+    // otherwise, HashMap is sufficient as all UI interactions are on main thread.
+    private val enteredReadings: MutableMap<String, String> = ConcurrentHashMap()
 
     /**
      * ViewHolder for individual Meter items.
-     * Binds data from a Meter object to the layout views.
+     * Binds data from a Meter object to the layout views and manages text changes.
      *
      * @param binding The ViewBinding object for item_meter.xml.
      */
-    class MeterViewHolder(private var binding: ItemMeterBinding) :
+    inner class MeterViewHolder(private val binding: ItemMeterBinding) :
         RecyclerView.ViewHolder(binding.root) {
+
+        // TextWatcher to capture input changes in the newReadingValueEditText
+        private var currentTextWatcher: TextWatcher? = null
 
         /**
          * Binds a Meter object to the views in the ViewHolder.
          * @param meter The Meter object to bind.
          */
         fun bind(meter: Meter) {
-            // Display meter number and type
-            binding.meterNumberTextView.text = meter.number
-            binding.meterTypeTextView.text = meter.type
-            binding.meterConsumerTextView.text = meter.consumer ?: "N/A"
-            binding.meterEnergyTypeTextView.text = meter.energy_type
-            binding.meterLastReadingTextView.text = meter.last_reading?.let { "Last Reading: $it" } ?: "No Reading"
-            binding.meterLastReadingDateTextView.text = meter.last_reading_date?.let { "Date: $it" } ?: ""
+            binding.apply {
+                meterNumberTextView.text = meter.number
+                meterTypeTextView.text = "Type: ${meter.type}"
+                meterConsumerTextView.text = "Consumer: ${meter.consumer ?: "N/A"}"
+                meterEnergyTypeTextView.text = "Energy Type: ${meter.energy_type}"
+                meterLastReadingTextView.text = "Last Reading: ${meter.last_reading ?: "N/A"}"
+                meterLastReadingDateTextView.text = "Date: ${meter.last_reading_date ?: "N/A"}"
 
-            // Logic to set energy type icon based on meter.energy_type (NEW)
-            when (meter.energy_type) {
-                "Electricity" -> {
-                    binding.energyTypeIcon.setImageResource(R.drawable.ic_bolt) // Use your lightning bolt icon
-                    binding.energyTypeIcon.setColorFilter(itemView.context.getColor(R.color.electric_blue)) // Example color
-                }
-                "Heat" -> {
-                    binding.energyTypeIcon.setImageResource(R.drawable.ic_flame) // Use your flame icon
-                    binding.energyTypeIcon.setColorFilter(itemView.context.getColor(R.color.heat_orange)) // Example color
-                }
-                "Gas" -> {
-                    binding.energyTypeIcon.setImageResource(R.drawable.ic_gas) // Assuming you'll add a gas icon
-                    binding.energyTypeIcon.setColorFilter(itemView.context.getColor(R.color.gas_green)) // Example color
-                }
-                else -> {
-                    // Fallback for unknown energy types (e.g., hide or set a generic icon)
-                    binding.energyTypeIcon.setImageResource(0) // Set to 0 to clear any icon
-                    binding.energyTypeIcon.visibility = android.view.View.GONE // Hide the ImageView
+                // Set the hint for the editable field
+                newReadingValueEditText.hint = itemView.context.getString(R.string.enter_reading_hint)
+
+                // Remove previous TextWatcher to prevent it from triggering for recycled views
+                currentTextWatcher?.let { newReadingValueEditText.removeTextChangedListener(it) }
+
+                // Set the text from our internal map, or clear if no value exists
+                newReadingValueEditText.setText(enteredReadings[meter.id])
+
+                // Add new TextWatcher
+                currentTextWatcher = object : TextWatcher {
+                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+
+                    override fun afterTextChanged(s: Editable?) {
+                        // Save the entered text to our map, keyed by meter ID
+                        if (s != null && s.toString().isNotBlank()) {
+                            enteredReadings[meter.id] = s.toString()
+                        } else {
+                            enteredReadings.remove(meter.id) // Remove if text is empty/blank
+                        }
+                    }
+                }.also { newReadingValueEditText.addTextChangedListener(it) }
+
+
+                // Logic to set energy type icon based on meter.energy_type
+                // Ensure you have these drawable resources (ic_bolt, ic_flame, ic_gas)
+                // and colors (electric_blue, heat_orange, gas_green) defined in your project
+                when (meter.energy_type.toLowerCase(Locale.ROOT)) { // Use toLowerCase for case-insensitive comparison
+                    "electricity" -> {
+                        energyTypeIcon.setImageResource(R.drawable.ic_bolt)
+                        energyTypeIcon.setColorFilter(itemView.context.getColor(R.color.electric_blue))
+                        energyTypeIcon.visibility = View.VISIBLE
+                    }
+                    "heat" -> {
+                        energyTypeIcon.setImageResource(R.drawable.ic_flame)
+                        energyTypeIcon.setColorFilter(itemView.context.getColor(R.color.heat_orange))
+                        energyTypeIcon.visibility = View.VISIBLE
+                    }
+                    "gas" -> {
+                        energyTypeIcon.setImageResource(R.drawable.ic_gas)
+                        energyTypeIcon.setColorFilter(itemView.context.getColor(R.color.gas_green))
+                        energyTypeIcon.visibility = View.VISIBLE
+                    }
+                    else -> {
+                        energyTypeIcon.setImageResource(0) // Clear icon
+                        energyTypeIcon.visibility = View.GONE // Hide the ImageView
+                    }
                 }
             }
         }
@@ -69,16 +113,7 @@ class MeterAdapter(private val onItemClicked: (Meter) -> Unit) :
      */
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MeterViewHolder {
         val binding = ItemMeterBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return MeterViewHolder(binding).also { viewHolder ->
-            // Set up click listener for the entire item view
-            binding.root.setOnClickListener {
-                val position = viewHolder.adapterPosition
-                if (position != RecyclerView.NO_POSITION) {
-                    // Invoke the onItemClicked lambda with the clicked Meter object
-                    onItemClicked(getItem(position))
-                }
-            }
-        }
+        return MeterViewHolder(binding) // No direct click listener on root anymore
     }
 
     /**
@@ -89,10 +124,26 @@ class MeterAdapter(private val onItemClicked: (Meter) -> Unit) :
         holder.bind(current)
     }
 
+    /**
+     * Returns a map of meter IDs to their currently entered reading values.
+     * Only includes entries where a value has been entered (not blank).
+     */
+    fun getEnteredReadings(): Map<String, String> {
+        return enteredReadings
+    }
+
+    /**
+     * Clears all entered readings from the internal map.
+     * Call this when the "Send" button is pressed to reset the state.
+     */
+    fun clearEnteredReadings() {
+        enteredReadings.clear()
+        notifyDataSetChanged() // Notify adapter to clear text fields in UI
+    }
+
     companion object {
         /**
          * DiffUtil.ItemCallback implementation for efficient list updates.
-         * Helps RecyclerView optimize re-drawing by only updating changed items.
          */
         private val DiffCallback = object : DiffUtil.ItemCallback<Meter>() {
             override fun areItemsTheSame(oldItem: Meter, newItem: Meter): Boolean {
@@ -100,6 +151,10 @@ class MeterAdapter(private val onItemClicked: (Meter) -> Unit) :
             }
 
             override fun areContentsTheSame(oldItem: Meter, newItem: Meter): Boolean {
+                // If you later add functionality where the adapter itself modifies Meter data,
+                // you might need a more granular content check here, or if Meter has mutable properties.
+                // For now, simple equality check is sufficient if Meter is truly immutable
+                // and its content doesn't change from external updates directly (only through new Meter objects).
                 return oldItem == newItem
             }
         }
