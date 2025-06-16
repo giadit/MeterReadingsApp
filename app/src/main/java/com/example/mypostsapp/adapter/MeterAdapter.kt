@@ -11,7 +11,8 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.mypostsapp.R // Import R for drawable and color resources
 import com.example.mypostsapp.data.Meter
 import com.example.mypostsapp.databinding.ItemMeterBinding
-import java.util.concurrent.ConcurrentHashMap // Use ConcurrentHashMap for thread-safe map operations if needed, or just HashMap
+import java.util.concurrent.ConcurrentHashMap
+import java.util.Locale // FIX: Import Locale
 
 /**
  * RecyclerView adapter for displaying a list of Meter objects in the batch reading view.

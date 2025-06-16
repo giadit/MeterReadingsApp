@@ -28,19 +28,20 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
-import com.example.mypostsapp.data.Reading // Ensure Reading is imported
+import com.example.mypostsapp.data.Reading
+import androidx.lifecycle.lifecycleScope // Import lifecycleScope
+import kotlinx.coroutines.flow.collectLatest // Import collectLatest
+import kotlinx.coroutines.launch // Import launch
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var locationViewModel: LocationViewModel
     private lateinit var locationAdapter: LocationAdapter
-    private lateinit var meterAdapter: MeterAdapter // Keep this for meter list
-    private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US) // Date formatter
+    private lateinit var meterAdapter: MeterAdapter
+    private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 
-    // Current selected date for readings, defaults to today
     private var selectedReadingDate: Calendar = Calendar.getInstance()
-    // Current selected meter type filter, defaults to "All"
     private var currentMeterTypeFilter: String = "All"
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,7 +50,6 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // --- Hide System UI (Status Bar and Navigation Bar) ---
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             window.insetsController?.apply {
                 hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
@@ -65,8 +65,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         setSupportActionBar(binding.toolbar)
-
-        // Set initial toolbar title to app name
         binding.toolbarTitle.text = getString(R.string.app_name)
 
         val apiService = RetrofitClient.getService(ApiService::class.java)
@@ -88,29 +86,27 @@ class MainActivity : AppCompatActivity() {
             .get(LocationViewModel::class.java)
 
         setupLocationRecyclerView()
-        setupMeterRecyclerView() // Still setup for MeterAdapter instance
+        setupMeterRecyclerView()
         setupSearchView()
-        setupDateSelection() // NEW: Setup date picker
-        setupTypeFilter() // NEW: Setup type filter radio buttons
-        setupSendButton() // NEW: Setup send button
+        setupDateSelection()
+        setupTypeFilter()
+        setupSendButton()
 
         observeLocations()
         observeMeters()
         observeUiMessages() // Observe for messages from ViewModel
 
-        // Initial UI state: Toolbar title is visible, search view is iconified (handled by XML), back button is hidden
         binding.backButton.visibility = View.GONE
-        binding.metersContainer.visibility = View.GONE // Ensure meters container is initially hidden
-        binding.sendReadingsFab.visibility = View.GONE // Ensure FAB is initially hidden
-
+        binding.metersContainer.visibility = View.GONE
+        binding.sendReadingsFab.visibility = View.GONE
 
         binding.refreshButton.setOnClickListener {
             if (binding.locationsRecyclerView.visibility == View.VISIBLE) {
                 locationViewModel.refreshAllMeters()
                 Log.d("MainActivity", "Refreshing all meters/locations...")
-            } else if (binding.metersContainer.visibility == View.VISIBLE && locationViewModel.selectedLocationId.value != null) { // Check metersContainer visibility
+            } else if (binding.metersContainer.visibility == View.VISIBLE && locationViewModel.selectedLocationId.value != null) {
                 locationViewModel.selectedLocationId.value?.let { locationId ->
-                    locationViewModel.refreshAllMeters() // Refresh all meters to ensure updates for selected location
+                    locationViewModel.refreshAllMeters()
                     Log.d("MainActivity", "Refreshing meters for location: $locationId (by refreshing all meters)")
                 }
             } else {
@@ -119,20 +115,19 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.backButton.setOnClickListener {
-            locationViewModel.selectLocation(null) // Clear selected location
-            binding.locationsRecyclerView.visibility = View.VISIBLE // Show locations RecyclerView
-            binding.metersContainer.visibility = View.GONE // FIX: Hide metersContainer
-            binding.sendReadingsFab.visibility = View.GONE // FIX: Hide FAB
-            binding.backButton.visibility = View.GONE // Hide back button
+            locationViewModel.selectLocation(null)
+            binding.locationsRecyclerView.visibility = View.VISIBLE
+            binding.metersContainer.visibility = View.GONE
+            binding.sendReadingsFab.visibility = View.GONE
+            binding.backButton.visibility = View.GONE
             binding.noDataTextView.visibility = View.GONE
 
-            // When navigating back to locations list:
-            binding.toolbarTitle.visibility = View.VISIBLE // Make toolbar title visible
-            binding.toolbarTitle.text = getString(R.string.app_name) // Reset title to app name
-            binding.searchView.visibility = View.VISIBLE // Make search icon visible
-            binding.searchView.setQuery("", false) // Clear search query
-            binding.searchView.isIconified = true // Collapse search view to icon
-            locationViewModel.setSearchQuery("") // Reset ViewModel search query
+            binding.toolbarTitle.visibility = View.VISIBLE
+            binding.toolbarTitle.text = getString(R.string.app_name)
+            binding.searchView.visibility = View.VISIBLE
+            binding.searchView.setQuery("", false)
+            binding.searchView.isIconified = true
+            locationViewModel.setSearchQuery("")
         }
     }
 
@@ -161,18 +156,17 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupLocationRecyclerView() {
         locationAdapter = LocationAdapter { location ->
-            locationViewModel.selectLocation(location) // Select the clicked location
-            binding.locationsRecyclerView.visibility = View.GONE // Hide locations
-            binding.metersContainer.visibility = View.VISIBLE // FIX: Show metersContainer
-            binding.sendReadingsFab.visibility = View.VISIBLE // FIX: Show FAB
-            binding.backButton.visibility = View.VISIBLE // Show back button
-            binding.toolbarTitle.text = location.address // Set title to location address
+            locationViewModel.selectLocation(location)
+            binding.locationsRecyclerView.visibility = View.GONE
+            binding.metersContainer.visibility = View.VISIBLE
+            binding.sendReadingsFab.visibility = View.VISIBLE
+            binding.backButton.visibility = View.VISIBLE
+            binding.toolbarTitle.text = location.address
 
-            // When a location is selected:
-            binding.toolbarTitle.visibility = View.VISIBLE // Ensure toolbar title is visible
-            binding.searchView.visibility = View.GONE // Hide search view
-            binding.searchView.isIconified = true // Collapse search view (clean up state)
-            locationViewModel.setSearchQuery("") // Clear search query in ViewModel
+            binding.toolbarTitle.visibility = View.VISIBLE
+            binding.searchView.visibility = View.GONE
+            binding.searchView.isIconified = true
+            locationViewModel.setSearchQuery("")
         }
         binding.locationsRecyclerView.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
@@ -181,7 +175,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupMeterRecyclerView() {
-        // MeterAdapter no longer takes an onItemClicked listener in its constructor
         meterAdapter = MeterAdapter()
         binding.metersRecyclerView.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
@@ -190,10 +183,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupDateSelection() {
-        // Initialize date TextView with today's date
         updateSelectedDateText()
 
-        // Set up click listener for the date TextView and button
         binding.selectedDateTextView.setOnClickListener { showDatePicker() }
         binding.selectDateButton.setOnClickListener { showDatePicker() }
     }
@@ -226,7 +217,6 @@ class MainActivity : AppCompatActivity() {
                 R.id.filterGas -> "Gas"
                 else -> "All"
             }
-            // Trigger filter application when type changes
             locationViewModel.meters.value?.let { currentMeters ->
                 applyMeterFilter(currentMeters)
             }
@@ -270,16 +260,16 @@ class MainActivity : AppCompatActivity() {
                 if (it.isEmpty() && locationViewModel.selectedLocationId.value != null) {
                     binding.noDataTextView.text = "No meters found for this location."
                     binding.noDataTextView.visibility = View.VISIBLE
-                    meterAdapter.submitList(emptyList()) // Clear adapter if no meters
+                    meterAdapter.submitList(emptyList())
                 } else if (it.isNotEmpty()) {
                     binding.noDataTextView.visibility = View.GONE
-                    applyMeterFilter(it) // Apply filter when meters data changes
+                    applyMeterFilter(it)
                 }
             } ?: run {
                 binding.loadingProgressBar.visibility = View.GONE
                 binding.noDataTextView.text = "Failed to load meters."
                 binding.noDataTextView.visibility = View.VISIBLE
-                meterAdapter.submitList(emptyList()) // Clear adapter on failure
+                meterAdapter.submitList(emptyList())
             }
         }
     }
@@ -303,11 +293,9 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // Iterate through all meters in the adapter's current list (which is already filtered by type)
-        // This ensures we only process meters currently displayed and for which values were entered.
         for (meter in meterAdapter.currentList) {
             val readingValue = enteredValues[meter.id]
-            if (!readingValue.isNullOrBlank()) { // Only send if value is not null or blank
+            if (!readingValue.isNullOrBlank()) {
                 val newReading = Reading(
                     id = java.util.UUID.randomUUID().toString(),
                     meter_id = meter.id,
@@ -325,7 +313,6 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // Confirm dialog before sending multiple readings
         MaterialAlertDialogBuilder(this)
             .setTitle("Confirm Send Readings")
             .setMessage("Are you sure you want to send ${readingsToSend.size} readings for date ${readingDateString}?")
@@ -333,7 +320,7 @@ class MainActivity : AppCompatActivity() {
                 readingsToSend.forEach { reading ->
                     locationViewModel.postMeterReading(reading)
                 }
-                meterAdapter.clearEnteredReadings() // Clear inputs after sending
+                meterAdapter.clearEnteredReadings()
                 Toast.makeText(this, "${readingsToSend.size} readings sent or queued!", Toast.LENGTH_LONG).show()
                 dialog.dismiss()
             }
@@ -344,9 +331,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun observeUiMessages() {
-        // Observe messages from ViewModel, e.g., for showing Toast messages
-        locationViewModel.uiMessage.observe(this) { message ->
-            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+        // FIX: Collect the SharedFlow using lifecycleScope.launch
+        lifecycleScope.launch {
+            locationViewModel.uiMessage.collectLatest { message ->
+                Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
+            }
         }
     }
 }
