@@ -168,46 +168,85 @@
 
             </LinearLayout>
 
-            <!-- Type Filter -->
+            <!-- Type Filter (Updated to clickable TextViews) -->
             <HorizontalScrollView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:paddingStart="8dp"
                 android:paddingEnd="8dp"
                 android:scrollbars="none">
-                <RadioGroup
+                <LinearLayout
                     android:id="@+id/meterTypeFilterGroup"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal">
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingVertical="4dp">
 
-                    <com.google.android.material.radiobutton.MaterialRadioButton
+                    <TextView
                         android:id="@+id/filterAll"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="All"
-                        android:checked="true"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:paddingTop="8dp"
+                        android:paddingBottom="8dp"
+                        android:background="@drawable/filter_button_background"
+                        android:textColor="@android:color/black"
+                        android:textStyle="normal"
+                        android:clickable="true"
+                        android:focusable="true"
                         android:layout_marginEnd="8dp"/>
-                    <com.google.android.material.radiobutton.MaterialRadioButton
+
+                    <TextView
                         android:id="@+id/filterElectricity"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Electricity"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:paddingTop="8dp"
+                        android:paddingBottom="8dp"
+                        android:background="@drawable/filter_button_background"
+                        android:textColor="@android:color/black"
+                        android:textStyle="normal"
+                        android:clickable="true"
+                        android:focusable="true"
                         android:layout_marginEnd="8dp"/>
-                    <com.google.android.material.radiobutton.MaterialRadioButton
+
+                    <TextView
                         android:id="@+id/filterHeat"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Heat"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:paddingTop="8dp"
+                        android:paddingBottom="8dp"
+                        android:background="@drawable/filter_button_background"
+                        android:textColor="@android:color/black"
+                        android:textStyle="normal"
+                        android:clickable="true"
+                        android:focusable="true"
                         android:layout_marginEnd="8dp"/>
-                    <com.google.android.material.radiobutton.MaterialRadioButton
+
+                    <TextView
                         android:id="@+id/filterGas"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Gas"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:paddingTop="8dp"
+                        android:paddingBottom="8dp"
+                        android:background="@drawable/filter_button_background"
+                        android:textColor="@android:color/black"
+                        android:textStyle="normal"
+                        android:clickable="true"
+                        android:focusable="true"
                         android:layout_marginEnd="8dp"/>
-                    <!-- Add more types if needed -->
-                </RadioGroup>
+                </LinearLayout>
             </HorizontalScrollView>
 
             <!-- Scrollable list of meters -->
@@ -236,6 +275,6 @@
         android:contentDescription="@string/send_readings_button_description"
         app:tint="@android:color/white"
         tools:visibility="visible"
-        android:visibility="gone"/> <!-- Initially hidden, shown when metersContainer is visible -->
+        android:visibility="gone"/>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

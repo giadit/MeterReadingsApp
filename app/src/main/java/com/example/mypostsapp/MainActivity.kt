@@ -1,6 +1,9 @@
 package com.example.mypostsapp
 
 import android.app.DatePickerDialog
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable // Import GradientDrawable
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -9,6 +12,7 @@ import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.widget.EditText
 import android.widget.DatePicker
+import android.widget.TextView // Import TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
@@ -29,9 +33,9 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import com.example.mypostsapp.data.Reading
-import androidx.lifecycle.lifecycleScope // Import lifecycleScope
-import kotlinx.coroutines.flow.collectLatest // Import collectLatest
-import kotlinx.coroutines.launch // Import launch
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
@@ -42,7 +46,12 @@ class MainActivity : AppCompatActivity() {
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 
     private var selectedReadingDate: Calendar = Calendar.getInstance()
-    private var currentMeterTypeFilter: String = "All"
+    // Changed to a MutableSet for multi-selection
+    private val selectedMeterTypesFilter: MutableSet<String> = mutableSetOf("All")
+
+    // Map to hold references to the filter TextViews
+    private lateinit var filterTextViews: Map<String, TextView>
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -89,7 +98,7 @@ class MainActivity : AppCompatActivity() {
         setupMeterRecyclerView()
         setupSearchView()
         setupDateSelection()
-        setupTypeFilter()
+        setupTypeFilter() // NEW: Setup type filter radio buttons
         setupSendButton()
 
         observeLocations()
@@ -210,18 +219,90 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupTypeFilter() {
-        binding.meterTypeFilterGroup.setOnCheckedChangeListener { _, checkedId ->
-            currentMeterTypeFilter = when (checkedId) {
-                R.id.filterElectricity -> "Electricity"
-                R.id.filterHeat -> "Heat"
-                R.id.filterGas -> "Gas"
-                else -> "All"
+        filterTextViews = mapOf(
+            "All" to binding.filterAll,
+            "Electricity" to binding.filterElectricity,
+            "Heat" to binding.filterHeat,
+            "Gas" to binding.filterGas
+            // Add other energy types here if needed
+        )
+
+        // Set up click listeners for each filter TextView
+        filterTextViews.forEach { (type, textView) ->
+            textView.setOnClickListener {
+                toggleFilter(type, textView)
             }
-            locationViewModel.meters.value?.let { currentMeters ->
-                applyMeterFilter(currentMeters)
+        }
+
+        // Initialize UI for filter selection (set "All" as selected by default)
+        updateFilterUI()
+    }
+
+    private fun toggleFilter(type: String, textView: TextView) {
+        if (type == "All") {
+            // "All" is special: selecting it deselects others, deselecting it means all others are active if none are selected
+            if ("All" !in selectedMeterTypesFilter) { // If "All" is not selected, select it and deselect others
+                selectedMeterTypesFilter.clear()
+                selectedMeterTypesFilter.add("All")
+            } else if (selectedMeterTypesFilter.size == 1 && "All" in selectedMeterTypesFilter) {
+                // If "All" is the only one selected, and we click it again, do nothing (cannot deselect all)
+                return
+            } else { // "All" is selected along with others, deselect "All" and keep others active
+                selectedMeterTypesFilter.remove("All")
+            }
+        } else {
+            // For specific types: toggle selection
+            if (type in selectedMeterTypesFilter) {
+                selectedMeterTypesFilter.remove(type)
+                // If no types are selected after removal, default to "All"
+                if (selectedMeterTypesFilter.isEmpty()) {
+                    selectedMeterTypesFilter.add("All")
+                }
+            } else {
+                // If a specific type is selected, deselect "All" if it was selected
+                selectedMeterTypesFilter.remove("All")
+                selectedMeterTypesFilter.add(type)
+            }
+        }
+        updateFilterUI() // Update UI based on new selections
+        locationViewModel.meters.value?.let { currentMeters ->
+            applyMeterFilter(currentMeters) // Re-apply filter to the list
+        }
+    }
+
+    private fun updateFilterUI() {
+        filterTextViews.forEach { (type, textView) ->
+            val isSelected = type in selectedMeterTypesFilter
+            val colorResId = when (type) {
+                "Electricity" -> R.color.electric_blue
+                "Heat" -> R.color.heat_orange
+                "Gas" -> R.color.gas_green
+                else -> R.color.black // Default for "All" or unknown
+            }
+            val accentColor = if (type == "All") {
+                if (isSelected) getColor(R.color.black) else Color.TRANSPARENT // "All" has special color if selected
+            } else {
+                getColor(colorResId)
+            }
+
+            if (isSelected) {
+                // Selected state: bold white text, colored background and border
+                textView.setBackgroundResource(R.drawable.filter_button_selected_background) // New drawable for selected state
+                val drawable = textView.background as GradientDrawable
+                drawable.setColor(accentColor)
+                drawable.setStroke(2, accentColor) // Thicker stroke matching background color
+
+                textView.setTextColor(getColor(R.color.white))
+                textView.setTypeface(null, Typeface.BOLD)
+            } else {
+                // Unselected state: black text, white background, black border
+                textView.setBackgroundResource(R.drawable.filter_button_background) // Original drawable
+                textView.setTextColor(getColor(R.color.black))
+                textView.setTypeface(null, Typeface.NORMAL)
             }
         }
     }
+
 
     private fun setupSendButton() {
         binding.sendReadingsFab.setOnClickListener {
@@ -263,7 +344,7 @@ class MainActivity : AppCompatActivity() {
                     meterAdapter.submitList(emptyList())
                 } else if (it.isNotEmpty()) {
                     binding.noDataTextView.visibility = View.GONE
-                    applyMeterFilter(it)
+                    applyMeterFilter(it) // Apply filter when meters data changes
                 }
             } ?: run {
                 binding.loadingProgressBar.visibility = View.GONE
@@ -275,10 +356,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun applyMeterFilter(meters: List<Meter>) {
-        val filteredMeters = if (currentMeterTypeFilter == "All") {
+        val filteredMeters = if ("All" in selectedMeterTypesFilter) {
             meters
         } else {
-            meters.filter { it.energy_type.equals(currentMeterTypeFilter, ignoreCase = true) }
+            meters.filter { it.energy_type.equals(selectedMeterTypesFilter.firstOrNull(), ignoreCase = true) } // This line needs to be fixed.
+            // FIX: Filter by any of the selected types
+            meters.filter { meter ->
+                selectedMeterTypesFilter.any { selectedType ->
+                    meter.energy_type.equals(selectedType, ignoreCase = true)
+                }
+            }
         }
         meterAdapter.submitList(filteredMeters)
     }
@@ -331,7 +418,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun observeUiMessages() {
-        // FIX: Collect the SharedFlow using lifecycleScope.launch
         lifecycleScope.launch {
             locationViewModel.uiMessage.collectLatest { message ->
                 Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
