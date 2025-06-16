@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">BEA Zählerablesung</string>
+    <string name="back_button_description">Zurück</string>
+    <string name="refresh_button_description">Aktualisieren</string>
+    <string name="no_data_found">Keine Daten gefunden.</string>
+</resources>

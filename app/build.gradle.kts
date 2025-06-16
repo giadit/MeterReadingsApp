@@ -1,0 +1,98 @@
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
+    id("com.google.devtools.ksp") // Kept as direct ID, common for KSP
+}
+
+android {
+    namespace = "com.example.mypostsapp"
+    compileSdk = 35 // Matched user's provided compileSdk
+
+    defaultConfig {
+        applicationId = "com.example.mypostsapp"
+        minSdk = 24 // Matched user's provided minSdk
+        targetSdk = 35 // Matched user's provided targetSdk
+        versionCode = 1
+        versionName = "1.0"
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            // Define your API key for release builds
+            buildConfigField("String", "SUPABASE_API_KEY", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0Ymtka29mcGhxemlmbm96dnFlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MzE2NzI4MSwiZXhwIjoyMDU4NzQzMjgxfQ.TkCB6yierJw-SY-Qbbanjgq1xJmwdirbxO-Vs_FRkm0\"") // IMPORTANT: REPLACE THIS
+        }
+        debug {
+            isMinifyEnabled = false // Often set to false for debug for easier debugging
+            // Define your API key for debug builds
+            buildConfigField("String", "SUPABASE_API_KEY", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0Ymtka29mcGhxemlmbm96dnFlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MzE2NzI4MSwiZXhwIjoyMDU4NzQzMjgxfQ.TkCB6yierJw-SY-Qbbanjgq1xJmwdirbxO-Vs_FRkm0\"") // IMPORTANT: REPLACE THIS
+        }
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+    kotlinOptions {
+        jvmTarget = "11" // Matched user's provided jvmTarget
+    }
+    buildFeatures {
+        viewBinding = true
+        compose = true
+        buildConfig = true // IMPORTANT: Enable BuildConfig generation
+    }
+}
+
+dependencies {
+
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.activity.compose)
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.ui)
+    implementation(libs.androidx.ui.graphics)
+    implementation(libs.androidx.ui.tooling.preview)
+    implementation(libs.androidx.material3)
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.ui.test.junit4)
+    debugImplementation(libs.androidx.ui.tooling)
+    debugImplementation(libs.androidx.ui.test.manifest)
+
+    // Retrofit for API communication
+    implementation("com.squareup.retrofit2:retrofit:2.9.0") // Reverted to 2.9.0
+    implementation ("com.squareup.retrofit2:converter-gson:2.9.0") // Reverted to 2.9.0
+
+    // Room for local database
+    implementation("androidx.room:room-runtime:2.6.1") // Reverted to 2.6.1
+    // Changed to ksp as per your plugins block
+    ksp("androidx.room:room-compiler:2.6.1") // Reverted to 2.6.1
+    implementation("androidx.room:room-ktx:2.6.1") // Reverted to 2.6.1
+
+    // Kotlin Coroutines for async operations
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0") // Reverted to 1.8.0
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0") // Reverted to 1.8.0
+
+    // Lifecycle components (ViewModel and LiveData)
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0") // Reverted to 2.7.0
+    implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.7.0") // Reverted to 2.7.0
+    // Changed to ksp as per your plugins block
+    ksp("androidx.lifecycle:lifecycle-compiler:2.7.0") // Reverted to 2.7.0
+
+    // Optional: for better logging of network requests
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+    // For RecyclerView
+    implementation("androidx.recyclerview:recyclerview:1.4.0")
+    // UI Components
+    implementation("com.google.android.material:material:1.11.0")
+    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+    implementation("androidx.cardview:cardview:1.0.0")
+}

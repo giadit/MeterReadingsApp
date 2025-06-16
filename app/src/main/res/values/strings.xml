@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">BEA Zählerablesung</string>
+    <string name="back_button_description">Back</string>
+    <string name="refresh_button_description">Refresh</string>
+    <string name="no_data_found">No data found.</string>
+    <string name="energy_type_icon_description">Energy type icon</string>
+    <string name="search_locations_hint">Search locations...</string>
+</resources>

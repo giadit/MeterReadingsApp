@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- By default, this will back up all files within the app's data directory. -->
+    <!-- You can specify files/directories to include or exclude if needed. -->
+    <!-- Example to exclude shared preferences: <exclude domain="sharedprefs" path="your_prefs.xml"/> -->
+</full-backup-content>

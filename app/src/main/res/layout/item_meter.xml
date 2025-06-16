@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="8dp"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="4dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <!-- Meter Number -->
+            <TextView
+                android:id="@+id/meterNumberTextView"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/black"
+                tools:text="Meter Number: 123456789" />
+
+            <!-- Energy Type Icon (NEW) -->
+            <ImageView
+                android:id="@+id/energyTypeIcon"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="8dp"
+                android:contentDescription="@string/energy_type_icon_description"
+                android:scaleType="fitCenter"
+                app:tint="@android:color/holo_red_dark"
+                tools:src="@drawable/ic_bolt" /> <!-- Placeholder icon for preview -->
+
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/meterTypeTextView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:textColor="@android:color/darker_gray"
+            android:layout_marginTop="4dp"
+            tools:text="Type: Apartment" />
+
+        <TextView
+            android:id="@+id/meterConsumerTextView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:textColor="@android:color/darker_gray"
+            android:layout_marginTop="2dp"
+            tools:text="Consumer: John Doe" />
+
+        <TextView
+            android:id="@+id/meterEnergyTypeTextView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:textStyle="italic"
+            android:textColor="@android:color/holo_blue_dark"
+            android:layout_marginTop="2dp"
+            tools:text="Energy Type: Electricity" />
+
+        <TextView
+            android:id="@+id/meterLastReadingTextView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:textColor="@android:color/black"
+            android:layout_marginTop="8dp"
+            tools:text="Last Reading: 12345.67" />
+
+        <TextView
+            android:id="@+id/meterLastReadingDateTextView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="12sp"
+            android:textColor="@android:color/darker_gray"
+            android:layout_marginTop="2dp"
+            tools:text="Date: 2024-01-15" />
+
+    </LinearLayout>
+
+</androidx.cardview.widget.CardView>

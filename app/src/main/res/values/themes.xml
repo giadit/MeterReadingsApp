@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme. -->
+    <style name="Theme.MyPostsApp" parent="Theme.MaterialComponents.DayNight.NoActionBar"> <!-- CHANGED PARENT THEME HERE -->
+        <!-- Primary brand color. -->
+        <item name="colorPrimary">#FF7333</item>
+        <item name="colorPrimaryVariant">@color/dark_orange</item> <!-- Used for Status Bar -->
+        <item name="colorOnPrimary">@color/white</item> <!-- Text/icons on primary background (orange) should be white for good contrast -->
+
+        <!-- Secondary brand color. -->
+        <item name="colorSecondary">@color/pure_white</item>
+        <item name="colorSecondaryVariant">@color/pure_white</item>
+        <item name="colorOnSecondary">@color/dark_gray_text</item> <!-- Text/icons on secondary background (white) should be dark -->
+
+        <!-- Status bar color. -->
+        <!-- We will hide the status bar programmatically, so this might become less critical,
+             but it's good practice to keep it for devices where flags might not fully hide it
+             or if you later decide to show it. -->
+        <item name="android:statusBarColor" tools:targetApi="l">?attr/colorPrimaryVariant</item>
+        <!-- Customize your theme here. -->
+    </style>
+</resources>
