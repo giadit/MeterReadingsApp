@@ -2,17 +2,17 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    id("com.google.devtools.ksp") // Kept as direct ID, common for KSP
+    id("com.google.devtools.ksp")
 }
 
 android {
     namespace = "com.example.mypostsapp"
-    compileSdk = 35 // Matched user's provided compileSdk
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.example.mypostsapp"
-        minSdk = 24 // Matched user's provided minSdk
-        targetSdk = 35 // Matched user's provided targetSdk
+        minSdk = 24
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
@@ -40,12 +40,12 @@ android {
         targetCompatibility = JavaVersion.VERSION_11
     }
     kotlinOptions {
-        jvmTarget = "11" // Matched user's provided jvmTarget
+        jvmTarget = "11"
     }
     buildFeatures {
         viewBinding = true
         compose = true
-        buildConfig = true // IMPORTANT: Enable BuildConfig generation
+        buildConfig = true
     }
 }
 
@@ -68,24 +68,22 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
 
     // Retrofit for API communication
-    implementation("com.squareup.retrofit2:retrofit:2.9.0") // Reverted to 2.9.0
-    implementation ("com.squareup.retrofit2:converter-gson:2.9.0") // Reverted to 2.9.0
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation ("com.squareup.retrofit2:converter-gson:2.9.0")
 
     // Room for local database
-    implementation("androidx.room:room-runtime:2.6.1") // Reverted to 2.6.1
-    // Changed to ksp as per your plugins block
-    ksp("androidx.room:room-compiler:2.6.1") // Reverted to 2.6.1
-    implementation("androidx.room:room-ktx:2.6.1") // Reverted to 2.6.1
+    implementation("androidx.room:room-runtime:2.6.1")
+    ksp("androidx.room:room-compiler:2.6.1")
+    implementation("androidx.room:room-ktx:2.6.1")
 
     // Kotlin Coroutines for async operations
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0") // Reverted to 1.8.0
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0") // Reverted to 1.8.0
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
 
     // Lifecycle components (ViewModel and LiveData)
-    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0") // Reverted to 2.7.0
-    implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.7.0") // Reverted to 2.7.0
-    // Changed to ksp as per your plugins block
-    ksp("androidx.lifecycle:lifecycle-compiler:2.7.0") // Reverted to 2.7.0
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.7.0")
+    ksp("androidx.lifecycle:lifecycle-compiler:2.7.0")
 
     // Optional: for better logging of network requests
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
@@ -95,4 +93,8 @@ dependencies {
     implementation("com.google.android.material:material:1.11.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("androidx.cardview:cardview:1.0.0")
+
+    // NEW: WorkManager for background processing
+    implementation("androidx.work:work-runtime-ktx:2.9.0") // Use the latest stable version
+
 }
