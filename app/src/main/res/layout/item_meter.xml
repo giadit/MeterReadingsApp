@@ -109,7 +109,7 @@
                 android:textSize="12sp"
                 android:textStyle="bold"
                 android:textColor="@android:color/black"
-                tools:text="2023-12-29" />
+                tools:text="29/12/2023" /> <!-- Updated tools:text for preview -->
 
         </LinearLayout>
 

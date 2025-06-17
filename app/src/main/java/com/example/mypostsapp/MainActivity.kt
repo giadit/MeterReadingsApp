@@ -43,7 +43,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var locationViewModel: LocationViewModel
     private lateinit var locationAdapter: LocationAdapter
     private lateinit var meterAdapter: MeterAdapter
-    private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+    // Separate SimpleDateFormat instances for UI display and API communication
+    private val uiDateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.US) // For UI display
+    private val apiDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US) // For API communication
 
     private var selectedReadingDate: Calendar = Calendar.getInstance()
     private val selectedMeterTypesFilter: MutableSet<String> = mutableSetOf("All")
@@ -101,7 +103,7 @@ class MainActivity : AppCompatActivity() {
 
         observeLocations()
         observeMeters()
-        observeUiMessages() // This can be kept if desired for general toasts
+        observeUiMessages()
 
         binding.backButton.visibility = View.GONE
         binding.metersContainer.visibility = View.GONE
@@ -197,7 +199,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateSelectedDateText() {
-        binding.selectedDateTextView.text = dateFormat.format(selectedReadingDate.time)
+        binding.selectedDateTextView.text = uiDateFormat.format(selectedReadingDate.time) // Use uiDateFormat
     }
 
     private fun showDatePicker() {
@@ -360,7 +362,7 @@ class MainActivity : AppCompatActivity() {
     private fun sendAllMeterReadings() {
         val readingsToSend = mutableListOf<Reading>()
         val enteredValues = meterAdapter.getEnteredReadings()
-        val readingDateString = dateFormat.format(selectedReadingDate.time)
+        val readingDateString = apiDateFormat.format(selectedReadingDate.time) // Use apiDateFormat for API
 
         if (enteredValues.isEmpty()) {
             Toast.makeText(this, "No readings entered.", Toast.LENGTH_SHORT).show()
@@ -389,7 +391,7 @@ class MainActivity : AppCompatActivity() {
 
         MaterialAlertDialogBuilder(this)
             .setTitle("Confirm Send Readings")
-            .setMessage("Are you sure you want to send ${readingsToSend.size} readings for date ${readingDateString}?")
+            .setMessage("Are you sure you want to send ${readingsToSend.size} readings for date ${uiDateFormat.format(selectedReadingDate.time)}?") // Use uiDateFormat for message
             .setPositiveButton("Send") { dialog, _ ->
                 readingsToSend.forEach { reading ->
                     locationViewModel.postMeterReading(reading)

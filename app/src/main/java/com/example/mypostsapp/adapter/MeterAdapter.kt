@@ -11,8 +11,9 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.mypostsapp.R
 import com.example.mypostsapp.data.Meter
 import com.example.mypostsapp.databinding.ItemMeterBinding
-import java.util.concurrent.ConcurrentHashMap
+import java.text.SimpleDateFormat // Import SimpleDateFormat
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * RecyclerView adapter for displaying a list of Meter objects in the batch reading view.
@@ -34,6 +35,9 @@ class MeterAdapter :
         RecyclerView.ViewHolder(binding.root) {
 
         private var currentTextWatcher: TextWatcher? = null
+        // Define a SimpleDateFormat for parsing and formatting dates in dd/MM/yyyy format for UI display
+        private val uiDisplayDateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.US)
+        private val apiDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US) // For parsing dates from API
 
         /**
          * Binds a Meter object to the views in the ViewHolder.
@@ -44,7 +48,17 @@ class MeterAdapter :
                 meterNumberTextView.text = meter.number
                 meterEnergyTypeTextView.text = "Energy Type: ${meter.energy_type}"
                 meterLastReadingTextView.text = meter.last_reading ?: "N/A"
-                meterLastReadingDateTextView.text = meter.last_reading_date ?: "N/A"
+
+                // Format meter.last_reading_date for display
+                meterLastReadingDateTextView.text = meter.last_reading_date?.let { dateString ->
+                    try {
+                        val date = apiDateFormat.parse(dateString)
+                        if (date != null) uiDisplayDateFormat.format(date) else "N/A"
+                    } catch (e: Exception) {
+                        "Invalid Date" // Handle parsing errors gracefully
+                    }
+                } ?: "N/A"
+
 
                 newReadingValueEditText.hint = itemView.context.getString(R.string.enter_reading_hint)
 
