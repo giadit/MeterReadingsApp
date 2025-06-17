@@ -274,6 +274,7 @@
         android:clickable="true"
         android:focusable="true"
         android:text="Send"
+        android:textColor="@android:color/white"
         app:icon="@drawable/ic_send"
         android:contentDescription="@string/send_readings_button_description"
         app:iconTint="@android:color/white"
