@@ -3,7 +3,7 @@ package com.example.mypostsapp
 import android.app.DatePickerDialog
 import android.graphics.Color
 import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable // Import GradientDrawable
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -12,7 +12,7 @@ import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.widget.EditText
 import android.widget.DatePicker
-import android.widget.TextView // Import TextView
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
@@ -46,10 +46,8 @@ class MainActivity : AppCompatActivity() {
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 
     private var selectedReadingDate: Calendar = Calendar.getInstance()
-    // Changed to a MutableSet for multi-selection
     private val selectedMeterTypesFilter: MutableSet<String> = mutableSetOf("All")
 
-    // Map to hold references to the filter TextViews
     private lateinit var filterTextViews: Map<String, TextView>
 
 
@@ -98,12 +96,12 @@ class MainActivity : AppCompatActivity() {
         setupMeterRecyclerView()
         setupSearchView()
         setupDateSelection()
-        setupTypeFilter() // NEW: Setup type filter radio buttons
+        setupTypeFilter()
         setupSendButton()
 
         observeLocations()
         observeMeters()
-        observeUiMessages() // Observe for messages from ViewModel
+        observeUiMessages() // This can be kept if desired for general toasts
 
         binding.backButton.visibility = View.GONE
         binding.metersContainer.visibility = View.GONE
@@ -207,6 +205,7 @@ class MainActivity : AppCompatActivity() {
         val month = selectedReadingDate.get(Calendar.MONTH)
         val day = selectedReadingDate.get(Calendar.DAY_OF_MONTH)
 
+        // Reverted: No custom theme applied to DatePickerDialog here
         val datePickerDialog = DatePickerDialog(
             this,
             { _: DatePicker, selectedYear: Int, selectedMonth: Int, selectedDayOfMonth: Int ->
@@ -224,49 +223,41 @@ class MainActivity : AppCompatActivity() {
             "Electricity" to binding.filterElectricity,
             "Heat" to binding.filterHeat,
             "Gas" to binding.filterGas
-            // Add other energy types here if needed
         )
 
-        // Set up click listeners for each filter TextView
         filterTextViews.forEach { (type, textView) ->
             textView.setOnClickListener {
                 toggleFilter(type, textView)
             }
         }
 
-        // Initialize UI for filter selection (set "All" as selected by default)
         updateFilterUI()
     }
 
     private fun toggleFilter(type: String, textView: TextView) {
         if (type == "All") {
-            // "All" is special: selecting it deselects others, deselecting it means all others are active if none are selected
-            if ("All" !in selectedMeterTypesFilter) { // If "All" is not selected, select it and deselect others
+            if ("All" !in selectedMeterTypesFilter) {
                 selectedMeterTypesFilter.clear()
                 selectedMeterTypesFilter.add("All")
             } else if (selectedMeterTypesFilter.size == 1 && "All" in selectedMeterTypesFilter) {
-                // If "All" is the only one selected, and we click it again, do nothing (cannot deselect all)
                 return
-            } else { // "All" is selected along with others, deselect "All" and keep others active
+            } else {
                 selectedMeterTypesFilter.remove("All")
             }
         } else {
-            // For specific types: toggle selection
             if (type in selectedMeterTypesFilter) {
                 selectedMeterTypesFilter.remove(type)
-                // If no types are selected after removal, default to "All"
                 if (selectedMeterTypesFilter.isEmpty()) {
                     selectedMeterTypesFilter.add("All")
                 }
             } else {
-                // If a specific type is selected, deselect "All" if it was selected
                 selectedMeterTypesFilter.remove("All")
                 selectedMeterTypesFilter.add(type)
             }
         }
-        updateFilterUI() // Update UI based on new selections
+        updateFilterUI()
         locationViewModel.meters.value?.let { currentMeters ->
-            applyMeterFilter(currentMeters) // Re-apply filter to the list
+            applyMeterFilter(currentMeters)
         }
     }
 
@@ -277,26 +268,24 @@ class MainActivity : AppCompatActivity() {
                 "Electricity" -> R.color.electric_blue
                 "Heat" -> R.color.heat_orange
                 "Gas" -> R.color.gas_green
-                else -> R.color.black // Default for "All" or unknown
+                else -> R.color.black
             }
             val accentColor = if (type == "All") {
-                if (isSelected) getColor(R.color.black) else Color.TRANSPARENT // "All" has special color if selected
+                if (isSelected) getColor(R.color.black) else Color.TRANSPARENT
             } else {
                 getColor(colorResId)
             }
 
             if (isSelected) {
-                // Selected state: bold white text, colored background and border
-                textView.setBackgroundResource(R.drawable.filter_button_selected_background) // New drawable for selected state
+                textView.setBackgroundResource(R.drawable.filter_button_selected_background)
                 val drawable = textView.background as GradientDrawable
                 drawable.setColor(accentColor)
-                drawable.setStroke(2, accentColor) // Thicker stroke matching background color
+                drawable.setStroke(2, accentColor)
 
                 textView.setTextColor(getColor(R.color.white))
                 textView.setTypeface(null, Typeface.BOLD)
             } else {
-                // Unselected state: black text, white background, black border
-                textView.setBackgroundResource(R.drawable.filter_button_background) // Original drawable
+                textView.setBackgroundResource(R.drawable.filter_button_background)
                 textView.setTextColor(getColor(R.color.black))
                 textView.setTypeface(null, Typeface.NORMAL)
             }
@@ -344,7 +333,7 @@ class MainActivity : AppCompatActivity() {
                     meterAdapter.submitList(emptyList())
                 } else if (it.isNotEmpty()) {
                     binding.noDataTextView.visibility = View.GONE
-                    applyMeterFilter(it) // Apply filter when meters data changes
+                    applyMeterFilter(it)
                 }
             } ?: run {
                 binding.loadingProgressBar.visibility = View.GONE
@@ -359,8 +348,6 @@ class MainActivity : AppCompatActivity() {
         val filteredMeters = if ("All" in selectedMeterTypesFilter) {
             meters
         } else {
-            meters.filter { it.energy_type.equals(selectedMeterTypesFilter.firstOrNull(), ignoreCase = true) } // This line needs to be fixed.
-            // FIX: Filter by any of the selected types
             meters.filter { meter ->
                 selectedMeterTypesFilter.any { selectedType ->
                     meter.energy_type.equals(selectedType, ignoreCase = true)

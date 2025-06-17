@@ -74,13 +74,12 @@
         </androidx.appcompat.widget.Toolbar>
     </com.google.android.material.appbar.AppBarLayout>
 
-    <!-- Main content container - this is where we'll place the RecyclerViews -->
+    <!-- Main content container -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-        <!-- Progress Bar for loading state -->
         <ProgressBar
             android:id="@+id/loadingProgressBar"
             android:layout_width="wrap_content"
@@ -92,7 +91,6 @@
             app:layout_constraintTop_toTopOf="parent"
             tools:visibility="visible" />
 
-        <!-- Text for No Data / Error Messages -->
         <TextView
             android:id="@+id/noDataTextView"
             android:layout_width="wrap_content"
@@ -106,7 +104,6 @@
             app:layout_constraintTop_toTopOf="parent"
             tools:visibility="gone" />
 
-        <!-- RecyclerView for displaying Locations -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/locationsRecyclerView"
             android:layout_width="0dp"
@@ -128,45 +125,6 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent">
-
-            <!-- Date Selection -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:padding="8dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Reading Date:"
-                    android:textStyle="bold"
-                    android:textAppearance="?attr/textAppearanceSubtitle1" />
-
-                <TextView
-                    android:id="@+id/selectedDateTextView"
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:textAppearance="?attr/textAppearanceBody1"
-                    tools:text="2025-06-16"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:background="?attr/selectableItemBackground"
-                    android:padding="8dp"/>
-
-                <ImageButton
-                    android:id="@+id/selectDateButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:src="@drawable/ic_calendar"
-                    android:contentDescription="@string/select_date_button_description"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:padding="8dp" />
-
-            </LinearLayout>
 
             <!-- Type Filter (Updated to clickable TextViews) -->
             <HorizontalScrollView
@@ -249,6 +207,50 @@
                 </LinearLayout>
             </HorizontalScrollView>
 
+            <!-- Date Selection (Reverted frame to entire layout) -->
+            <LinearLayout
+                android:id="@+id/dateSelectionLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:padding="8dp"
+                android:layout_marginHorizontal="8dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/date_selection_frame_background"
+                android:clickable="true"
+                android:focusable="true">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Reading Date:"
+                    android:textStyle="bold"
+                    android:textAppearance="?attr/textAppearanceSubtitle1" />
+
+                <TextView
+                    android:id="@+id/selectedDateTextView"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:textAppearance="?attr/textAppearanceBody1"
+                    tools:text="2025-06-16"
+                    android:textColor="@android:color/black"
+                    android:padding="4dp"/>
+
+                <ImageButton
+                    android:id="@+id/selectDateButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:src="@drawable/ic_calendar"
+                    android:contentDescription="@string/select_date_button_description"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:padding="8dp"
+                    app:tint="@color/bright_orange" />
+
+            </LinearLayout>
+
+
             <!-- Scrollable list of meters -->
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/metersRecyclerView"
@@ -258,12 +260,12 @@
                 android:padding="8dp"
                 tools:listitem="@layout/item_meter" />
 
-        </LinearLayout>
+        </LinearLayout> <!-- Closing tag for metersContainer LinearLayout -->
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout> <!-- Closing tag for main content ConstraintLayout -->
 
-    <!-- Send Button (FAB) -->
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
+    <!-- Send Button (Extended Floating Action Button - kept as is) -->
+    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
         android:id="@+id/sendReadingsFab"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -271,9 +273,11 @@
         android:layout_margin="16dp"
         android:clickable="true"
         android:focusable="true"
-        android:src="@drawable/ic_send"
+        android:text="Send"
+        app:icon="@drawable/ic_send"
         android:contentDescription="@string/send_readings_button_description"
-        app:tint="@android:color/white"
+        app:iconTint="@android:color/white"
+        app:backgroundTint="@color/bright_orange"
         tools:visibility="visible"
         android:visibility="gone"/>
 

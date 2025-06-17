@@ -90,11 +90,12 @@ dependencies {
     // For RecyclerView
     implementation("androidx.recyclerview:recyclerview:1.4.0")
     // UI Components
-    implementation("com.google.android.material:material:1.11.0")
+    implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("androidx.cardview:cardview:1.0.0")
 
     // NEW: WorkManager for background processing
-    implementation("androidx.work:work-runtime-ktx:2.9.0") // Use the latest stable version
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
 
+    // Use the latest stable version
 }
