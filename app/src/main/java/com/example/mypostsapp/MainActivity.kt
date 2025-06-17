@@ -112,14 +112,14 @@ class MainActivity : AppCompatActivity() {
         binding.refreshButton.setOnClickListener {
             if (binding.locationsRecyclerView.visibility == View.VISIBLE) {
                 locationViewModel.refreshAllMeters()
-                Log.d("MainActivity", "Refreshing all meters/locations...")
+                Log.d("MainActivity", getString(R.string.log_refreshing_all_meters))
             } else if (binding.metersContainer.visibility == View.VISIBLE && locationViewModel.selectedLocationId.value != null) {
                 locationViewModel.selectedLocationId.value?.let { locationId ->
                     locationViewModel.refreshAllMeters()
-                    Log.d("MainActivity", "Refreshing meters for location: $locationId (by refreshing all meters)")
+                    Log.d("MainActivity", getString(R.string.log_refreshing_meters_for_location, locationId))
                 }
             } else {
-                Log.d("MainActivity", "No specific list to refresh or no location selected.")
+                Log.d("MainActivity", getString(R.string.log_no_list_to_refresh))
             }
         }
 
@@ -320,7 +320,7 @@ class MainActivity : AppCompatActivity() {
                         binding.noDataTextView.text = getString(R.string.no_data_found)
                         binding.noDataTextView.visibility = View.VISIBLE
                     } else {
-                        binding.noDataTextView.text = "No matching locations found for '${locationViewModel.searchQuery.value}'."
+                        binding.noDataTextView.text = getString(R.string.no_matching_locations_found, locationViewModel.searchQuery.value)
                         binding.noDataTextView.visibility = View.VISIBLE
                     }
                 } else {
@@ -340,18 +340,18 @@ class MainActivity : AppCompatActivity() {
             meters?.let {
                 binding.loadingProgressBar.visibility = View.GONE
                 if (it.isEmpty() && locationViewModel.selectedLocationId.value != null) {
-                    binding.noDataTextView.text = "No meters found for this location."
+                    binding.noDataTextView.text = getString(R.string.no_meters_for_location)
                     binding.noDataTextView.visibility = View.VISIBLE
-                    meterAdapter.submitList(emptyList())
+                    meterAdapter.submitList(emptyList()) // Ensure the list is cleared
                 } else if (it.isNotEmpty()) {
                     binding.noDataTextView.visibility = View.GONE
                     applyMeterFilter(it)
                 }
             } ?: run {
                 binding.loadingProgressBar.visibility = View.GONE
-                binding.noDataTextView.text = "Failed to load meters."
+                binding.noDataTextView.text = getString(R.string.failed_to_load_meters)
                 binding.noDataTextView.visibility = View.VISIBLE
-                meterAdapter.submitList(emptyList())
+                meterAdapter.submitList(emptyList()) // Ensure the list is cleared
             }
         }
     }
@@ -375,7 +375,7 @@ class MainActivity : AppCompatActivity() {
         val readingDateString = apiDateFormat.format(selectedReadingDate.time) // Use apiDateFormat for API
 
         if (enteredValues.isEmpty()) {
-            Toast.makeText(this, "No readings entered.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.no_readings_entered), Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -388,29 +388,29 @@ class MainActivity : AppCompatActivity() {
                     value = readingValue,
                     date = readingDateString,
                     created_by = null,
-                    read_by = "App User"
+                    read_by = "App User" // Consider making this a string resource too if it changes
                 )
                 readingsToSend.add(newReading)
             }
         }
 
         if (readingsToSend.isEmpty()) {
-            Toast.makeText(this, "No valid readings to send.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.no_valid_readings_to_send), Toast.LENGTH_SHORT).show()
             return
         }
 
         MaterialAlertDialogBuilder(this)
-            .setTitle("Confirm Send Readings")
-            .setMessage("Are you sure you want to send ${readingsToSend.size} readings for date ${uiDateFormat.format(selectedReadingDate.time)}?") // Use uiDateFormat for message
-            .setPositiveButton("Send") { dialog, _ ->
+            .setTitle(getString(R.string.confirm_send_readings_title))
+            .setMessage(getString(R.string.confirm_send_readings_message, readingsToSend.size, uiDateFormat.format(selectedReadingDate.time)))
+            .setPositiveButton(getString(R.string.send_button_text)) { dialog, _ ->
                 readingsToSend.forEach { reading ->
                     locationViewModel.postMeterReading(reading)
                 }
                 meterAdapter.clearEnteredReadings()
-                Toast.makeText(this, "${readingsToSend.size} readings sent or queued!", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, getString(R.string.readings_sent_queued, readingsToSend.size), Toast.LENGTH_LONG).show()
                 dialog.dismiss()
             }
-            .setNegativeButton("Cancel") { dialog, _ ->
+            .setNegativeButton(getString(R.string.cancel_button_text)) { dialog, _ ->
                 dialog.cancel()
             }
             .show()

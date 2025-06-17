@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">BEA Zählerablesung</string>
+    <string name="back_button_description">Zurück-Taste</string>
+    <string name="search_locations_hint">Standorte suchen...</string>
+    <string name="refresh_button_description">Daten aktualisieren</string>
+    <string name="no_data_found">Keine Daten gefunden.</string>
+    <string name="no_meters_for_location">Keine Zähler für diesen Standort gefunden.</string>
+    <string name="select_date_button_description">Ablesedatum auswählen</string>
+    <string name="send_readings_button_description">Messwerte senden</string>
+    <string name="enter_reading_hint">Messwert eingeben</string>
+    <string name="confirm_send_readings_title">Senden bestätigen</string>
+    <string name="confirm_send_readings_message">Möchten Sie wirklich %1$d Messwerte für das Datum %2$s senden?</string>
+    <string name="send_button_text">Senden</string>
+    <string name="cancel_button_text">Abbrechen</string>
+    <string name="no_readings_entered">Keine Messwerte eingegeben.</string>
+    <string name="no_valid_readings_to_send">Keine gültigen Messwerte zum Senden vorhanden.</string>
+    <string name="readings_sent_queued">%1$d Messwerte gesendet oder in Warteschlange!</string>
+    <string name="error_dialog_title">Fehler</string>
+    <string name="reading_value_empty_message">Der Messwert darf nicht leer sein. Bitte geben Sie einen Wert ein.</string>
+    <string name="ok_button_text">OK</string>
+    <string name="reading_date_label">Ablesedatum:</string>
+    <string name="add_button_text">Hinzufügen</string>
+    <string name="add_reading_dialog_title">Messwert für Zähler hinzufügen: %1$s</string>
+    <string name="log_refreshing_all_meters">Alle Zähler/Standorte werden aktualisiert...</string>
+    <string name="log_refreshing_meters_for_location">Zähler für Standort werden aktualisiert: %1$s (durch Aktualisierung aller Zähler)</string>
+    <string name="log_no_list_to_refresh">Keine spezifische Liste zum Aktualisieren oder kein Standort ausgewählt.</string>
+    <string name="no_matching_locations_found">Keine übereinstimmenden Standorte für \'%1$s\' gefunden.</string>
+    <string name="failed_to_load_meters">Fehler beim Laden der Zähler.</string>
+    <string name="filter_all">Alle</string>
+    <string name="filter_electricity">Strom</string>
+    <string name="filter_heat">Wärme</string>
+    <string name="filter_gas">Gas</string>
+    <string name="energy_type_icon_description">Symbol für Energieart</string>
+</resources>
