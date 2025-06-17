@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.mypostsapp"
+    namespace = "com.example.meterreadingsapp"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.mypostsapp"
+        applicationId = "com.example.meterreadingsapp"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
