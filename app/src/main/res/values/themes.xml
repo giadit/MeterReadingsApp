@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
-    <style name="Theme.MyPostsApp" parent="Theme.MaterialComponents.DayNight.NoActionBar"> <!-- CHANGED PARENT THEME HERE -->
+    <style name="Theme.MyPostsApp" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <!-- Primary brand color. -->
-        <item name="colorPrimary">#FF7333</item>
+        <item name="colorPrimary">@color/bright_orange</item>
         <item name="colorPrimaryVariant">@color/dark_orange</item> <!-- Used for Status Bar -->
         <item name="colorOnPrimary">@color/white</item> <!-- Text/icons on primary background (orange) should be white for good contrast -->
 
@@ -13,10 +13,53 @@
         <item name="colorOnSecondary">@color/dark_gray_text</item> <!-- Text/icons on secondary background (white) should be dark -->
 
         <!-- Status bar color. -->
-        <!-- We will hide the status bar programmatically, so this might become less critical,
-             but it's good practice to keep it for devices where flags might not fully hide it
-             or if you later decide to show it. -->
         <item name="android:statusBarColor" tools:targetApi="l">?attr/colorPrimaryVariant</item>
         <!-- Customize your theme here. -->
     </style>
+
+    <!-- Custom DatePickerDialog Theme -->
+    <style name="AppDatePickerDialogTheme" parent="Theme.AppCompat.Light.Dialog">
+        <!-- Dialog's overall background color (white calendar background) -->
+        <item name="android:windowBackground">@android:color/white</item>
+
+        <!-- Header background color (Month/Year part) - controlled by colorPrimary in dialogs -->
+        <item name="colorPrimary">@color/bright_orange</item>
+        <!-- Text/icons color on the header (Month/Year text, arrow icons) - controlled by colorOnPrimary -->
+        <item name="colorOnPrimary">@android:color/white</item>
+
+        <!-- Selected date circle background color (typically controlled by colorAccent) -->
+        <item name="colorAccent">@color/bright_orange</item>
+
+        <!-- Text color for unselected day numbers and general dialog text -->
+        <item name="android:textColorPrimary">@android:color/black</item>
+        <!-- Text color for day of week short names (Mon, Tue, etc.) -->
+        <item name="android:textColorSecondary">@android:color/darker_gray</item>
+
+        <!-- Style for the positive (OK) button in the dialog -->
+        <item name="buttonBarPositiveButtonStyle">@style/AppDatePickerPositiveButton</item>
+        <!-- Optional: Style for the negative (Cancel) button if you want to customize it too -->
+        <!-- <item name="buttonBarNegativeButtonStyle">@style/AppDatePickerNegativeButton</item> -->
+    </style>
+
+    <!-- Style for the positive button in the DatePickerDialog -->
+    <style name="AppDatePickerPositiveButton" parent="Widget.AppCompat.Button">
+        <!-- Explicitly set background drawable for the button -->
+        <item name="android:background">@drawable/button_orange_background</item>
+        <!-- Set text color to white -->
+        <item name="android:textColor">@android:color/white</item>
+        <!-- Optional: Add padding and corner radius for a better look -->
+        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingEnd">16dp</item>
+        <item name="android:paddingTop">8dp</item>
+        <item name="android:paddingBottom">8dp</item>
+        <item name="android:minHeight">48dp</item> <!-- Standard touch target size -->
+    </style>
+
+    <!-- Optional: Style for a negative button if you want it to be a text button -->
+    <!--
+    <style name="AppDatePickerNegativeButton" parent="Widget.MaterialComponents.Button.TextButton">
+        <item name="android:textColor">@color/bright_orange</item>
+    </style>
+    -->
+
 </resources>

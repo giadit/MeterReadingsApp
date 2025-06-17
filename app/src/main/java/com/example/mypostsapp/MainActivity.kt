@@ -199,7 +199,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateSelectedDateText() {
-        binding.selectedDateTextView.text = uiDateFormat.format(selectedReadingDate.time) // Use uiDateFormat
+        binding.selectedDateTextView.text = uiDateFormat.format(selectedReadingDate.time)
     }
 
     private fun showDatePicker() {
@@ -207,9 +207,9 @@ class MainActivity : AppCompatActivity() {
         val month = selectedReadingDate.get(Calendar.MONTH)
         val day = selectedReadingDate.get(Calendar.DAY_OF_MONTH)
 
-        // Reverted: No custom theme applied to DatePickerDialog here
         val datePickerDialog = DatePickerDialog(
             this,
+            R.style.AppDatePickerDialogTheme, // Apply the custom theme for the dialog and calendar elements
             { _: DatePicker, selectedYear: Int, selectedMonth: Int, selectedDayOfMonth: Int ->
                 selectedReadingDate.set(selectedYear, selectedMonth, selectedDayOfMonth)
                 updateSelectedDateText()
@@ -217,6 +217,16 @@ class MainActivity : AppCompatActivity() {
             year, month, day
         )
         datePickerDialog.show()
+
+        // Programmatically style the positive (OK) button after the dialog is shown
+        datePickerDialog.getButton(DatePickerDialog.BUTTON_POSITIVE)?.let { positiveButton ->
+            positiveButton.setBackgroundResource(R.drawable.button_orange_background) // Use the drawable for background
+            positiveButton.setTextColor(Color.WHITE) // Set text color to white
+        }
+        // Programmatically style the negative (Cancel) button if desired (e.g., text color only)
+        datePickerDialog.getButton(DatePickerDialog.BUTTON_NEGATIVE)?.let { negativeButton ->
+            negativeButton.setTextColor(getColor(R.color.bright_orange)) // Example: set cancel button text to orange
+        }
     }
 
     private fun setupTypeFilter() {
