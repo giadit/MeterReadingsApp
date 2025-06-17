@@ -32,4 +32,13 @@
     <string name="filter_heat">Wärme</string>
     <string name="filter_gas">Gas</string>
     <string name="energy_type_icon_description">Symbol für Energieart</string>
+
+    <!-- New strings for Login Screen (German) -->
+    <string name="username_hint">Benutzername</string>
+    <string name="password_hint">Passwort</string>
+    <string name="remember_me">Angemeldet bleiben</string>
+    <string name="login_button_text">Anmelden</string>
+    <string name="login_success">Anmeldung erfolgreich!</string>
+    <string name="login_error_empty_fields">Bitte Benutzername und Passwort eingeben.</string>
+    <string name="logout_button_text">Abmelden</string>
 </resources>

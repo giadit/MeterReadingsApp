@@ -1,6 +1,8 @@
 package com.example.meterreadingsapp
 
 import android.app.DatePickerDialog
+import android.content.Context
+import android.content.Intent // Import Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -10,6 +12,7 @@ import android.util.Log
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
+import android.widget.EditText
 import android.widget.DatePicker
 import android.widget.TextView
 import android.widget.Toast
@@ -17,21 +20,22 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.example.meterreadingsapp.api.RetrofitClient
-import com.example.meterreadingsapp.api.ApiService
-import com.example.meterreadingsapp.data.AppDatabase
-import com.example.meterreadingsapp.data.Meter
-import com.example.meterreadingsapp.databinding.ActivityMainBinding
-import com.example.meterreadingsapp.repository.MeterRepository
-import com.example.meterreadingsapp.viewmodel.LocationViewModel
-import com.example.meterreadingsapp.viewmodel.LocationViewModelFactory
-import com.example.meterreadingsapp.adapter.LocationAdapter
-import com.example.meterreadingsapp.adapter.MeterAdapter
+import com.example.meterreadingsapp.api.RetrofitClient // Updated package
+import com.example.meterreadingsapp.api.ApiService // Updated package
+import com.example.meterreadingsapp.data.AppDatabase // Updated package
+import com.example.meterreadingsapp.data.Meter // Updated package
+import com.example.meterreadingsapp.databinding.ActivityMainBinding // Updated package for binding
+import com.example.meterreadingsapp.repository.MeterRepository // Updated package
+import com.example.meterreadingsapp.viewmodel.LocationViewModel // Updated package
+import com.example.meterreadingsapp.viewmodel.LocationViewModelFactory // Updated package
+import com.example.meterreadingsapp.adapter.LocationAdapter // Updated package
+import com.example.meterreadingsapp.adapter.MeterAdapter // Updated package
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
-import com.example.meterreadingsapp.data.Reading
+import com.example.meterreadingsapp.data.Reading // Updated package
+import com.example.meterreadingsapp.data.Location // Updated package
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -51,6 +55,8 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var filterTextViews: Map<String, TextView>
 
+    // SharedPreferences name for LoginActivity
+    private val PREFS_NAME = "LoginPrefs"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,6 +64,7 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // --- Hide System UI (Status Bar and Navigation Bar) ---
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             window.insetsController?.apply {
                 hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
@@ -73,22 +80,17 @@ class MainActivity : AppCompatActivity() {
         }
 
         setSupportActionBar(binding.toolbar)
+
+        // Set initial toolbar title to app name
         binding.toolbarTitle.text = getString(R.string.app_name)
 
         val apiService = RetrofitClient.getService(ApiService::class.java)
         val database = AppDatabase.getDatabase(applicationContext)
-        val locationDao = database.locationDao()
+        val locationDao = database.locationDao() // Get LocationDao
         val meterDao = database.meterDao()
         val readingDao = database.readingDao()
-        val queuedRequestDao = database.queuedRequestDao()
-        val repository = MeterRepository(
-            apiService,
-            meterDao,
-            readingDao,
-            locationDao,
-            queuedRequestDao,
-            applicationContext
-        )
+        val queuedRequestDao = database.queuedRequestDao() // Get QueuedRequestDao
+        val repository = MeterRepository(apiService, meterDao, readingDao, locationDao, queuedRequestDao, applicationContext) // Pass all DAOs and context
 
         locationViewModel = ViewModelProvider(this, LocationViewModelFactory(repository))
             .get(LocationViewModel::class.java)
@@ -96,17 +98,18 @@ class MainActivity : AppCompatActivity() {
         setupLocationRecyclerView()
         setupMeterRecyclerView()
         setupSearchView()
-        setupDateSelection()
-        setupTypeFilter()
-        setupSendButton()
+        setupDateSelection() // Re-added setupDateSelection
+        setupTypeFilter()    // Re-added setupTypeFilter
+        setupSendButton()    // Re-added setupSendButton
 
         observeLocations()
         observeMeters()
-        observeUiMessages()
+        observeUiMessages() // Observe messages from ViewModel
 
+        // Initial UI state adjustments
         binding.backButton.visibility = View.GONE
-        binding.metersContainer.visibility = View.GONE
-        binding.sendReadingsFab.visibility = View.GONE
+        binding.metersContainer.visibility = View.GONE // Hide metersContainer initially
+        binding.sendReadingsFab.visibility = View.GONE // Hide FAB initially
 
         binding.refreshButton.setOnClickListener {
             if (binding.locationsRecyclerView.visibility == View.VISIBLE) {
@@ -114,7 +117,8 @@ class MainActivity : AppCompatActivity() {
                 Log.d("MainActivity", getString(R.string.log_refreshing_all_meters))
             } else if (binding.metersContainer.visibility == View.VISIBLE && locationViewModel.selectedLocationId.value != null) {
                 locationViewModel.selectedLocationId.value?.let { locationId ->
-                    locationViewModel.refreshAllMeters()
+                    // No specific refresh for meters in a location, just refresh all meters to update.
+                    locationViewModel.refreshAllMeters() // Refresh all meters, which updates the view for selected location
                     Log.d("MainActivity", getString(R.string.log_refreshing_meters_for_location, locationId))
                 }
             } else {
@@ -123,25 +127,32 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.backButton.setOnClickListener {
-            locationViewModel.selectLocation(null)
-            binding.locationsRecyclerView.visibility = View.VISIBLE
-            binding.metersContainer.visibility = View.GONE
-            binding.sendReadingsFab.visibility = View.GONE
-            binding.backButton.visibility = View.GONE
-            binding.noDataTextView.visibility = View.GONE
+            locationViewModel.selectLocation(null) // Clear selected location
+            binding.locationsRecyclerView.visibility = View.VISIBLE // Show locations RecyclerView
+            binding.metersContainer.visibility = View.GONE // Hide meters RecyclerView
+            binding.sendReadingsFab.visibility = View.GONE // Hide FAB
+            binding.backButton.visibility = View.GONE // Hide back button
+            binding.noDataTextView.visibility = View.GONE // Hide "No data" text
 
-            binding.toolbarTitle.visibility = View.VISIBLE
-            binding.toolbarTitle.text = getString(R.string.app_name)
-            binding.searchView.visibility = View.VISIBLE
-            binding.searchView.setQuery("", false)
-            binding.searchView.isIconified = true
-            locationViewModel.setSearchQuery("")
+            // When navigating back to locations list:
+            binding.toolbarTitle.visibility = View.VISIBLE // Make toolbar title visible
+            binding.toolbarTitle.text = getString(R.string.app_name) // Reset title to app name
+            binding.searchView.visibility = View.VISIBLE // Make search icon visible
+            binding.searchView.setQuery("", false) // Clear search query
+            binding.searchView.isIconified = true // Collapse search view to icon
+            locationViewModel.setSearchQuery("") // Reset ViewModel search query
+        }
+
+        // Logout button click listener (NEW)
+        binding.logoutButton.setOnClickListener {
+            performLogout()
         }
     }
 
     private fun setupSearchView() {
+        // Listener for query text changes (filters results as user types)
         binding.searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
-            override fun onQueryTextSubmit(query: String?): Boolean {
+            override fun onQueryTextSubmit(query: String?): Boolean { // FIX: Renamed from onOnQueryTextSubmit to onQueryTextSubmit
                 return false
             }
 
@@ -151,12 +162,16 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
+        // Listener for when the search view expands/collapses (focus changes)
         binding.searchView.setOnQueryTextFocusChangeListener { _, hasFocus ->
             if (hasFocus) {
-                binding.toolbarTitle.visibility = View.GONE
+                // Search View gained focus (expanded)
+                binding.toolbarTitle.visibility = View.GONE // Hide title
             } else {
+                // Search View lost focus (collapsed)
+                // Only show title if we are on the locations list AND search query is empty
                 if (binding.locationsRecyclerView.visibility == View.VISIBLE && binding.searchView.query.isNullOrEmpty()) {
-                    binding.toolbarTitle.visibility = View.VISIBLE
+                    binding.toolbarTitle.visibility = View.VISIBLE // Show title
                 }
             }
         }
@@ -164,17 +179,18 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupLocationRecyclerView() {
         locationAdapter = LocationAdapter { location ->
-            locationViewModel.selectLocation(location)
-            binding.locationsRecyclerView.visibility = View.GONE
-            binding.metersContainer.visibility = View.VISIBLE
-            binding.sendReadingsFab.visibility = View.VISIBLE
-            binding.backButton.visibility = View.VISIBLE
-            binding.toolbarTitle.text = location.address
+            locationViewModel.selectLocation(location) // Select the clicked location
+            binding.locationsRecyclerView.visibility = View.GONE // Hide locations
+            binding.metersContainer.visibility = View.VISIBLE // Show meters container
+            binding.sendReadingsFab.visibility = View.VISIBLE // Show FAB
+            binding.backButton.visibility = View.VISIBLE // Show back button
+            binding.toolbarTitle.text = location.address // Set title to location address
 
-            binding.toolbarTitle.visibility = View.VISIBLE
-            binding.searchView.visibility = View.GONE
-            binding.searchView.isIconified = true
-            locationViewModel.setSearchQuery("")
+            // When a location is selected:
+            binding.toolbarTitle.visibility = View.VISIBLE // Ensure toolbar title is visible
+            binding.searchView.visibility = View.GONE // Hide search view
+            binding.searchView.isIconified = true // Collapse search view (clean up state)
+            locationViewModel.setSearchQuery("") // Clear search query in ViewModel
         }
         binding.locationsRecyclerView.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
@@ -421,5 +437,22 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
             }
         }
+    }
+
+    // New Logout Function (NEW)
+    private fun performLogout() {
+        // Clear "Remember Me" credentials if they exist
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        with(prefs.edit()) {
+            putBoolean("rememberMe", false) // Uncheck remember me
+            remove("username")
+            remove("password")
+            apply()
+        }
+
+        // Navigate back to LoginActivity
+        val intent = Intent(this, LoginActivity::class.java)
+        startActivity(intent)
+        finish() // Finish MainActivity so user can't go back to it
     }
 }

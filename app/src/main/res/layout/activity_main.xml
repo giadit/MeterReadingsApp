@@ -6,7 +6,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="true"
-    tools:context=".MainActivity">
+    tools:context="com.example.meterreadingsapp.MainActivity">
 
     <!-- AppBarLayout (Toolbar) -->
     <com.google.android.material.appbar.AppBarLayout
@@ -70,6 +70,19 @@
                     android:contentDescription="@string/refresh_button_description"
                     android:padding="8dp"
                     app:tint="?attr/colorOnPrimary" />
+
+                <!-- Logout Button (NEW) -->
+                <ImageButton
+                    android:id="@+id/logoutButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:src="@drawable/ic_logout"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/logout_button_text"
+                    android:padding="8dp"
+                    android:layout_marginStart="8dp"
+                    app:tint="?attr/colorOnPrimary" />
+
             </LinearLayout>
         </androidx.appcompat.widget.Toolbar>
     </com.google.android.material.appbar.AppBarLayout>
