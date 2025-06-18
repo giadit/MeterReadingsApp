@@ -2,7 +2,7 @@ package com.example.meterreadingsapp
 
 import android.app.DatePickerDialog
 import android.content.Context
-import android.content.Intent // Import Intent
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -12,7 +12,6 @@ import android.util.Log
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
-import android.widget.EditText
 import android.widget.DatePicker
 import android.widget.TextView
 import android.widget.Toast
@@ -20,24 +19,25 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.example.meterreadingsapp.api.RetrofitClient // Updated package
-import com.example.meterreadingsapp.api.ApiService // Updated package
-import com.example.meterreadingsapp.data.AppDatabase // Updated package
-import com.example.meterreadingsapp.data.Meter // Updated package
-import com.example.meterreadingsapp.databinding.ActivityMainBinding // Updated package for binding
-import com.example.meterreadingsapp.repository.MeterRepository // Updated package
-import com.example.meterreadingsapp.viewmodel.LocationViewModel // Updated package
-import com.example.meterreadingsapp.viewmodel.LocationViewModelFactory // Updated package
-import com.example.meterreadingsapp.adapter.LocationAdapter // Updated package
-import com.example.meterreadingsapp.adapter.MeterAdapter // Updated package
+import com.example.meterreadingsapp.api.RetrofitClient
+import com.example.meterreadingsapp.api.ApiService
+import com.example.meterreadingsapp.data.AppDatabase
+import com.example.meterreadingsapp.data.Meter
+import com.example.meterreadingsapp.databinding.ActivityMainBinding
+import com.example.meterreadingsapp.repository.MeterRepository
+import com.example.meterreadingsapp.viewmodel.LocationViewModel
+import com.example.meterreadingsapp.viewmodel.LocationViewModelFactory
+import com.example.meterreadingsapp.adapter.LocationAdapter
+import com.example.meterreadingsapp.adapter.MeterAdapter
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
-import com.example.meterreadingsapp.data.Reading // Updated package
-import com.example.meterreadingsapp.data.Location // Updated package
+import com.example.meterreadingsapp.data.Reading
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.flow.collectLatest
+// Removed: import android.view.Menu
+// Removed: import android.view.MenuItem
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
@@ -86,11 +86,11 @@ class MainActivity : AppCompatActivity() {
 
         val apiService = RetrofitClient.getService(ApiService::class.java)
         val database = AppDatabase.getDatabase(applicationContext)
-        val locationDao = database.locationDao() // Get LocationDao
+        val locationDao = database.locationDao()
         val meterDao = database.meterDao()
         val readingDao = database.readingDao()
-        val queuedRequestDao = database.queuedRequestDao() // Get QueuedRequestDao
-        val repository = MeterRepository(apiService, meterDao, readingDao, locationDao, queuedRequestDao, applicationContext) // Pass all DAOs and context
+        val queuedRequestDao = database.queuedRequestDao()
+        val repository = MeterRepository(apiService, meterDao, readingDao, locationDao, queuedRequestDao, applicationContext)
 
         locationViewModel = ViewModelProvider(this, LocationViewModelFactory(repository))
             .get(LocationViewModel::class.java)
@@ -98,18 +98,18 @@ class MainActivity : AppCompatActivity() {
         setupLocationRecyclerView()
         setupMeterRecyclerView()
         setupSearchView()
-        setupDateSelection() // Re-added setupDateSelection
-        setupTypeFilter()    // Re-added setupTypeFilter
-        setupSendButton()    // Re-added setupSendButton
+        setupDateSelection()
+        setupTypeFilter()
+        setupSendButton()
 
         observeLocations()
         observeMeters()
-        observeUiMessages() // Observe messages from ViewModel
+        observeUiMessages()
 
         // Initial UI state adjustments
         binding.backButton.visibility = View.GONE
-        binding.metersContainer.visibility = View.GONE // Hide metersContainer initially
-        binding.sendReadingsFab.visibility = View.GONE // Hide FAB initially
+        binding.metersContainer.visibility = View.GONE
+        binding.sendReadingsFab.visibility = View.GONE
 
         binding.refreshButton.setOnClickListener {
             if (binding.locationsRecyclerView.visibility == View.VISIBLE) {
@@ -117,8 +117,7 @@ class MainActivity : AppCompatActivity() {
                 Log.d("MainActivity", getString(R.string.log_refreshing_all_meters))
             } else if (binding.metersContainer.visibility == View.VISIBLE && locationViewModel.selectedLocationId.value != null) {
                 locationViewModel.selectedLocationId.value?.let { locationId ->
-                    // No specific refresh for meters in a location, just refresh all meters to update.
-                    locationViewModel.refreshAllMeters() // Refresh all meters, which updates the view for selected location
+                    locationViewModel.refreshAllMeters()
                     Log.d("MainActivity", getString(R.string.log_refreshing_meters_for_location, locationId))
                 }
             } else {
@@ -127,32 +126,47 @@ class MainActivity : AppCompatActivity() {
         }
 
         binding.backButton.setOnClickListener {
-            locationViewModel.selectLocation(null) // Clear selected location
-            binding.locationsRecyclerView.visibility = View.VISIBLE // Show locations RecyclerView
-            binding.metersContainer.visibility = View.GONE // Hide meters RecyclerView
-            binding.sendReadingsFab.visibility = View.GONE // Hide FAB
-            binding.backButton.visibility = View.GONE // Hide back button
-            binding.noDataTextView.visibility = View.GONE // Hide "No data" text
+            locationViewModel.selectLocation(null)
+            binding.locationsRecyclerView.visibility = View.VISIBLE
+            binding.metersContainer.visibility = View.GONE
+            binding.sendReadingsFab.visibility = View.GONE
+            binding.backButton.visibility = View.GONE
+            binding.noDataTextView.visibility = View.GONE
 
-            // When navigating back to locations list:
-            binding.toolbarTitle.visibility = View.VISIBLE // Make toolbar title visible
-            binding.toolbarTitle.text = getString(R.string.app_name) // Reset title to app name
-            binding.searchView.visibility = View.VISIBLE // Make search icon visible
-            binding.searchView.setQuery("", false) // Clear search query
-            binding.searchView.isIconified = true // Collapse search view to icon
-            locationViewModel.setSearchQuery("") // Reset ViewModel search query
+            binding.toolbarTitle.visibility = View.VISIBLE
+            binding.toolbarTitle.text = getString(R.string.app_name)
+            binding.searchView.visibility = View.VISIBLE
+            binding.searchView.setQuery("", false)
+            binding.searchView.isIconified = true
+            locationViewModel.setSearchQuery("")
         }
 
-        // Logout button click listener (NEW)
+        // NEW: Set click listener for the hardcoded logout button
         binding.logoutButton.setOnClickListener {
             performLogout()
         }
     }
 
+    // REMOVED: onCreateOptionsMenu as the button is now hardcoded in XML
+    // override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+    //     menuInflater.inflate(R.menu.menu_main, menu)
+    //     return true
+    // }
+
+    // REMOVED: onOptionsItemSelected as the button's click is handled directly
+    // override fun onOptionsItemSelected(item: MenuItem): Boolean {
+    //     return when (item.itemId) {
+    //         R.id.action_logout -> {
+    //             performLogout()
+    //             true
+    //         }
+    //         else -> super.onOptionsItemSelected(item)
+    //     }
+    // }
+
     private fun setupSearchView() {
-        // Listener for query text changes (filters results as user types)
         binding.searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
-            override fun onQueryTextSubmit(query: String?): Boolean { // FIX: Renamed from onOnQueryTextSubmit to onQueryTextSubmit
+            override fun onQueryTextSubmit(query: String?): Boolean {
                 return false
             }
 
@@ -162,16 +176,12 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
-        // Listener for when the search view expands/collapses (focus changes)
         binding.searchView.setOnQueryTextFocusChangeListener { _, hasFocus ->
             if (hasFocus) {
-                // Search View gained focus (expanded)
-                binding.toolbarTitle.visibility = View.GONE // Hide title
+                binding.toolbarTitle.visibility = View.GONE
             } else {
-                // Search View lost focus (collapsed)
-                // Only show title if we are on the locations list AND search query is empty
                 if (binding.locationsRecyclerView.visibility == View.VISIBLE && binding.searchView.query.isNullOrEmpty()) {
-                    binding.toolbarTitle.visibility = View.VISIBLE // Show title
+                    binding.toolbarTitle.visibility = View.VISIBLE
                 }
             }
         }
@@ -179,18 +189,17 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupLocationRecyclerView() {
         locationAdapter = LocationAdapter { location ->
-            locationViewModel.selectLocation(location) // Select the clicked location
-            binding.locationsRecyclerView.visibility = View.GONE // Hide locations
-            binding.metersContainer.visibility = View.VISIBLE // Show meters container
-            binding.sendReadingsFab.visibility = View.VISIBLE // Show FAB
-            binding.backButton.visibility = View.VISIBLE // Show back button
-            binding.toolbarTitle.text = location.address // Set title to location address
+            locationViewModel.selectLocation(location)
+            binding.locationsRecyclerView.visibility = View.GONE
+            binding.metersContainer.visibility = View.VISIBLE
+            binding.sendReadingsFab.visibility = View.VISIBLE
+            binding.backButton.visibility = View.VISIBLE
+            binding.toolbarTitle.text = location.address
 
-            // When a location is selected:
-            binding.toolbarTitle.visibility = View.VISIBLE // Ensure toolbar title is visible
-            binding.searchView.visibility = View.GONE // Hide search view
-            binding.searchView.isIconified = true // Collapse search view (clean up state)
-            locationViewModel.setSearchQuery("") // Clear search query in ViewModel
+            binding.toolbarTitle.visibility = View.VISIBLE
+            binding.searchView.visibility = View.GONE
+            binding.searchView.isIconified = true
+            locationViewModel.setSearchQuery("")
         }
         binding.locationsRecyclerView.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
@@ -224,7 +233,7 @@ class MainActivity : AppCompatActivity() {
 
         val datePickerDialog = DatePickerDialog(
             this,
-            R.style.AppDatePickerDialogTheme, // Apply the custom theme for the dialog and calendar elements
+            R.style.AppDatePickerDialogTheme,
             { _: DatePicker, selectedYear: Int, selectedMonth: Int, selectedDayOfMonth: Int ->
                 selectedReadingDate.set(selectedYear, selectedMonth, selectedDayOfMonth)
                 updateSelectedDateText()
@@ -233,14 +242,12 @@ class MainActivity : AppCompatActivity() {
         )
         datePickerDialog.show()
 
-        // Programmatically style the positive (OK) button after the dialog is shown
         datePickerDialog.getButton(DatePickerDialog.BUTTON_POSITIVE)?.let { positiveButton ->
-            positiveButton.setBackgroundResource(R.drawable.button_orange_background) // Use the drawable for background
-            positiveButton.setTextColor(Color.WHITE) // Set text color to white
+            positiveButton.setBackgroundResource(R.drawable.button_orange_background)
+            positiveButton.setTextColor(Color.WHITE)
         }
-        // Programmatically style the negative (Cancel) button if desired (e.g., text color only)
         datePickerDialog.getButton(DatePickerDialog.BUTTON_NEGATIVE)?.let { negativeButton ->
-            negativeButton.setTextColor(getColor(R.color.bright_orange)) // Example: set cancel button text to orange
+            negativeButton.setTextColor(getColor(R.color.bright_orange))
         }
     }
 
@@ -439,12 +446,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // New Logout Function (NEW)
     private fun performLogout() {
         // Clear "Remember Me" credentials if they exist
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         with(prefs.edit()) {
-            putBoolean("rememberMe", false) // Uncheck remember me
+            putBoolean("rememberMe", false)
             remove("username")
             remove("password")
             apply()

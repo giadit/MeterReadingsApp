@@ -16,7 +16,7 @@
         android:theme="@style/Theme.MyPostsApp"
         tools:targetApi="31">
 
-        <!-- LoginActivity is now the main entry point -->
+        <!-- LoginActivity is now the main entry point (launcher activity) -->
         <activity
             android:name=".LoginActivity"
             android:exported="true">
@@ -26,12 +26,12 @@
             </intent-filter>
         </activity>
 
-        <!-- MainActivity is no longer the launcher, but is still accessible -->
+        <!-- MainActivity is a regular activity, launched after login -->
         <activity
             android:name=".MainActivity"
-            android:exported="false">
-            <!-- No intent-filter here anymore -->
+            android:exported="false"> <!-- Set to false as it's not directly exported to other apps/launchers -->
         </activity>
+
         <!-- Any other activities would be declared here -->
     </application>
 

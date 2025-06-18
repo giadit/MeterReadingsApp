@@ -1,44 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">BEA Zählerablesung</string>
-    <string name="back_button_description">Back Button</string>
-    <string name="search_locations_hint">Search locations...</string>
+    <string name="back_button_description">Navigate back</string>
+    <string name="search_locations_hint">Search locations</string>
     <string name="refresh_button_description">Refresh data</string>
     <string name="no_data_found">No data found.</string>
+    <string name="no_matching_locations_found">No matching locations found for \'%1$s\'.</string>
     <string name="no_meters_for_location">No meters found for this location.</string>
-    <string name="select_date_button_description">Select Reading Date</string>
-    <string name="send_readings_button_description">Send Readings</string>
-    <string name="enter_reading_hint">Enter Reading Value</string>
+    <string name="failed_to_load_meters">Failed to load meters.</string>
+    <string name="enter_reading_hint">Enter Reading</string>
+    <string name="send_button_text">Send</string>
+    <string name="send_readings_button_description">Send all entered readings</string>
+    <string name="no_readings_entered">No readings entered for the selected date.</string>
+    <string name="no_valid_readings_to_send">No valid readings to send.</string>
     <string name="confirm_send_readings_title">Confirm Send Readings</string>
     <string name="confirm_send_readings_message">Are you sure you want to send %1$d readings for date %2$s?</string>
-    <string name="send_button_text">Send</string>
     <string name="cancel_button_text">Cancel</string>
-    <string name="no_readings_entered">No readings entered.</string>
-    <string name="no_valid_readings_to_send">No valid readings to send.</string>
     <string name="readings_sent_queued">%1$d readings sent or queued!</string>
-    <string name="error_dialog_title">Error</string>
-    <string name="reading_value_empty_message">Reading value cannot be empty. Please enter a value.</string>
-    <string name="ok_button_text">OK</string>
-    <string name="reading_date_label">Reading Date:</string>
-    <string name="add_button_text">Add</string>
-    <string name="add_reading_dialog_title">Add Reading for Meter: %1$s</string>
-    <string name="log_refreshing_all_meters">Refreshing all meters/locations...</string>
-    <string name="log_refreshing_meters_for_location">Refreshing meters for location: %1$s (by refreshing all meters)</string>
-    <string name="log_no_list_to_refresh">No specific list to refresh or no location selected.</string>
-    <string name="no_matching_locations_found">No matching locations found for \'%1$s\'.</string>
-    <string name="failed_to_load_meters">Failed to load meters.</string>
+    <string name="select_date_button_description">Select reading date</string>
     <string name="filter_all">All</string>
     <string name="filter_electricity">Electricity</string>
     <string name="filter_heat">Heat</string>
     <string name="filter_gas">Gas</string>
+    <string name="reading_date_label">Reading Date:</string>
     <string name="energy_type_icon_description">Energy type icon</string>
-
-    <!-- New strings for Login Screen -->
+    <string name="logout_button_text">Logout</string>
+    <string name="logout_button_description">Logout from the application</string>
     <string name="username_hint">Username</string>
     <string name="password_hint">Password</string>
     <string name="remember_me">Remember Me</string>
     <string name="login_button_text">Login</string>
     <string name="login_success">Login successful!</string>
-    <string name="login_error_empty_fields">Please enter username and password.</string>
-    <string name="logout_button_text">Log Out</string>
+    <string name="login_error_empty_fields">Login Failed: Empty fields!</string>
+    <string name="log_refreshing_all_meters">Refreshing all meters.</string>
+    <string name="log_refreshing_meters_for_location">Refreshing meters for location: %1$s</string>
+    <string name="log_no_list_to_refresh">No list visible to refresh.</string>
 </resources>
