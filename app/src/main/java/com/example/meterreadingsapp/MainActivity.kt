@@ -38,6 +38,8 @@ import com.example.meterreadingsapp.data.Location
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import android.widget.EditText // Import EditText
+import androidx.core.content.ContextCompat // Import ContextCompat
 
 class MainActivity : AppCompatActivity() {
 
@@ -105,7 +107,7 @@ class MainActivity : AppCompatActivity() {
         setupDateSelection()
         setupTypeFilter()
         setupSendButton()
-        setupMeterSearchView() // NEW: Setup the meter search view
+        setupMeterSearchView() // Setup the meter search view
 
         observeLocations()
         observeMeters()
@@ -178,7 +180,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // NEW: Setup for the Meter Search Bar
+    // Setup for the Meter Search Bar
     private fun setupMeterSearchView() {
         binding.meterSearchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
@@ -190,6 +192,17 @@ class MainActivity : AppCompatActivity() {
                 return true
             }
         })
+
+        // Get the internal EditText of the SearchView and style it
+        val searchEditText: EditText? = binding.meterSearchView.findViewById(androidx.appcompat.R.id.search_src_text)
+        searchEditText?.let {
+            // Set background to null to ensure the CardView's background is visible
+            it.background = null
+            it.setTextColor(ContextCompat.getColor(this, R.color.black)) // Set text color to black
+            it.setHintTextColor(ContextCompat.getColor(this, R.color.dark_gray_text)) // Set hint color
+            // Explicitly set the cursor drawable
+            it.textCursorDrawable = ContextCompat.getDrawable(this, R.drawable.text_cursor_orange) // FIX: Set custom cursor drawable
+        }
     }
 
     private fun setupLocationRecyclerView() {
@@ -374,7 +387,7 @@ class MainActivity : AppCompatActivity() {
                     meterAdapter.submitList(emptyList()) // Ensure the list is cleared
                 } else if (it.isNotEmpty()) {
                     binding.noDataTextView.visibility = View.GONE
-                    applyMeterAndSearchFilter(it) // NEW: Apply both type and search filter
+                    applyMeterAndSearchFilter(it) // Apply both type and search filter
                 }
             } ?: run {
                 binding.loadingProgressBar.visibility = View.GONE
@@ -385,7 +398,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // NEW: Combined filter function for meters
+    // Combined filter function for meters
     private fun applyMeterAndSearchFilter(meters: List<Meter>) {
         val filteredByType = if ("All" in selectedMeterTypesFilter) {
             meters
@@ -415,7 +428,7 @@ class MainActivity : AppCompatActivity() {
         val readingDateString = apiDateFormat.format(selectedReadingDate.time) // Use apiDateFormat for API
 
         if (enteredValues.isEmpty()) {
-            Toast.makeText(this, getString(R.string.no_readings_entered), Toast.LENGTH_SHORT).show() // Use string resource
+            Toast.makeText(this, getString(R.string.no_readings_entered), Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -428,29 +441,29 @@ class MainActivity : AppCompatActivity() {
                     value = readingValue,
                     date = readingDateString,
                     created_by = null,
-                    read_by = "App User" // Consider making this a string resource too if it changes
+                    read_by = "App User"
                 )
                 readingsToSend.add(newReading)
             }
         }
 
         if (readingsToSend.isEmpty()) {
-            Toast.makeText(this, getString(R.string.no_valid_readings_to_send), Toast.LENGTH_SHORT).show() // Use string resource
+            Toast.makeText(this, getString(R.string.no_valid_readings_to_send), Toast.LENGTH_SHORT).show()
             return
         }
 
         MaterialAlertDialogBuilder(this)
-            .setTitle(getString(R.string.confirm_send_readings_title)) // Use string resource
-            .setMessage(getString(R.string.confirm_send_readings_message, readingsToSend.size, uiDateFormat.format(selectedReadingDate.time))) // Use string resource
-            .setPositiveButton(getString(R.string.send_button_text)) { dialog, _ -> // Use string resource
+            .setTitle(getString(R.string.confirm_send_readings_title))
+            .setMessage(getString(R.string.confirm_send_readings_message, readingsToSend.size, uiDateFormat.format(selectedReadingDate.time)))
+            .setPositiveButton(getString(R.string.send_button_text)) { dialog, _ ->
                 readingsToSend.forEach { reading ->
                     locationViewModel.postMeterReading(reading)
                 }
                 meterAdapter.clearEnteredReadings()
-                Toast.makeText(this, getString(R.string.readings_sent_queued, readingsToSend.size), Toast.LENGTH_LONG).show() // Use string resource
+                Toast.makeText(this, getString(R.string.readings_sent_queued, readingsToSend.size), Toast.LENGTH_LONG).show()
                 dialog.dismiss()
             }
-            .setNegativeButton(getString(R.string.cancel_button_text)) { dialog, _ -> // Use string resource
+            .setNegativeButton(getString(R.string.cancel_button_text)) { dialog, _ ->
                 dialog.cancel()
             }
             .show()

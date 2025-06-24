@@ -166,7 +166,7 @@
                     android:textAppearance="?attr/textAppearanceBody1"
                     tools:text="2025-06-16"
                     android:textColor="@android:color/black"
-                    android:paddingVertical="2dp"/> <!-- Slimmed padding -->
+                    android:paddingVertical="2dp"/>
 
                 <ImageButton
                     android:id="@+id/selectDateButton"
@@ -261,17 +261,27 @@
                 </LinearLayout>
             </HorizontalScrollView>
 
-            <!-- NEW: Meter Search Bar -->
-            <androidx.appcompat.widget.SearchView
-                android:id="@+id/meterSearchView"
+            <!-- NEW: CardView wrapper for Meter Search Bar with custom background -->
+            <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:layout_marginStart="8dp"
                 android:layout_marginEnd="8dp"
-                app:iconifiedByDefault="false"
-                app:queryHint="@string/search_meter_number_hint"
-                android:background="@drawable/edittext_background" />
+                app:cardCornerRadius="8dp"
+                app:cardElevation="0dp"
+                app:cardBackgroundColor="@android:color/transparent"
+                android:background="@drawable/search_view_background_selector"> <!-- Apply custom background to CardView -->
+
+                <androidx.appcompat.widget.SearchView
+                    android:id="@+id/meterSearchView"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:iconifiedByDefault="false"
+                    app:queryHint="@string/search_meter_number_hint"
+                    android:background="@android:color/transparent" /> <!-- Ensure SearchView itself has transparent background -->
+
+            </androidx.cardview.widget.CardView>
 
             <!-- Scrollable list of meters -->
             <androidx.recyclerview.widget.RecyclerView

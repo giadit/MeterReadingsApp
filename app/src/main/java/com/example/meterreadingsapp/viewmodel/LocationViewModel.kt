@@ -24,7 +24,7 @@ import retrofit2.Response
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.first // Import the 'first' extension function for Flow
-// import androidx.lifecycle.switchMap // Not used directly, can be removed if not needed elsewhere
+import androidx.lifecycle.switchMap // RE-ADDED: This is used for 'meters' LiveData transformation
 
 /**
  * ViewModel for managing and providing Location and Meter data to the UI.

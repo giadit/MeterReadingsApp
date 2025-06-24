@@ -122,7 +122,8 @@
             android:layout_marginTop="8dp"
             app:hintEnabled="false"
             app:boxBackgroundMode="outline"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense">
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
+            app:boxStrokeColor="@drawable/text_input_stroke_color_selector"> <!-- NEW: Apply custom stroke color selector -->
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/newReadingValueEditText"
                 android:layout_width="match_parent"
