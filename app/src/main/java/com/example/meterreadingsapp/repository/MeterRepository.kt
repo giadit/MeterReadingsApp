@@ -7,22 +7,26 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.example.meterreadingsapp.api.ApiService
-import com.example.meterreadingsapp.data.Location
+import com.example.meterreadingsapp.data.Location // Ensure Location is imported!
 import com.example.meterreadingsapp.data.Meter
 import com.example.meterreadingsapp.data.MeterDao
 import com.example.meterreadingsapp.data.Reading
 import com.example.meterreadingsapp.data.ReadingDao
-import com.example.meterreadingsapp.data.LocationDao
+import com.example.meterreadingsapp.data.LocationDao // Ensure LocationDao is imported!
 import com.example.meterreadingsapp.data.QueuedRequest // Import QueuedRequest
 import com.example.meterreadingsapp.data.QueuedRequestDao // Import QueuedRequestDao
 import com.example.meterreadingsapp.workers.SyncWorker // Import SyncWorker
 import com.google.gson.Gson // For serializing Reading objects to JSON
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import retrofit2.Response
-import okhttp3.ResponseBody
+import okhttp3.ResponseBody // Still needed for error response fallback if postReading fails
 import java.io.IOException // For network error handling
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale // Required for SimpleDateFormat
 
 /**
  * Repository class that abstracts the data sources (API and local database) for meters and readings.
@@ -39,7 +43,7 @@ class MeterRepository(
     private val apiService: ApiService,
     private val meterDao: MeterDao,
     private val readingDao: ReadingDao,
-    private val locationDao: LocationDao,
+    private val locationDao: LocationDao, // Added LocationDao to constructor
     private val queuedRequestDao: QueuedRequestDao, // FIX: Added QueuedRequestDao
     private val appContext: Context // FIX: Added Application Context
 ) {
@@ -49,6 +53,7 @@ class MeterRepository(
 
     /**
      * Private helper function to generate a unique ID for a Location.
+     * This logic is now within the repository where it's used.
      */
     private fun generateLocationId(address: String, postalCode: String?, city: String?): String {
         val safePostalCode = postalCode ?: ""
@@ -58,6 +63,7 @@ class MeterRepository(
 
     /**
      * Provides a Flow of all meters from the local database.
+     * This Flow will emit new lists of meters whenever the database changes.
      * @return A Flow emitting a list of Meter objects.
      */
     fun getAllMetersFromDb(): Flow<List<Meter>> {
@@ -66,20 +72,22 @@ class MeterRepository(
 
     /**
      * Retrieves a Flow of unique Location objects (addresses) from the locally stored locations.
+     * This function now directly fetches from the local LocationDao.
      * @return A Flow emitting a list of unique Location objects.
      */
     fun getUniqueLocations(): Flow<List<Location>> {
-        return locationDao.getAllLocations()
+        return locationDao.getAllLocations() // FIX: Directly get locations from local DB
     }
 
     /**
      * Retrieves a Flow of meters associated with a specific location (address, postal code, city).
      * @param address The street address to filter by.
-     * @param postalCode The postal code to filter by.
-     * @param city The city to filter by.
+     * @param postalCode The postal code to filter by (now nullable String?).
+     * @param city The city to filter by (now nullable String?).
      * @return A Flow emitting a list of Meter objects matching the given address details.
      */
-    fun getMetersForLocation(address: String, postalCode: String, city: String): Flow<List<Meter>> {
+    fun getMetersForLocation(address: String, postalCode: String?, city: String?): Flow<List<Meter>> { // FIX: Changed signature to accept nullable String?
+        // Handle potential nullability for database query by converting null to empty string
         val safePostalCode = postalCode ?: ""
         val safeCity = city ?: ""
         return meterDao.getMetersByAddress(address, safePostalCode, safeCity)
@@ -99,26 +107,29 @@ class MeterRepository(
                     val meters = response.body()
                     Log.d(TAG, "Successfully fetched ${meters?.size} meters from API.")
 
+                    // First, process and save locations derived from meters
                     meters?.let { meterList ->
                         val locations = meterList.map { meter ->
+                            // Ensure postal_code and city are handled as nullable
                             val safePostalCode = meter.postal_code ?: ""
                             val safeCity = meter.city ?: ""
                             Location(
-                                id = generateLocationId(meter.address, safePostalCode, safeCity),
-                                name = meter.address,
-                                project_id = meter.project_id ?: "",
+                                id = generateLocationId(meter.address, safePostalCode, safeCity), // FIX: Calling local generateLocationId
+                                name = meter.address, // Using address as display name
+                                project_id = meter.project_id ?: "", // Default if null
                                 address = meter.address,
                                 postal_code = safePostalCode,
                                 city = safeCity,
-                                created_at = meter.created_at,
-                                updated_at = meter.updated_at
+                                created_at = meter.created_at, // Pass created_at from meter
+                                updated_at = meter.updated_at // Pass updated_at from meter
                             )
                         }.distinctBy { it.id }
-                        locationDao.deleteAllLocations()
-                        locationDao.insertAll(locations)
+                        locationDao.deleteAllLocations() // Clear existing locations
+                        locationDao.insertAll(locations) // Insert new locations
                         Log.d(TAG, "Locations refreshed in local database.")
                     }
 
+                    // Then, save meters
                     meterDao.deleteAllMeters()
                     meters?.let { meterDao.insertAll(it) }
                     Log.d(TAG, "All meters refreshed in local database.")

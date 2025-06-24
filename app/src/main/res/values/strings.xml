@@ -30,9 +30,14 @@
     <string name="password_hint">Password</string>
     <string name="remember_me">Remember Me</string>
     <string name="login_button_text">Login</string>
-    <string name="login_success">Login successful!</string>
-    <string name="login_error_empty_fields">Login Failed: Empty fields!</string>
     <string name="log_refreshing_all_meters">Refreshing all meters.</string>
     <string name="log_refreshing_meters_for_location">Refreshing meters for location: %1$s</string>
     <string name="log_no_list_to_refresh">No list visible to refresh.</string>
+    <string name="search_meter_number_hint">Search meter number</string>
+    <!-- Re-added: Login related success/error messages -->
+    <string name="login_success">Login successful!</string>
+    <string name="login_error_empty_fields">Please enter username and password.</string>
+    <string name="login_error_credentials">Invalid username or password.</string>
+    <string name="login_error_network">Network error: %1$s. Please check your connection.</string>
+    <string name="login_error_generic">Login failed with code: %1$d</string>
 </resources>

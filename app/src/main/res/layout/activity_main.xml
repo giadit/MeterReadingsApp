@@ -71,7 +71,7 @@
                     android:padding="8dp"
                     app:tint="?attr/colorOnPrimary" />
 
-                <!-- NEW: Hardcoded Logout Button -->
+                <!-- Hardcoded Logout Button -->
                 <ImageButton
                     android:id="@+id/logoutButton"
                     android:layout_width="wrap_content"
@@ -137,7 +137,50 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent">
 
-            <!-- Type Filter (Updated to clickable TextViews) -->
+            <!-- Date Selection (Slimmed down and moved to top) -->
+            <LinearLayout
+                android:id="@+id/dateSelectionLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="4dp"
+                android:layout_marginHorizontal="8dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/date_selection_frame_background"
+                android:clickable="true"
+                android:focusable="true">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/reading_date_label"
+                    android:textStyle="bold"
+                    android:textAppearance="?attr/textAppearanceSubtitle1" />
+
+                <TextView
+                    android:id="@+id/selectedDateTextView"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:textAppearance="?attr/textAppearanceBody1"
+                    tools:text="2025-06-16"
+                    android:textColor="@android:color/black"
+                    android:paddingVertical="2dp"/> <!-- Slimmed padding -->
+
+                <ImageButton
+                    android:id="@+id/selectDateButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:src="@drawable/ic_calendar"
+                    android:contentDescription="@string/select_date_button_description"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:padding="8dp"
+                    app:tint="@color/bright_orange" />
+
+            </LinearLayout>
+
+            <!-- Type Filter -->
             <HorizontalScrollView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -218,49 +261,17 @@
                 </LinearLayout>
             </HorizontalScrollView>
 
-            <!-- Date Selection (Reverted frame to entire layout) -->
-            <LinearLayout
-                android:id="@+id/dateSelectionLayout"
+            <!-- NEW: Meter Search Bar -->
+            <androidx.appcompat.widget.SearchView
+                android:id="@+id/meterSearchView"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center"
-                android:padding="8dp"
-                android:layout_marginHorizontal="8dp"
                 android:layout_marginTop="8dp"
-                android:background="@drawable/date_selection_frame_background"
-                android:clickable="true"
-                android:focusable="true">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/reading_date_label"
-                    android:textStyle="bold"
-                    android:textAppearance="?attr/textAppearanceSubtitle1" />
-
-                <TextView
-                    android:id="@+id/selectedDateTextView"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:textAppearance="?attr/textAppearanceBody1"
-                    tools:text="2025-06-16"
-                    android:textColor="@android:color/black"
-                    android:padding="4dp"/>
-
-                <ImageButton
-                    android:id="@+id/selectDateButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:src="@drawable/ic_calendar"
-                    android:contentDescription="@string/select_date_button_description"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:padding="8dp"
-                    app:tint="@color/bright_orange" />
-
-            </LinearLayout>
-
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp"
+                app:iconifiedByDefault="false"
+                app:queryHint="@string/search_meter_number_hint"
+                android:background="@drawable/edittext_background" />
 
             <!-- Scrollable list of meters -->
             <androidx.recyclerview.widget.RecyclerView

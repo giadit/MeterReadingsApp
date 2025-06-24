@@ -16,7 +16,7 @@ object RetrofitClient {
 
     // IMPORTANT: Replace this with your actual API key
     // For a real app, you would store this more securely, e.g., in local.properties or BuildConfig.
-    private val API_KEY = BuildConfig.SUPABASE_API_KEY // <--- REPLACE THIS LINE WITH YOUR KEY
+    private val API_KEY = BuildConfig.SUPABASE_API_KEY //
 
     // Base URL for your API. All API requests will start with this URL.
     // Make sure this matches the base part of the URL you used in Postman.

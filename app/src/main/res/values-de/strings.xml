@@ -17,7 +17,7 @@
     <string name="confirm_send_readings_message">Möchten Sie wirklich %1$d Zählerstände für das Datum %2$s senden?</string>
     <string name="cancel_button_text">Abbrechen</string>
     <string name="readings_sent_queued">%1$d Zählerstände gesendet oder in Warteschlange!</string>
-    <string name="select_date_button_description">Datum des Zählerstands auswählen</string>
+    <string name="select_date_button_description">Ablesedatum auswählen</string>
     <string name="filter_all">Alle</string>
     <string name="filter_electricity">Strom</string>
     <string name="filter_heat">Wärme</string>
@@ -28,11 +28,15 @@
     <string name="logout_button_description">Von der Anwendung abmelden</string>
     <string name="username_hint">Benutzername</string>
     <string name="password_hint">Passwort</string>
-    <string name="remember_me">Anmeldedaten merken</string>
+    <string name="remember_me">Angemeldet bleiben</string>
     <string name="login_button_text">Anmelden</string>
-    <string name="login_success">Anmeldung erfolgreich!</string>
-    <string name="login_error_empty_fields">Anmeldung fehlgeschlagen: Leere Felder!</string>
     <string name="log_refreshing_all_meters">Alle Zähler werden aktualisiert.</string>
     <string name="log_refreshing_meters_for_location">Zähler für Standort werden aktualisiert: %1$s</string>
     <string name="log_no_list_to_refresh">Keine Liste zum Aktualisieren sichtbar.</string>
+    <string name="search_meter_number_hint">Zählernummer suchen</string>
+    <string name="login_success">Anmeldung erfolgreich!</string>
+    <string name="login_error_empty_fields">Bitte Benutzername und Passwort eingeben.</string>
+    <string name="login_error_credentials">Ungültiger Benutzername oder Passwort.</string>
+    <string name="login_error_network">Netzwerkfehler: %1$s. Bitte überprüfen Sie Ihre Verbindung.</string>
+    <string name="login_error_generic">Anmeldung fehlgeschlagen mit Code: %1$d</string>
 </resources>
