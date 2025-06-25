@@ -109,10 +109,9 @@
                 android:textSize="12sp"
                 android:textStyle="bold"
                 android:textColor="@android:color/black"
-                tools:text="29/12/2023" /> <!-- Updated tools:text for preview -->
+                tools:text="29/12/2023" />
 
         </LinearLayout>
-
 
         <!-- Editable Reading Value (at the bottom, spans width) -->
         <com.google.android.material.textfield.TextInputLayout
@@ -123,7 +122,8 @@
             app:hintEnabled="false"
             app:boxBackgroundMode="outline"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
-            app:boxStrokeColor="@drawable/text_input_stroke_color_selector"> <!-- NEW: Apply custom stroke color selector -->
+            app:boxStrokeColor="@drawable/text_input_stroke_color_selector">
+
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/newReadingValueEditText"
                 android:layout_width="match_parent"
@@ -134,6 +134,38 @@
                 android:hint="@string/enter_reading_hint"
                 tools:text="1234.5" />
         </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Camera and View Image Buttons -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="16dp"
+            android:gravity="end"> <!-- Align buttons to the end (right) -->
+
+            <ImageButton
+                android:id="@+id/cameraButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="@drawable/button_orange_background"
+                android:src="@drawable/ic_camera_white_24"
+                android:contentDescription="@string/camera_button_description"
+                app:tint="@android:color/white"
+                android:padding="12dp"
+                android:scaleType="fitCenter" />
+
+            <ImageButton
+                android:id="@+id/viewImageButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="16dp"
+                android:background="@drawable/button_orange_background"
+                android:src="@drawable/ic_image_white_24"
+                android:contentDescription="@string/view_image_button_description"
+                app:tint="@android:color/white"
+                android:padding="12dp"
+                android:scaleType="fitCenter" />
+        </LinearLayout>
 
     </LinearLayout>
 

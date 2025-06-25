@@ -40,4 +40,7 @@
     <string name="login_error_credentials">Invalid username or password.</string>
     <string name="login_error_network">Network error: %1$s. Please check your connection.</string>
     <string name="login_error_generic">Login failed with code: %1$d</string>
+
+    <string name="camera_button_description">Take picture of meter</string>
+    <string name="view_image_button_description">View attached picture</string>
 </resources>

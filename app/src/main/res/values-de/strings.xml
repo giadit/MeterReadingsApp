@@ -39,4 +39,7 @@
     <string name="login_error_credentials">Ungültiger Benutzername oder Passwort.</string>
     <string name="login_error_network">Netzwerkfehler: %1$s. Bitte überprüfen Sie Ihre Verbindung.</string>
     <string name="login_error_generic">Anmeldung fehlgeschlagen mit Code: %1$d</string>
+
+    <string name="camera_button_description">Foto vom Zähler machen</string>
+    <string name="view_image_button_description">Angehängtes Bild ansehen</string>
 </resources>
