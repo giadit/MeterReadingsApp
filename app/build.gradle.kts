@@ -28,11 +28,21 @@ android {
             )
             // Define your API key for release builds
             buildConfigField("String", "SUPABASE_API_KEY", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0Ymtka29mcGhxemlmbm96dnFlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MzE2NzI4MSwiZXhwIjoyMDU4NzQzMjgxfQ.TkCB6yierJw-SY-Qbbanjgq1xJmwdirbxO-Vs_FRkm0\"") // IMPORTANT: REPLACE THIS
+            // FIX: AWS S3 Credentials for Release Builds (kept as buildConfigField for general access if needed elsewhere)
+            buildConfigField("String", "AWS_ACCESS_KEY_ID", "\"186ae8da1a085f58821956c34a50357c\"") // Replace with actual Access Key ID
+            buildConfigField("String", "AWS_SECRET_ACCESS_KEY", "\"57131e3b6293a82c21814191b6d69ff515193c79d95d8d95c8b919c188ceea96\"") // Replace with actual Secret Access Key
+            buildConfigField("String", "AWS_REGION", "\"eu-central-1\"") // Replace with your S3 bucket region (e.g., "us-east-1", "eu-central-1")
+            buildConfigField("String", "AWS_SERVICE_NAME", "\"s3\"") // Service name for S3
         }
         debug {
             isMinifyEnabled = false // Often set to false for debug for easier debugging
             // Define your API key for debug builds
             buildConfigField("String", "SUPABASE_API_KEY", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0Ymtka29mcGhxemlmbm96dnFlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MzE2NzI4MSwiZXhwIjoyMDU4NzQzMjgxfQ.TkCB6yierJw-SY-Qbbanjgq1xJmwdirbxO-Vs_FRkm0\"") // IMPORTANT: REPLACE THIS
+            // FIX: AWS S3 Credentials for Debug Builds (kept as buildConfigField for general access if needed elsewhere)
+            buildConfigField("String", "AWS_ACCESS_KEY_ID", "\"186ae8da1a085f58821956c34a50357c\"") // Replace with actual Access Key ID
+            buildConfigField("String", "AWS_SECRET_ACCESS_KEY", "\"57131e3b6293a82c21814191b6d69ff515193c79d95d8d95c8b919c188ceea96\"") // Replace with actual Secret Access Key
+            buildConfigField("String", "AWS_REGION", "\"eu-central-1\"") // Replace with your S3 bucket region
+            buildConfigField("String", "AWS_SERVICE_NAME", "\"s3\"") // Service name for S3
         }
     }
     compileOptions {
@@ -97,5 +107,7 @@ dependencies {
     // NEW: WorkManager for background processing
     implementation("androidx.work:work-runtime-ktx:2.9.0")
 
-    // Use the latest stable version
+    // FIX: AWS Mobile SDK for S3
+    implementation("com.amazonaws:aws-android-sdk-s3:2.62.0") // S3 module
+    implementation("com.amazonaws:aws-android-sdk-core:2.62.0") // Core SDK module
 }

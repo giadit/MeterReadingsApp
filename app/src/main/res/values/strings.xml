@@ -43,4 +43,13 @@
 
     <string name="camera_button_description">Take picture of meter</string>
     <string name="view_image_button_description">View attached picture</string>
+
+    <string name="picture_saved_success">Picture saved: %1$s</string>
+    <string name="picture_capture_failed">Picture capture failed.</string>
+    <string name="error_creating_image_file">Error creating image file.</string>
+    <string name="error_viewing_image">Could not open image. Check if you have an image viewer app.</string>
+    <string name="no_readings_or_pictures_entered">No readings or pictures entered.</string>
+    <string name="confirm_send_data_title">Confirm Data Submission</string>
+    <string name="confirm_send_data_message">Are you sure you want to send %1$d readings and %2$d pictures for %3$s?</string>
+    <string name="pictures_will_be_uploaded">Pictures will be uploaded in the background.</string>
 </resources>

@@ -42,4 +42,13 @@
 
     <string name="camera_button_description">Foto vom Zähler machen</string>
     <string name="view_image_button_description">Angehängtes Bild ansehen</string>
+
+    <string name="picture_saved_success">Bild gespeichert: %1$s</string>
+    <string name="picture_capture_failed">Fotoaufnahme fehlgeschlagen.</string>
+    <string name="error_creating_image_file">Fehler beim Erstellen der Bilddatei.</string>
+    <string name="error_viewing_image">Bild konnte nicht geöffnet werden. Überprüfen Sie, ob Sie eine Bildbetrachter-App haben.</string>
+    <string name="no_readings_or_pictures_entered">Keine Messwerte oder Bilder eingegeben.</string>
+    <string name="confirm_send_data_title">Datenübermittlung bestätigen</string>
+    <string name="confirm_send_data_message">Möchten Sie wirklich %1$d Messwerte und %2$d Bilder für den %3$s senden?</string>
+    <string name="pictures_will_be_uploaded">Bilder werden im Hintergrund hochgeladen.</string>
 </resources>
