@@ -17,6 +17,7 @@ import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.widget.DatePicker
+import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
@@ -59,6 +60,7 @@ class MainActivity : AppCompatActivity() {
 
     private val uiDateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.US)
     private val apiDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+    private val s3KeyDateFormat = SimpleDateFormat("yyyyMMdd", Locale.US) // For S3 key naming
 
     private var selectedReadingDate: Calendar = Calendar.getInstance()
     private val selectedMeterTypesFilter: MutableSet<String> = mutableSetOf("All")
@@ -70,24 +72,20 @@ class MainActivity : AppCompatActivity() {
     private val KEY_PASSWORD = "password"
     private val KEY_REMEMBER_ME = "rememberMe"
 
-    // FIX: Variables for camera functionality
-    private var currentPhotoUri: Uri? = null // URI for the photo currently being taken/saved
-    private var currentMeterForPhoto: Meter? = null // Meter associated with the current photo intent
+    private var currentPhotoUri: Uri? = null
+    private var currentMeterForPhoto: Meter? = null
 
-    // FIX: ActivityResultLauncher for taking pictures
     private val takePictureLauncher: ActivityResultLauncher<Uri> =
         registerForActivityResult(ActivityResultContracts.TakePicture()) { success: Boolean ->
             if (success) {
                 currentPhotoUri?.let { uri ->
                     currentMeterForPhoto?.let { meter ->
-                        // Picture taken successfully, update the adapter with the new URI
                         meterAdapter.updateMeterImageUri(meter.id, uri)
                         Toast.makeText(this, getString(R.string.picture_saved_success, uri.lastPathSegment), Toast.LENGTH_SHORT).show()
                     }
                 }
             } else {
                 Toast.makeText(this, getString(R.string.picture_capture_failed), Toast.LENGTH_SHORT).show()
-                // If picture capture failed, clear the temporary URI and associated meter
                 currentPhotoUri = null
                 currentMeterForPhoto = null
             }
@@ -207,7 +205,8 @@ class MainActivity : AppCompatActivity() {
                 return false
             }
 
-            override fun onOnQueryTextChange(newText: String?): Boolean {
+            // FIX: Corrected method name for onQueryTextChange
+            override fun onQueryTextChange(newText: String?): Boolean {
                 locationViewModel.setMeterSearchQuery(newText ?: "")
                 return true
             }
@@ -246,19 +245,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupMeterRecyclerView() {
-        // FIX: Pass the new camera and view image click handlers to the MeterAdapter
         meterAdapter = MeterAdapter(
             onCameraClicked = { meter, currentUri ->
                 currentMeterForPhoto = meter
-                currentPhotoUri = createImageFileForMeter(meter) // Create a file to save the image
+                currentPhotoUri = createImageFileForMeter(meter)
                 currentPhotoUri?.let { uri ->
-                    takePictureLauncher.launch(uri) // Launch camera with the file URI
+                    takePictureLauncher.launch(uri)
                 } ?: run {
                     Toast.makeText(this, getString(R.string.error_creating_image_file), Toast.LENGTH_SHORT).show()
                 }
             },
             onViewImageClicked = { meter, imageUri ->
-                // FIX: Logic to view the image
                 viewImage(imageUri)
             }
         )
@@ -268,36 +265,28 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * FIX: Creates a temporary image file for storing the captured photo.
-     * The file name includes the current date and meter number for uniqueness.
-     */
     @Throws(IOException::class)
     private fun createImageFileForMeter(meter: Meter): Uri {
-        // Create an image file name
         val timeStamp: String = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-        val imageFileName = "${timeStamp}_${meter.number.replace("/", "_")}" // Sanitize meter number for filename
-        val storageDir: File? = getExternalFilesDir(Environment.DIRECTORY_PICTURES) // App-specific directory
+        val imageFileName = "${timeStamp}_${meter.number.replace("/", "_").replace(".", "_")}" // Sanitize meter number for filename
+        val storageDir: File? = getExternalFilesDir(Environment.DIRECTORY_PICTURES)
         val imageFile = File.createTempFile(
-            imageFileName, /* prefix */
-            ".jpg", /* suffix */
-            storageDir /* directory */
+            imageFileName,
+            ".jpg",
+            storageDir
         )
-        // Get the URI for the file using a FileProvider
         return FileProvider.getUriForFile(
             this,
-            "${applicationContext.packageName}.fileprovider", // Authority must match your manifest
+            "${applicationContext.packageName}.fileprovider",
             imageFile
         )
     }
 
-    /**
-     * FIX: Launches an intent to view the image at the given URI.
-     */
     private fun viewImage(imageUri: Uri) {
         val intent = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(imageUri, "image/*")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) // Grant read permission to the viewing app
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) // Needed if launching from non-activity context
         }
         try {
             startActivity(intent)
@@ -418,7 +407,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupSendButton() {
         binding.sendReadingsFab.setOnClickListener {
-            sendAllMeterReadingsAndPictures() // FIX: New combined send function
+            sendAllMeterReadingsAndPictures()
         }
     }
 
@@ -468,7 +457,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * FIX: New combined function to send both meter readings and pictures.
+     * New combined function to send both meter readings and pictures.
      */
     private fun sendAllMeterReadingsAndPictures() {
         val readingsToSend = mutableListOf<Reading>()
@@ -492,34 +481,40 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Process images
-        val imagesToSend = meterAdapter.getMeterImages()
-        var imagesUploadedCount = 0
+        val imagesToUpload = meterAdapter.getMeterImages()
+        val imagesQueuedCount = imagesToUpload.size
 
-        if (readingsToSend.isEmpty() && imagesToSend.isEmpty()) {
+        if (readingsToSend.isEmpty() && imagesToUpload.isEmpty()) {
             Toast.makeText(this, getString(R.string.no_readings_or_pictures_entered), Toast.LENGTH_SHORT).show()
             return
         }
 
         MaterialAlertDialogBuilder(this)
             .setTitle(getString(R.string.confirm_send_data_title))
-            .setMessage(getString(R.string.confirm_send_data_message, readingsToSend.size, imagesToSend.size, uiDateFormat.format(selectedReadingDate.time)))
+            .setMessage(getString(R.string.confirm_send_data_message, readingsToSend.size, imagesToUpload.size, uiDateFormat.format(selectedReadingDate.time)))
             .setPositiveButton(getString(R.string.send_button_text)) { dialog, _ ->
                 // Send readings
                 readingsToSend.forEach { reading ->
                     locationViewModel.postMeterReading(reading)
                 }
 
-                // FIX: Handle image uploads (S3 API integration will come later in Repository/Worker)
-                // For now, just clear the images after confirmation
-                if (imagesToSend.isNotEmpty()) {
-                    Toast.makeText(this, getString(R.string.pictures_will_be_uploaded, imagesToSend.size), Toast.LENGTH_LONG).show()
-                    // In a later step, we'll iterate through imagesToSend and send them via a repository/worker
+                // FIX: Queue image uploads via MeterRepository
+                imagesToUpload.forEach { (meterId, imageUri) ->
+                    val meter = meterAdapter.currentList.find { it.id == meterId }
+                    if (meter != null) {
+                        val projectId = meter.project_id ?: "unknown_project" // Use meter's project ID
+                        val s3Key = "project_documents/${projectId}/${s3KeyDateFormat.format(selectedReadingDate.time)}_${meter.number.replace("/", "_").replace(".", "_")}.jpg"
+                        locationViewModel.queueImageUpload(imageUri, s3Key, projectId) // Call new ViewModel function
+                    } else {
+                        Log.e("MainActivity", "Meter not found for image with ID: $meterId. Skipping upload.")
+                    }
                 }
 
                 meterAdapter.clearEnteredReadings()
-                meterAdapter.clearMeterImages() // FIX: Clear images after initiating send
+                meterAdapter.clearMeterImages() // Clear images from adapter after initiating send
 
-                Toast.makeText(this, getString(R.string.data_sent_queued, readingsToSend.size, imagesUploadedCount), Toast.LENGTH_LONG).show()
+                val totalItemsSent = readingsToSend.size + imagesQueuedCount
+                Toast.makeText(this, getString(R.string.data_sent_queued, readingsToSend.size, imagesQueuedCount), Toast.LENGTH_LONG).show()
                 dialog.dismiss()
             }
             .setNegativeButton(getString(R.string.cancel_button_text)) { dialog, _ ->

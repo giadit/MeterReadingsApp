@@ -1,5 +1,6 @@
 package com.example.meterreadingsapp.viewmodel
 
+import android.net.Uri // Import Uri
 import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModel
@@ -60,12 +61,12 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
                 locations // If query is empty, return all locations
             } else {
                 locations.filter { location ->
-                    // FIX: Include house_number and house_number_addition in search query
-                    (location.address?.contains(query, ignoreCase = true) ?: false) ||
+                    (location.name?.contains(query, ignoreCase = true) ?: false) || // Search by full name
+                            (location.address?.contains(query, ignoreCase = true) ?: false) ||
                             (location.city?.contains(query, ignoreCase = true) ?: false) ||
                             (location.postal_code?.contains(query, ignoreCase = true) ?: false) ||
-                            (location.house_number?.contains(query, ignoreCase = true) ?: false) || // NEW
-                            (location.house_number_addition?.contains(query, ignoreCase = true) ?: false) // NEW
+                            (location.house_number?.contains(query, ignoreCase = true) ?: false) ||
+                            (location.house_number_addition?.contains(query, ignoreCase = true) ?: false)
                 }
             }
         }.asLiveData()
@@ -77,34 +78,25 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
         _meterTypeFilter,
         _meterSearchQuery
     ) { locationId, typeFilter, meterQuery ->
-        // This lambda runs when any of the combined flows emit a new value.
-        // It will be executed on the Dispatchers.IO context due to .asLiveData's parameter.
-
         val parts = locationId.split("|")
-        // Ensure to handle potential nulls when extracting parts for API call/filtering
-        val address = parts.getOrNull(0) ?: "" // Address is assumed non-null for location ID base
-        val postalCode = parts.getOrNull(1) // Can be null
-        val city = parts.getOrNull(2) // Can be null
-        val houseNumber = parts.getOrNull(3) // NEW: Extract house_number
-        val houseNumberAddition = parts.getOrNull(4) // NEW: Extract house_number_addition
+        val address = parts.getOrNull(0) ?: ""
+        val postalCode = parts.getOrNull(1)
+        val city = parts.getOrNull(2)
+        val houseNumber = parts.getOrNull(3)
+        val houseNumberAddition = parts.getOrNull(4)
 
-
-        // If address is blank, return empty list (shouldn't happen with generateLocationId logic)
         if (address.isBlank()) {
             return@combine emptyList<Meter>()
         }
 
-        // Get meters from the repository (which uses local DB first).
-        // .first() will get the current list emitted by the Flow.
         val allMeters = repository.getMetersForLocation(
             address,
             postalCode,
             city,
-            houseNumber, // NEW: Pass houseNumber
-            houseNumberAddition // NEW: Pass houseNumberAddition
+            houseNumber,
+            houseNumberAddition
         ).first()
 
-        // Apply type filtering
         val filteredByType = if ("All" in typeFilter) {
             allMeters
         } else {
@@ -115,7 +107,6 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
             }
         }
 
-        // Apply meter number search filtering
         val finalFilteredList = if (meterQuery.isNotBlank()) {
             filteredByType.filter { meter ->
                 meter.number.contains(meterQuery, ignoreCase = true)
@@ -123,12 +114,11 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
         } else {
             filteredByType
         }
-        finalFilteredList // Return the final filtered list
+        finalFilteredList
     }.asLiveData(viewModelScope.coroutineContext + Dispatchers.IO)
 
 
     init {
-        // When the ViewModel is initialized, refresh all meters from the API.
         refreshAllMeters()
     }
 
@@ -148,7 +138,6 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
      */
     fun selectLocation(location: Location?) {
         _selectedLocationId.value = location?.id
-        // Reset meter search and type filter when a new location is selected or deselected
         _meterSearchQuery.value = ""
         _meterTypeFilter.value = setOf("All")
     }
@@ -162,7 +151,7 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
     }
 
     /**
-     * NEW: Sets the search query for meters within the selected location.
+     * Sets the search query for meters within the selected location.
      * @param query The search string for meter number.
      */
     fun setMeterSearchQuery(query: String) {
@@ -193,6 +182,19 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
                 Log.e(TAG, errorMessage)
                 _uiMessage.emit(errorMessage)
             }
+        }
+    }
+
+    /**
+     * FIX: Queues an S3 image upload request via the repository.
+     * @param imageUri The local URI of the image file.
+     * @param s3Key The S3 object key (path and filename) where the image should be stored.
+     * @param projectId The project ID associated with the meter.
+     */
+    fun queueImageUpload(imageUri: Uri, s3Key: String, projectId: String) {
+        viewModelScope.launch {
+            repository.queueImageUpload(imageUri, s3Key, projectId)
+            _uiMessage.emit("Picture queued for upload!")
         }
     }
 }
