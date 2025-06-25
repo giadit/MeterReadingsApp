@@ -2,6 +2,7 @@ package com.example.meterreadingsapp.data
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.google.gson.annotations.SerializedName // Required for @SerializedName
 
 /**
  * Represents a Meter item fetched from the API and stored in the local database.
@@ -16,6 +17,8 @@ import androidx.room.PrimaryKey
  * @param address The street address where the meter is located.
  * @param postal_code The postal code of the meter's location.
  * @param city The city of the meter's location.
+ * @param house_number The house number of the meter's location (NEW).
+ * @param house_number_addition The house number addition of the meter's location (NEW).
  * @param location Specific location detail within the address (e.g., "ELT-Raum").
  * @param consumer The consumer associated with this meter.
  * @param type The type of meter (e.g., "Apartment", "Main Meter", "Generator (PV)").
@@ -46,31 +49,33 @@ data class Meter(
     val id: String, // UUID as String
     val number: String,
     val project_id: String? = null, // Can be null
-    val building_id: String? = null, // Can be null based on your data
-    val generator_id: String? = null, // Can be null
-    val address: String, // Essential for grouping
-    val postal_code: String?, // Remains nullable as per previous fixes
-    val city: String?, // Remains nullable as per previous fixes
+    val building_id: String? = null,
+    val generator_id: String? = null,
+    @SerializedName("street") val address: String, // Maps to 'street' from API, essential for grouping
+    val postal_code: String?,
+    val city: String?,
+    val house_number: String? = null, // FIX: New field for house number
+    val house_number_addition: String? = null, // FIX: New field for house number addition
     val location: String? = null, // Can be null or empty
     val consumer: String? = null, // Can be null or empty
-    val type: String,
+    val type: String, // Assuming type is non-null based on common API designs
     val marketing: String? = null, // Can be null or empty
     val msb: String? = null, // Can be null or empty
     val last_reading: String? = null, // Value can be null or empty string
     val last_reading_date: String? = null, // Date string, can be null
     val consumption: String? = null, // Can be null
     val generation: String? = null, // Can be null
-    val status: String,
+    val status: String, // Assuming status is non-null
     val install_date: String? = null, // Can be null
     val last_inspection: String? = null, // Can be null
     val manufacturer: String? = null, // Can be empty string
     val model: String? = null, // Can be empty string
     val serial_number: String? = null, // Can be null
-    val created_at: String? = null, // FIX: Changed to nullable String?
-    val updated_at: String? = null, // FIX: Changed to nullable String?
-    val obis_1_8_0: Boolean,
-    val obis_2_8_0: Boolean,
-    val energy_type: String,
+    val created_at: String? = null, // Nullable
+    val updated_at: String? = null, // Nullable
+    val obis_1_8_0: Boolean, // Assuming non-null
+    val obis_2_8_0: Boolean, // Assuming non-null
+    val energy_type: String, // Assuming non-null
     val last_reading_2: String? = null, // Can be null
     val meter_type_id: String? = null, // Can be null
     val energy_type_id: String? = null // Can be null

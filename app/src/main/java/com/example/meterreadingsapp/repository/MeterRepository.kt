@@ -7,26 +7,26 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.example.meterreadingsapp.api.ApiService
-import com.example.meterreadingsapp.data.Location // Ensure Location is imported!
+import com.example.meterreadingsapp.data.Location
 import com.example.meterreadingsapp.data.Meter
 import com.example.meterreadingsapp.data.MeterDao
 import com.example.meterreadingsapp.data.Reading
 import com.example.meterreadingsapp.data.ReadingDao
-import com.example.meterreadingsapp.data.LocationDao // Ensure LocationDao is imported!
-import com.example.meterreadingsapp.data.QueuedRequest // Import QueuedRequest
-import com.example.meterreadingsapp.data.QueuedRequestDao // Import QueuedRequestDao
-import com.example.meterreadingsapp.workers.SyncWorker // Import SyncWorker
-import com.google.gson.Gson // For serializing Reading objects to JSON
+import com.example.meterreadingsapp.data.LocationDao
+import com.example.meterreadingsapp.data.QueuedRequest
+import com.example.meterreadingsapp.data.QueuedRequestDao
+import com.example.meterreadingsapp.workers.SyncWorker
+import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import retrofit2.Response
-import okhttp3.ResponseBody // Still needed for error response fallback if postReading fails
-import java.io.IOException // For network error handling
+import okhttp3.ResponseBody
+import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Locale // Required for SimpleDateFormat
+import java.util.Locale
 
 /**
  * Repository class that abstracts the data sources (API and local database) for meters and readings.
@@ -43,22 +43,31 @@ class MeterRepository(
     private val apiService: ApiService,
     private val meterDao: MeterDao,
     private val readingDao: ReadingDao,
-    private val locationDao: LocationDao, // Added LocationDao to constructor
-    private val queuedRequestDao: QueuedRequestDao, // FIX: Added QueuedRequestDao
-    private val appContext: Context // FIX: Added Application Context
+    private val locationDao: LocationDao,
+    private val queuedRequestDao: QueuedRequestDao,
+    private val appContext: Context
 ) {
     private val TAG = "MeterRepository"
-    private val gson = Gson() // Gson instance for serialization
-    private val workManager = WorkManager.getInstance(appContext) // WorkManager instance
+    private val gson = Gson()
+    private val workManager = WorkManager.getInstance(appContext)
 
     /**
-     * Private helper function to generate a unique ID for a Location.
-     * This logic is now within the repository where it's used.
+     * Private helper function to generate a unique ID for a Location, now including house_number and house_number_addition.
+     * Ensure all components of the ID are non-null for this composite key.
      */
-    private fun generateLocationId(address: String, postalCode: String?, city: String?): String {
+    private fun generateLocationId(
+        address: String?,
+        postalCode: String?,
+        city: String?,
+        houseNumber: String?, // NEW parameter
+        houseNumberAddition: String? // NEW parameter
+    ): String {
+        val safeAddress = address ?: ""
         val safePostalCode = postalCode ?: ""
         val safeCity = city ?: ""
-        return "$address|$safePostalCode|$safeCity"
+        val safeHouseNumber = houseNumber ?: "" // NEW
+        val safeHouseNumberAddition = houseNumberAddition ?: "" // NEW
+        return "${safeAddress}|${safePostalCode}|${safeCity}|${safeHouseNumber}|${safeHouseNumberAddition}" // Updated composite key
     }
 
     /**
@@ -76,21 +85,27 @@ class MeterRepository(
      * @return A Flow emitting a list of unique Location objects.
      */
     fun getUniqueLocations(): Flow<List<Location>> {
-        return locationDao.getAllLocations() // FIX: Directly get locations from local DB
+        return locationDao.getAllLocations()
     }
 
     /**
-     * Retrieves a Flow of meters associated with a specific location (address, postal code, city).
+     * Retrieves a Flow of meters associated with a specific location (address, postal code, city, house_number, house_number_addition).
      * @param address The street address to filter by.
-     * @param postalCode The postal code to filter by (now nullable String?).
-     * @param city The city to filter by (now nullable String?).
+     * @param postalCode The postal code to filter by (nullable).
+     * @param city The city to filter by (nullable).
+     * @param houseNumber The house number to filter by (NEW, nullable).
+     * @param houseNumberAddition The house number addition to filter by (NEW, nullable).
      * @return A Flow emitting a list of Meter objects matching the given address details.
      */
-    fun getMetersForLocation(address: String, postalCode: String?, city: String?): Flow<List<Meter>> { // FIX: Changed signature to accept nullable String?
-        // Handle potential nullability for database query by converting null to empty string
-        val safePostalCode = postalCode ?: ""
-        val safeCity = city ?: ""
-        return meterDao.getMetersByAddress(address, safePostalCode, safeCity)
+    fun getMetersForLocation(
+        address: String,
+        postalCode: String?,
+        city: String?,
+        houseNumber: String?, // FIX: Added houseNumber parameter
+        houseNumberAddition: String? // FIX: Added houseNumberAddition parameter
+    ): Flow<List<Meter>> {
+        // Pass all parameters directly to MeterDao.getMetersByAddress
+        return meterDao.getMetersByAddress(address, postalCode, city, houseNumber, houseNumberAddition)
     }
 
     /**
@@ -110,23 +125,42 @@ class MeterRepository(
                     // First, process and save locations derived from meters
                     meters?.let { meterList ->
                         val locations = meterList.map { meter ->
-                            // Ensure postal_code and city are handled as nullable
-                            val safePostalCode = meter.postal_code ?: ""
-                            val safeCity = meter.city ?: ""
+                            val meterAddress = meter.address
+                            val meterPostalCode = meter.postal_code
+                            val meterCity = meter.city
+                            val meterHouseNumber = meter.house_number // Get house_number
+                            val meterHouseNumberAddition = meter.house_number_addition // Get house_number_addition
+
+                            // FIX: Ensure 'name' is always non-null by building it
+                            val locationDisplayName = buildLocationDisplayName(
+                                meterAddress,
+                                meterHouseNumber,
+                                meterHouseNumberAddition
+                                // consumer is intentionally NOT passed here, as per user request
+                            ) ?: "No Address Provided" // Fallback if building fails
+
                             Location(
-                                id = generateLocationId(meter.address, safePostalCode, safeCity), // FIX: Calling local generateLocationId
-                                name = meter.address, // Using address as display name
-                                project_id = meter.project_id ?: "", // Default if null
-                                address = meter.address,
-                                postal_code = safePostalCode,
-                                city = safeCity,
-                                created_at = meter.created_at, // Pass created_at from meter
-                                updated_at = meter.updated_at // Pass updated_at from meter
+                                id = generateLocationId(
+                                    meterAddress,
+                                    meterPostalCode,
+                                    meterCity,
+                                    meterHouseNumber,
+                                    meterHouseNumberAddition
+                                ),
+                                name = locationDisplayName, // FIX: Use the built non-null display name
+                                project_id = meter.project_id, // Nullable now in Location.kt
+                                address = meterAddress, // Nullable now in Location.kt
+                                postal_code = meterPostalCode,
+                                city = meterCity,
+                                house_number = meterHouseNumber, // FIX: Store house_number
+                                house_number_addition = meterHouseNumberAddition, // FIX: Store house_number_addition
+                                created_at = meter.created_at,
+                                updated_at = meter.updated_at
                             )
                         }.distinctBy { it.id }
-                        locationDao.deleteAllLocations() // Clear existing locations
-                        locationDao.insertAll(locations) // Insert new locations
-                        Log.d(TAG, "Locations refreshed in local database.")
+                        locationDao.deleteAllLocations()
+                        locationDao.insertAll(locations)
+                        Log.d(TAG, "Locations refreshed in local database. Count: ${locations.size}")
                     }
 
                     // Then, save meters
@@ -135,13 +169,36 @@ class MeterRepository(
                     Log.d(TAG, "All meters refreshed in local database.")
 
                 } else {
-                    Log.e(TAG, "Failed to fetch all meters: ${response.code()} - ${response.message()}")
+                    val errorBody = response.errorBody()?.string()
+                    Log.e(TAG, "Failed to fetch all meters: ${response.code()} - ${response.message()}. Error Body: $errorBody")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error refreshing all meters: ${e.message}", e)
+                e.printStackTrace()
             }
         }
     }
+
+    /**
+     * Helper function to build a user-friendly display name for a location,
+     * including street, house number, and addition. Consumer is explicitly excluded.
+     */
+    private fun buildLocationDisplayName(
+        address: String?,
+        houseNumber: String?,
+        houseNumberAddition: String?
+        // consumer: String? // Removed consumer from parameters, as per user request
+    ): String? {
+        val parts = mutableListOf<String>()
+        address?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
+        houseNumber?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
+        houseNumberAddition?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
+
+        val combinedAddressDetails = parts.joinToString(" ").trim()
+
+        return combinedAddressDetails.takeIf { it.isNotBlank() } // Return combined string if not blank
+    }
+
 
     /**
      * Posts a new meter reading to the API.
@@ -149,32 +206,28 @@ class MeterRepository(
      * @param reading The Reading object to be sent to the API.
      * @return A Retrofit Response object with Unit type (204 No Content) or a custom success/failure indicator.
      */
-    suspend fun postMeterReading(reading: Reading): Response<Unit> { // Changed to Response<Unit> as per ApiService
+    suspend fun postMeterReading(reading: Reading): Response<Unit> {
         return withContext(Dispatchers.IO) {
             try {
                 Log.d(TAG, "Attempting to POST new meter reading for meter ID: ${reading.meter_id}. Value: ${reading.value}, Date: ${reading.date}")
                 val response = apiService.postReading(reading)
                 if (response.isSuccessful) {
                     Log.d(TAG, "Successfully POSTed reading. Response status: ${response.code()}")
-                    refreshAllMeters() // Refresh UI after successful POST
-                    Response.success(Unit) // Return success response
+                    refreshAllMeters()
+                    Response.success(Unit)
                 } else {
                     val errorBody = response.errorBody()?.string()
                     Log.e(TAG, "Failed to POST meter reading: ${response.code()} - ${response.message()}. Error Body: $errorBody")
-                    // If it's not successful, we might still want to queue it if it's a network issue.
-                    // For now, if the server explicitly rejects (e.g., 400, 500), we don't queue.
                     Response.error(response.code(), ResponseBody.create(null, "Error: ${response.code()} - ${response.message()}"))
                 }
-            } catch (e: IOException) { // Catch IOException specifically for network issues
+            } catch (e: IOException) {
                 Log.e(TAG, "Network error during POST, queuing request: ${e.message}", e)
                 queueRequest(
                     endpoint = "readings",
                     method = "POST",
-                    body = gson.toJson(reading) // Serialize the Reading object to JSON string
+                    body = gson.toJson(reading)
                 )
-                // Indicate that the request was queued, but no immediate API success.
-                // You might define a custom sealed class for better status handling.
-                Response.success(Unit) // Indicate local success (queued)
+                Response.success(Unit)
             } catch (e: Exception) {
                 Log.e(TAG, "Unexpected error during POST: ${e.message}", e)
                 Response.error(500, ResponseBody.create(null, "Error: ${e.message}"))
@@ -193,9 +246,8 @@ class MeterRepository(
         queuedRequestDao.insert(queuedRequest)
         Log.d(TAG, "Request queued locally: ${queuedRequest.id}")
 
-        // Schedule the SyncWorker to send the queued requests
         val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED) // Only run when connected to network
+            .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
         val syncWorkRequest = OneTimeWorkRequestBuilder<SyncWorker>()

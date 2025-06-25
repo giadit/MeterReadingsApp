@@ -5,8 +5,8 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import com.example.meterreadingsapp.data.Location // Import new Location data class
-import com.example.meterreadingsapp.databinding.ItemLocationBinding // Will rename/update this layout
+import com.example.meterreadingsapp.data.Location
+import com.example.meterreadingsapp.databinding.ItemLocationBinding
 
 /**
  * RecyclerView adapter for displaying a list of Location objects.
@@ -22,18 +22,40 @@ class LocationAdapter(private val onItemClicked: (Location) -> Unit) :
      * Binds data from a Location object to the layout views.
      *
      * @param binding The ViewBinding object for item_location.xml.
+     * @param clickListener The lambda function to be invoked when the item is clicked.
      */
-    class LocationViewHolder(private var binding: ItemLocationBinding) : // Changed to ItemLocationBinding
-        RecyclerView.ViewHolder(binding.root) {
+    inner class LocationViewHolder(
+        private var binding: ItemLocationBinding,
+        private val clickListener: (Location) -> Unit
+    ) : RecyclerView.ViewHolder(binding.root) {
 
         /**
          * Binds a Location object to the views in the ViewHolder.
          * @param location The Location object to bind.
          */
         fun bind(location: Location) {
-            // Display location details (address, city, postal code)
-            binding.locationAddressTextView.text = location.address
-            binding.locationCityPostalTextView.text = "${location.city}, ${location.postal_code}"
+            binding.locationAddressTextView.text = location.name ?: location.address ?: "Unknown Location"
+            binding.locationCityPostalTextView.text = buildPostalCodeCityDisplay(location.city, location.postal_code)
+
+            // Set up click listener for the entire item view
+            binding.root.setOnClickListener {
+                clickListener(location)
+            }
+        }
+
+        /**
+         * Helper to build a readable city and postal code string.
+         */
+        private fun buildPostalCodeCityDisplay(city: String?, postalCode: String?): String {
+            val parts = mutableListOf<String>()
+            city?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
+            postalCode?.takeIf { it.isNotBlank() }?.let { parts.add(it) }
+
+            return if (parts.isNotEmpty()) {
+                parts.joinToString(", ")
+            } else {
+                "N/A"
+            }
         }
     }
 
@@ -43,16 +65,7 @@ class LocationAdapter(private val onItemClicked: (Location) -> Unit) :
      */
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): LocationViewHolder {
         val binding = ItemLocationBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        return LocationViewHolder(binding).also { viewHolder ->
-            // Set up click listener for the entire item view
-            binding.root.setOnClickListener {
-                val position = viewHolder.adapterPosition
-                if (position != RecyclerView.NO_POSITION) {
-                    // Invoke the onItemClicked lambda with the clicked Location object
-                    onItemClicked(getItem(position))
-                }
-            }
-        }
+        return LocationViewHolder(binding, onItemClicked)
     }
 
     /**
@@ -66,17 +79,15 @@ class LocationAdapter(private val onItemClicked: (Location) -> Unit) :
     companion object {
         /**
          * DiffUtil.ItemCallback implementation for efficient list updates.
-         * Helps RecyclerView optimize re-drawing by only updating changed items.
          */
         private val DiffCallback = object : DiffUtil.ItemCallback<Location>() {
-            override fun areItemsTheSame(oldItem: Location, newItem: Location): Boolean {
-                return oldItem.id == newItem.id // Check if items represent the same underlying entity
+            override fun areItemsTheSame(oldItem: Location, newItem: Location): Boolean { // FIX: Corrected newItem type to Location
+                return oldItem.id == newItem.id
             }
 
-            override fun areContentsTheSame(oldItem: Location, newItem: Location): Boolean {
-                return oldItem == newItem // Check if the content of the items is the same
+            override fun areContentsTheSame(oldItem: Location, newItem: Location): Boolean { // FIX: Corrected newItem type to Location
+                return oldItem == newItem
             }
         }
     }
 }
-    

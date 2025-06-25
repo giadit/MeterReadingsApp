@@ -17,7 +17,7 @@ import com.example.meterreadingsapp.converters.ListConverter
  */
 @Database(
     entities = [Location::class, Meter::class, Reading::class, QueuedRequest::class], // FIX: Added Location::class and QueuedRequest::class
-    version = 6, // FIX: Increment version to 6 for new table/entity changes
+    version = 12, // FIX: Increment version to 6 for new table/entity changes
     exportSchema = false
 )
 @TypeConverters(MapConverter::class, ListConverter::class)

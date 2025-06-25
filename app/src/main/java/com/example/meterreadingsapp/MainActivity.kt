@@ -38,8 +38,8 @@ import com.example.meterreadingsapp.data.Location
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import android.widget.EditText // Import EditText
-import androidx.core.content.ContextCompat // Import ContextCompat
+import android.widget.EditText
+import androidx.core.content.ContextCompat
 
 class MainActivity : AppCompatActivity() {
 
@@ -47,20 +47,18 @@ class MainActivity : AppCompatActivity() {
     private lateinit var locationViewModel: LocationViewModel
     private lateinit var locationAdapter: LocationAdapter
     private lateinit var meterAdapter: MeterAdapter
-    // Separate SimpleDateFormat instances for UI display and API communication
-    private val uiDateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.US) // For UI display
-    private val apiDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US) // For API communication
+    private val uiDateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.US)
+    private val apiDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 
     private var selectedReadingDate: Calendar = Calendar.getInstance()
     private val selectedMeterTypesFilter: MutableSet<String> = mutableSetOf("All")
 
     private lateinit var filterTextViews: Map<String, TextView>
 
-    // SharedPreferences name for LoginActivity
     private val PREFS_NAME = "LoginPrefs"
-    private val KEY_USERNAME = "username" // Key for username
-    private val KEY_PASSWORD = "password" // Key for password
-    private val KEY_REMEMBER_ME = "rememberMe" // Key for "remember me" checkbox state
+    private val KEY_USERNAME = "username"
+    private val KEY_PASSWORD = "password"
+    private val KEY_REMEMBER_ME = "rememberMe"
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -69,7 +67,6 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // --- Hide System UI (Status Bar and Navigation Bar) ---
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             window.insetsController?.apply {
                 hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
@@ -86,17 +83,15 @@ class MainActivity : AppCompatActivity() {
 
         setSupportActionBar(binding.toolbar)
 
-        // Set initial toolbar title to app name
         binding.toolbarTitle.text = getString(R.string.app_name)
 
-        // Initialize ApiService without context
         val apiService = RetrofitClient.getService(ApiService::class.java)
         val database = AppDatabase.getDatabase(applicationContext)
         val locationDao = database.locationDao()
         val meterDao = database.meterDao()
         val readingDao = database.readingDao()
-        val queuedRequestDao = database.queuedRequestDao() // Keep this for offline queuing
-        val repository = MeterRepository(apiService, meterDao, readingDao, locationDao, queuedRequestDao, applicationContext) // Keep app context for WorkManager
+        val queuedRequestDao = database.queuedRequestDao()
+        val repository = MeterRepository(apiService, meterDao, readingDao, locationDao, queuedRequestDao, applicationContext)
 
         locationViewModel = ViewModelProvider(this, LocationViewModelFactory(repository))
             .get(LocationViewModel::class.java)
@@ -107,13 +102,12 @@ class MainActivity : AppCompatActivity() {
         setupDateSelection()
         setupTypeFilter()
         setupSendButton()
-        setupMeterSearchView() // Setup the meter search view
+        setupMeterSearchView()
 
         observeLocations()
         observeMeters()
         observeUiMessages()
 
-        // Initial UI state adjustments
         binding.backButton.visibility = View.GONE
         binding.metersContainer.visibility = View.GONE
         binding.sendReadingsFab.visibility = View.GONE
@@ -123,10 +117,8 @@ class MainActivity : AppCompatActivity() {
                 locationViewModel.refreshAllMeters()
                 Log.d("MainActivity", getString(R.string.log_refreshing_all_meters))
             } else if (binding.metersContainer.visibility == View.VISIBLE && locationViewModel.selectedLocationId.value != null) {
-                locationViewModel.selectedLocationId.value?.let { locationId ->
-                    locationViewModel.refreshAllMeters()
-                    Log.d("MainActivity", getString(R.string.log_refreshing_meters_for_location, locationId))
-                }
+                locationViewModel.refreshAllMeters()
+                Log.d("MainActivity", getString(R.string.log_refreshing_meters_for_location, locationViewModel.selectedLocationId.value))
             } else {
                 Log.d("MainActivity", getString(R.string.log_no_list_to_refresh))
             }
@@ -142,22 +134,20 @@ class MainActivity : AppCompatActivity() {
 
             binding.toolbarTitle.visibility = View.VISIBLE
             binding.toolbarTitle.text = getString(R.string.app_name)
-            binding.searchView.visibility = View.VISIBLE // Re-show location search
+            binding.searchView.visibility = View.VISIBLE
             binding.searchView.setQuery("", false)
             binding.searchView.isIconified = true
             locationViewModel.setSearchQuery("")
-            binding.meterSearchView.setQuery("", false) // Clear meter search
-            locationViewModel.setMeterSearchQuery("") // Clear meter search in ViewModel
+            binding.meterSearchView.setQuery("", false)
+            locationViewModel.setMeterSearchQuery("")
         }
 
-        // Set click listener for the hardcoded logout button
         binding.logoutButton.setOnClickListener {
             performLogout()
         }
     }
 
     private fun setupSearchView() {
-        // This is the LOCATION search bar in the toolbar
         binding.searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
                 return false
@@ -180,7 +170,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Setup for the Meter Search Bar
     private fun setupMeterSearchView() {
         binding.meterSearchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
@@ -193,15 +182,12 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
-        // Get the internal EditText of the SearchView and style it
         val searchEditText: EditText? = binding.meterSearchView.findViewById(androidx.appcompat.R.id.search_src_text)
         searchEditText?.let {
-            // Set background to null to ensure the CardView's background is visible
             it.background = null
-            it.setTextColor(ContextCompat.getColor(this, R.color.black)) // Set text color to black
-            it.setHintTextColor(ContextCompat.getColor(this, R.color.dark_gray_text)) // Set hint color
-            // Explicitly set the cursor drawable
-            it.textCursorDrawable = ContextCompat.getDrawable(this, R.drawable.text_cursor_orange) // FIX: Set custom cursor drawable
+            it.setTextColor(ContextCompat.getColor(this, R.color.black))
+            it.setHintTextColor(ContextCompat.getColor(this, R.color.dark_gray_text))
+            it.textCursorDrawable = ContextCompat.getDrawable(this, R.drawable.text_cursor_orange)
         }
     }
 
@@ -212,14 +198,16 @@ class MainActivity : AppCompatActivity() {
             binding.metersContainer.visibility = View.VISIBLE
             binding.sendReadingsFab.visibility = View.VISIBLE
             binding.backButton.visibility = View.VISIBLE
-            binding.toolbarTitle.text = location.address // Update toolbar title to location address
 
-            binding.toolbarTitle.visibility = View.VISIBLE // Keep toolbar title visible
-            binding.searchView.visibility = View.GONE // Hide location search when in meter view
-            binding.searchView.setQuery("", false) // Clear location search query
-            locationViewModel.setSearchQuery("") // Clear location search in ViewModel
-            binding.meterSearchView.setQuery("", false) // Clear meter search initially
-            locationViewModel.setMeterSearchQuery("") // Clear meter search in ViewModel
+            // FIX: Update toolbar title to use location.name, which should be granular
+            binding.toolbarTitle.text = location.name ?: location.address ?: getString(R.string.app_name)
+
+            binding.toolbarTitle.visibility = View.VISIBLE
+            binding.searchView.visibility = View.GONE
+            binding.searchView.setQuery("", false)
+            locationViewModel.setSearchQuery("")
+            binding.meterSearchView.setQuery("", false)
+            locationViewModel.setMeterSearchQuery("")
         }
         binding.locationsRecyclerView.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
@@ -267,7 +255,7 @@ class MainActivity : AppCompatActivity() {
             positiveButton.setTextColor(Color.WHITE)
         }
         datePickerDialog.getButton(DatePickerDialog.BUTTON_NEGATIVE)?.let { negativeButton ->
-            negativeButton.setTextColor(getColor(R.color.bright_orange))
+            negativeButton.setTextColor(ContextCompat.getColor(this, R.color.bright_orange))
         }
     }
 
@@ -310,10 +298,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         updateFilterUI()
-        locationViewModel.meters.value?.let { currentMeters ->
-            // Re-apply filter and search when filter changes
-            applyMeterAndSearchFilter(currentMeters)
-        }
+        locationViewModel.setMeterTypeFilter(selectedMeterTypesFilter)
     }
 
     private fun updateFilterUI() {
@@ -326,9 +311,9 @@ class MainActivity : AppCompatActivity() {
                 else -> R.color.black
             }
             val accentColor = if (type == "All") {
-                if (isSelected) getColor(R.color.black) else Color.TRANSPARENT
+                if (isSelected) ContextCompat.getColor(this, R.color.black) else Color.TRANSPARENT
             } else {
-                getColor(colorResId)
+                ContextCompat.getColor(this, colorResId)
             }
 
             if (isSelected) {
@@ -337,11 +322,11 @@ class MainActivity : AppCompatActivity() {
                 drawable.setColor(accentColor)
                 drawable.setStroke(2, accentColor)
 
-                textView.setTextColor(getColor(R.color.white))
+                textView.setTextColor(ContextCompat.getColor(this, R.color.white))
                 textView.setTypeface(null, Typeface.BOLD)
             } else {
                 textView.setBackgroundResource(R.drawable.filter_button_background)
-                textView.setTextColor(getColor(R.color.black))
+                textView.setTextColor(ContextCompat.getColor(this, R.color.black))
                 textView.setTypeface(null, Typeface.NORMAL)
             }
         }
@@ -384,48 +369,24 @@ class MainActivity : AppCompatActivity() {
                 if (it.isEmpty() && locationViewModel.selectedLocationId.value != null) {
                     binding.noDataTextView.text = getString(R.string.no_meters_for_location)
                     binding.noDataTextView.visibility = View.VISIBLE
-                    meterAdapter.submitList(emptyList()) // Ensure the list is cleared
+                    meterAdapter.submitList(emptyList())
                 } else if (it.isNotEmpty()) {
                     binding.noDataTextView.visibility = View.GONE
-                    applyMeterAndSearchFilter(it) // Apply both type and search filter
+                    meterAdapter.submitList(it)
                 }
             } ?: run {
                 binding.loadingProgressBar.visibility = View.GONE
                 binding.noDataTextView.text = getString(R.string.failed_to_load_meters)
                 binding.noDataTextView.visibility = View.VISIBLE
-                meterAdapter.submitList(emptyList()) // Ensure the list is cleared
+                meterAdapter.submitList(emptyList())
             }
         }
-    }
-
-    // Combined filter function for meters
-    private fun applyMeterAndSearchFilter(meters: List<Meter>) {
-        val filteredByType = if ("All" in selectedMeterTypesFilter) {
-            meters
-        } else {
-            meters.filter { meter ->
-                selectedMeterTypesFilter.any { selectedType ->
-                    meter.energy_type.equals(selectedType, ignoreCase = true)
-                }
-            }
-        }
-
-        val searchQuery = locationViewModel.meterSearchQuery.value.trim()
-        val finalFilteredList = if (searchQuery.isNotEmpty()) {
-            filteredByType.filter { meter ->
-                // Filter by meter number, case-insensitive
-                meter.number.contains(searchQuery, ignoreCase = true)
-            }
-        } else {
-            filteredByType
-        }
-        meterAdapter.submitList(finalFilteredList)
     }
 
     private fun sendAllMeterReadings() {
         val readingsToSend = mutableListOf<Reading>()
         val enteredValues = meterAdapter.getEnteredReadings()
-        val readingDateString = apiDateFormat.format(selectedReadingDate.time) // Use apiDateFormat for API
+        val readingDateString = apiDateFormat.format(selectedReadingDate.time)
 
         if (enteredValues.isEmpty()) {
             Toast.makeText(this, getString(R.string.no_readings_entered), Toast.LENGTH_SHORT).show()
@@ -478,7 +439,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun performLogout() {
-        // Clear "Remember Me" credentials if they exist
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         with(prefs.edit()) {
             putBoolean(KEY_REMEMBER_ME, false)
@@ -487,9 +447,8 @@ class MainActivity : AppCompatActivity() {
             apply()
         }
 
-        // Navigate back to LoginActivity
         val intent = Intent(this, LoginActivity::class.java)
         startActivity(intent)
-        finish() // Finish MainActivity so user can't go back to it
+        finish()
     }
 }
