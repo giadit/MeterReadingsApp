@@ -29,6 +29,16 @@ interface LocationDao {
     fun getAllLocations(): Flow<List<Location>>
 
     /**
+     * Retrieves a single location by its unique ID from the database.
+     * This method is crucial for the MeterRepository to fetch full location details
+     * needed for filtering meters by address attributes.
+     * @param id The unique ID of the location to retrieve.
+     * @return A Flow emitting a single Location object or null if not found.
+     */
+    @Query("SELECT * FROM locations WHERE id = :id LIMIT 1")
+    fun getLocationByIdFromDb(id: String): Flow<Location?>
+
+    /**
      * Deletes all locations from the database.
      */
     @Query("DELETE FROM locations")

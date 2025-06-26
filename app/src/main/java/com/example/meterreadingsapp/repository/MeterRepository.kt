@@ -38,6 +38,7 @@ import java.io.InputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+// Reverted: Removed kotlinx.coroutines.flow.first import as it's no longer directly used here.
 
 /**
  * Repository class that abstracts the data sources (API and local database) for meters and readings.
@@ -64,8 +65,7 @@ class MeterRepository(
 
     private val storageApiService: StorageApiService = RetrofitClient.getService(StorageApiService::class.java)
 
-    // This bucket name is still being used for splitting path, but the actual path is changed in MainActivity
-    private val SUPABASE_BUCKET_NAME = "project-documents"
+    private val SUPABASE_BUCKET_NAME = "project-documents" // This bucket name is still being used for splitting path, but the actual path is changed in MainActivity
 
     init {
         Log.d(TAG, "MeterRepository initialized with Supabase Storage API approach.")
@@ -94,15 +94,37 @@ class MeterRepository(
         return locationDao.getAllLocations()
     }
 
-    fun getMetersForLocation(
+    /**
+     * Retrieves a single location by its unique ID from the database.
+     * This method is needed by LocationViewModel to get full location details before querying meters.
+     * @param id The unique ID of the location to retrieve.
+     * @return A Flow emitting a single Location object or null if not found.
+     */
+    fun getLocationByIdFromDb(id: String): Flow<Location?> {
+        return locationDao.getLocationByIdFromDb(id)
+    }
+
+    /**
+     * Retrieves meters associated with a specific address, including house number and addition.
+     * Parameters are nullable to allow flexible filtering (e.g., get all meters on a street regardless of house number).
+     * The query now explicitly handles both NULL and empty string values for nullable parameters.
+     * @param address The street address to filter meters by.
+     * @param postalCode The postal code to filter meters by (can be null).
+     * @param city The city to filter meters by (can be null).
+     * @param houseNumber The house number to filter meters by (NEW, can be null).
+     * @param houseNumberAddition The house number addition to filter meters by (NEW, can be null).
+     * @return A Flow emitting a list of Meter objects matching the given address details.
+     */
+    fun getMetersByAddress(
         address: String,
         postalCode: String?,
         city: String?,
-        houseNumber: String?,
-        houseNumberAddition: String?
+        houseNumber: String?, // FIX: New parameter for filtering
+        houseNumberAddition: String? // FIX: New parameter for filtering
     ): Flow<List<Meter>> {
         return meterDao.getMetersByAddress(address, postalCode, city, houseNumber, houseNumberAddition)
     }
+
 
     suspend fun refreshAllMeters() {
         withContext(Dispatchers.IO) {
@@ -277,7 +299,6 @@ class MeterRepository(
                     bucketName = bucketName,
                     path = pathWithinBucket,
                     file = MultipartBody.Part.createFormData("file", pathWithinBucket, requestBody)
-                    // FIX: Removed contentType parameter from here
                 )
 
                 if (response.isSuccessful) {
