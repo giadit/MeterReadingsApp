@@ -153,7 +153,8 @@ class MainActivity : AppCompatActivity() {
         observeMeters()
         observeUiMessages()
 
-        binding.backButton.visibility = View.GONE
+        // Initial visibility states for the first screen (location list)
+        binding.backButton.visibility = View.GONE // Back button should be hidden on the initial screen
         binding.metersContainer.visibility = View.GONE
         binding.sendReadingsFab.visibility = View.GONE
 
@@ -174,9 +175,10 @@ class MainActivity : AppCompatActivity() {
             binding.locationsRecyclerView.visibility = View.VISIBLE
             binding.metersContainer.visibility = View.GONE
             binding.sendReadingsFab.visibility = View.GONE
-            binding.backButton.visibility = View.GONE
-            binding.noDataTextView.visibility = View.GONE
+            binding.backButton.visibility = View.GONE // Hide back button when returning to locations list
 
+            // FIX: Set the toolbar title back to the app name
+            binding.toolbarTitle.text = getString(R.string.app_name)
             binding.toolbarTitle.visibility = View.VISIBLE
             binding.searchView.visibility = View.VISIBLE
             binding.searchView.setQuery("", false)
@@ -241,7 +243,8 @@ class MainActivity : AppCompatActivity() {
             binding.locationsRecyclerView.visibility = View.GONE
             binding.metersContainer.visibility = View.VISIBLE
             binding.sendReadingsFab.visibility = View.VISIBLE
-            binding.backButton.visibility = View.GONE
+            // Show the back button when a location is selected (entering meter list view)
+            binding.backButton.visibility = View.VISIBLE
 
             binding.toolbarTitle.text = location.name ?: location.address ?: getString(R.string.app_name)
 
@@ -523,13 +526,11 @@ class MainActivity : AppCompatActivity() {
                 imagesToUpload.forEach { (meterId, imageUri) ->
                     val meter = meterAdapter.currentList.find { it.id == meterId }
                     if (meter != null) {
-                        val projectId = meter.project_id ?: "unknown_project" // Project ID is still part of the Meter object, but not used in the storage path anymore
-                        // FIX: Updated fullStoragePath for Supabase Storage to use meter-documents/meter/meter_id
-                        // Format: "meter-documents/meter/meter_id/YYYYMMDD_HHMM_MeterNumber.jpg"
-                        val currentTime = timeFormat.format(Date()) // Get current time in HHmm format
+                        val projectId = meter.project_id ?: "unknown_project"
+                        val currentTime = timeFormat.format(Date())
                         val fileName = "${s3KeyDateFormat.format(selectedReadingDate.time)}_${currentTime}_${meter.number.replace("/", "_").replace(".", "_")}.jpg"
-                        val fullStoragePath = "meter-documents/meter/${meter.id}/${fileName}" // Changed path
-                        locationViewModel.queueImageUpload(imageUri, fullStoragePath, projectId) // projectId is passed but no longer used in path
+                        val fullStoragePath = "meter-documents/meter/${meter.id}/${fileName}"
+                        locationViewModel.queueImageUpload(imageUri, fullStoragePath, projectId)
                     } else {
                         Log.e("MainActivity", "Meter not found for image with ID: $meterId. Skipping upload.")
                     }
