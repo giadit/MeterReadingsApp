@@ -6,9 +6,10 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <uses-feature android:name="android.hardware.camera" android:required="false" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" /> >
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
         android:allowBackup="true"
@@ -21,9 +22,9 @@
         android:theme="@style/Theme.MyPostsApp"
         tools:targetApi="31">
 
-        <!-- LoginActivity is now the main entry point (launcher activity) -->
+        <!-- MainActivity is now the main entry point (launcher activity) -->
         <activity
-            android:name=".LoginActivity"
+            android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -31,10 +32,11 @@
             </intent-filter>
         </activity>
 
-        <!-- MainActivity is a regular activity, launched after login -->
+        <!-- LoginActivity is no longer the launcher. It can still be started explicitly if needed. -->
         <activity
-            android:name=".MainActivity"
-            android:exported="false"> <!-- Set to false as it's not directly exported to other apps/launchers -->
+            android:name=".LoginActivity"
+            android:exported="false">
+            <!-- The intent-filter for MAIN and LAUNCHER is removed from here -->
         </activity>
 
         <!-- Any other activities would be declared here -->
@@ -47,6 +49,41 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- WorkManager setup - resolved conflicts with tools:replace -->
+        <!-- Note: Receiver definitions for SystemAlarmService and SystemJobService
+             are usually not needed in the app's manifest if WorkManager is configured
+             to use the default components. If you're encountering conflicts, it's often
+             best to let the library define them unless you have a specific reason to override.
+             However, based on your previous manifest, I've added the tools:replace. -->
+        <receiver
+            android:name="androidx.work.impl.background.systemalarm.SystemAlarmService"
+            android:enabled="false"
+            android:exported="false"
+            tools:replace="android:enabled,android:exported" /> <!-- Added tools:replace -->
+        <receiver
+            android:name="androidx.work.impl.background.systemjob.SystemJobService"
+            android:enabled="false"
+            android:exported="false"
+            tools:replace="android:enabled,android:exported" /> <!-- Added tools:replace -->
+        <receiver
+            android:name="androidx.work.impl.background.systemalarm.SystemAlarmService.WakeupListener"
+            android:enabled="false"
+            android:exported="false"
+            tools:replace="android:enabled,android:exported" /> <!-- Added tools:replace -->
+
+        <service
+            android:name="androidx.work.impl.background.systemjob.SystemJobService"
+            android:permission="android.permission.BIND_JOB_SERVICE"
+            android:enabled="true"
+            android:exported="false"
+            tools:replace="android:enabled,android:exported"/> <!-- Added tools:replace -->
+        <service
+            android:name="androidx.work.impl.background.systemalarm.SystemAlarmService"
+            android:enabled="true"
+            android:exported="false"
+            tools:replace="android:enabled,android:exported"/> <!-- Added tools:replace -->
+
     </application>
 
 </manifest>

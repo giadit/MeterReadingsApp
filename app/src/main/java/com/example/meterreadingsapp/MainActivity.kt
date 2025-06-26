@@ -177,7 +177,7 @@ class MainActivity : AppCompatActivity() {
             binding.sendReadingsFab.visibility = View.GONE
             binding.backButton.visibility = View.GONE // Hide back button when returning to locations list
 
-            // FIX: Set the toolbar title back to the app name
+            // Set the toolbar title back to the app name
             binding.toolbarTitle.text = getString(R.string.app_name)
             binding.toolbarTitle.visibility = View.VISIBLE
             binding.searchView.visibility = View.VISIBLE
@@ -567,8 +567,8 @@ class MainActivity : AppCompatActivity() {
             apply()
         }
 
-        val intent = Intent(this, LoginActivity::class.java)
-        startActivity(intent)
+        // Finish the current activity instead of trying to start LoginActivity
+        // as LoginActivity is now bypassed/disabled.
         finish()
     }
 }
