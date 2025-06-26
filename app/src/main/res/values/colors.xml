@@ -15,4 +15,5 @@
     <color name="dark_orange">#FFBF360C</color>   <!-- A darker shade for status bar -->
     <color name="pure_white">#FFFFFFFF</color>    <!-- Explicitly named white -->
     <color name="dark_gray_text">#FF333333</color> <!-- For text on white background -->
+    <color name="red_delete">#C70D00</color>
 </resources>

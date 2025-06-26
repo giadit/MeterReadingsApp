@@ -24,16 +24,19 @@ import android.net.Uri // Import Uri
  * passing the Meter object and the current local image URI (if any).
  * @param onViewImageClicked Lambda invoked when the view image button is clicked for a meter,
  * passing the Meter object and the local image URI.
+ * @param onDeleteImageClicked Lambda invoked when the delete image button is clicked for a meter,
+ * passing the Meter object and the local image URI to be deleted.
  */
 class MeterAdapter(
-    private val onCameraClicked: (Meter, Uri?) -> Unit, // FIX: New lambda for camera button
-    private val onViewImageClicked: (Meter, Uri) -> Unit // FIX: New lambda for view image button
+    private val onCameraClicked: (Meter, Uri?) -> Unit,
+    private val onViewImageClicked: (Meter, Uri) -> Unit,
+    private val onDeleteImageClicked: (Meter, Uri) -> Unit // FIX: New lambda for delete image button
 ) : ListAdapter<Meter, MeterAdapter.MeterViewHolder>(DiffCallback) {
 
     // A map to store the entered reading values, keyed by meter ID.
     private val enteredReadings: MutableMap<String, String> = ConcurrentHashMap()
 
-    // FIX: A map to store the local image URIs, keyed by meter ID.
+    // A map to store the local image URIs, keyed by meter ID.
     // This will hold the URI of the picture taken for each meter.
     private val meterImageUris: MutableMap<String, Uri> = ConcurrentHashMap()
 
@@ -44,11 +47,13 @@ class MeterAdapter(
      * @param binding The ViewBinding object for item_meter.xml.
      * @param cameraClickListener The lambda for camera button clicks.
      * @param viewImageClickListener The lambda for view image button clicks.
+     * @param deleteImageClickListener The lambda for delete image button clicks.
      */
     inner class MeterViewHolder(
         private val binding: ItemMeterBinding,
-        private val cameraClickListener: (Meter, Uri?) -> Unit, // FIX: Pass camera click listener
-        private val viewImageClickListener: (Meter, Uri) -> Unit // FIX: Pass view image click listener
+        private val cameraClickListener: (Meter, Uri?) -> Unit,
+        private val viewImageClickListener: (Meter, Uri) -> Unit,
+        private val deleteImageClickListener: (Meter, Uri) -> Unit // FIX: Pass delete image click listener
     ) : RecyclerView.ViewHolder(binding.root) {
 
         private var currentTextWatcher: TextWatcher? = null
@@ -113,20 +118,29 @@ class MeterAdapter(
                     }
                 }
 
-                // FIX: Set click listeners for the new buttons
+                // Set click listeners for the new buttons
                 cameraButton.setOnClickListener {
-                    // Pass the meter and its current image URI (if any)
                     cameraClickListener(meter, meterImageUris[meter.id])
                 }
 
-                // FIX: Enable/Disable viewImageButton based on whether an image exists for this meter
+                // Enable/Disable viewImageButton and deleteImageButton based on whether an image exists for this meter
                 val hasImage = meterImageUris.containsKey(meter.id)
+
                 viewImageButton.isEnabled = hasImage
                 viewImageButton.alpha = if (hasImage) 1.0f else 0.5f // Visually indicate enabled/disabled state
                 viewImageButton.setOnClickListener {
                     // Only allow click if an image exists
                     meterImageUris[meter.id]?.let { uri ->
                         viewImageClickListener(meter, uri)
+                    }
+                }
+
+                // FIX: Delete Image Button logic
+                deleteImageButton.isEnabled = hasImage
+                deleteImageButton.alpha = if (hasImage) 1.0f else 0.5f
+                deleteImageButton.setOnClickListener {
+                    meterImageUris[meter.id]?.let { uri ->
+                        deleteImageClickListener(meter, uri)
                     }
                 }
             }
@@ -140,7 +154,7 @@ class MeterAdapter(
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MeterViewHolder {
         val binding = ItemMeterBinding.inflate(LayoutInflater.from(parent.context), parent, false)
         // FIX: Pass the new click listeners to the ViewHolder constructor
-        return MeterViewHolder(binding, onCameraClicked, onViewImageClicked)
+        return MeterViewHolder(binding, onCameraClicked, onViewImageClicked, onDeleteImageClicked)
     }
 
     /**
@@ -169,7 +183,7 @@ class MeterAdapter(
     }
 
     /**
-     * FIX: Returns a map of meter IDs to their associated local image URIs.
+     * Returns a map of meter IDs to their associated local image URIs.
      * Only includes meters for which a picture has been saved.
      */
     fun getMeterImages(): Map<String, Uri> {
@@ -177,7 +191,7 @@ class MeterAdapter(
     }
 
     /**
-     * FIX: Clears all stored image URIs from the internal map.
+     * Clears all stored image URIs from the internal map.
      * Call this when the "Send" button is pressed (after images are uploaded).
      */
     fun clearMeterImages() {
@@ -186,12 +200,21 @@ class MeterAdapter(
     }
 
     /**
-     * FIX: Updates the local image URI for a specific meter.
+     * Updates the local image URI for a specific meter.
      * @param meterId The ID of the meter.
      * @param imageUri The local Uri of the captured image.
      */
     fun updateMeterImageUri(meterId: String, imageUri: Uri) {
         meterImageUris[meterId] = imageUri
+        notifyItemChanged(currentList.indexOfFirst { it.id == meterId }) // Notify adapter to rebind this item
+    }
+
+    /**
+     * FIX: Removes the image URI for a specific meter.
+     * @param meterId The ID of the meter whose image URI should be removed.
+     */
+    fun removeMeterImageUri(meterId: String) {
+        meterImageUris.remove(meterId)
         notifyItemChanged(currentList.indexOfFirst { it.id == meterId }) // Notify adapter to rebind this item
     }
 

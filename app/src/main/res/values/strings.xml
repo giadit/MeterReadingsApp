@@ -54,4 +54,13 @@
     <string name="pictures_will_be_uploaded">Pictures will be uploaded in the background.</string>
     <string name="data_sent_queued">Readings queued: %1$d, Pictures queued: %2$d</string>
     <string name="camera_permission_denied">Camera permission is required to take pictures.</string>
+
+    <string name="delete_image_button_description">Delete image</string>
+    <string name="confirm_delete_image_title">Confirm Image Deletion</string>
+    <string name="confirm_delete_image_message">Are you sure you want to delete the picture for meter %s?</string>
+    <string name="delete_button_text">Delete</string>
+    <string name="image_deleted_success">Image deleted successfully.</string>
+    <string name="image_deleted_failed">Failed to delete image.</string>
+    <string name="image_file_not_found">Image file not found locally, removed from list.</string>
+    <string name="image_deleted_error">Error deleting image: %s</string>
 </resources>

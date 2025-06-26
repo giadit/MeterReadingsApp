@@ -53,4 +53,13 @@
     <string name="pictures_will_be_uploaded">Bilder werden im Hintergrund hochgeladen.</string>
     <string name="data_sent_queued">Messwerte in Warteschlange: %1$d, Bilder in Warteschlange: %2$d</string>
     <string name="camera_permission_denied">Kameraberechtigung ist erforderlich, um Bilder aufzunehmen.</string>
+
+    <string name="delete_image_button_description">Bild löschen</string>
+    <string name="confirm_delete_image_title">Bildlöschung bestätigen</string>
+    <string name="confirm_delete_image_message">Möchten Sie das Bild für Zähler %s wirklich löschen?</string>
+    <string name="delete_button_text">Löschen</string>
+    <string name="image_deleted_success">Bild erfolgreich gelöscht.</string>
+    <string name="image_deleted_failed">Bild konnte nicht gelöscht werden.</string>
+    <string name="image_file_not_found">Bilddatei lokal nicht gefunden, aus der Liste entfernt.</string>
+    <string name="image_deleted_error">Fehler beim Löschen des Bildes: %s</string>
 </resources>

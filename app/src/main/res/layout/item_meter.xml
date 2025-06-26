@@ -135,7 +135,7 @@
                 tools:text="1234.5" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Camera and View Image Buttons -->
+        <!-- Camera, View Image, and NEW Delete Image Buttons -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -165,6 +165,20 @@
                 app:tint="@android:color/white"
                 android:padding="12dp"
                 android:scaleType="fitCenter" />
+
+            <!-- NEW: Delete Image Button -->
+            <ImageButton
+                android:id="@+id/deleteImageButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="16dp"
+                android:background="@drawable/button_red_background"
+                android:src="@drawable/ic_delete_white_24"
+                android:contentDescription="@string/delete_image_button_description"
+                app:tint="@android:color/white"
+                android:padding="12dp"
+                android:scaleType="fitCenter" />
+
         </LinearLayout>
 
     </LinearLayout>
