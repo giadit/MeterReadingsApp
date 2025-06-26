@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Focused state: use bright orange color -->
+    <item android:state_focused="true" android:color="@color/bright_orange" />
+    <!-- Default state (not focused): use a subtle dark gray color -->
+    <item android:color="@color/dark_gray_text" />
+</selector>

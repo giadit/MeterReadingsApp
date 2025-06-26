@@ -6,7 +6,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="true"
-    tools:context=".MainActivity">
+    tools:context="com.example.meterreadingsapp.MainActivity">
 
     <!-- AppBarLayout (Toolbar) -->
     <com.google.android.material.appbar.AppBarLayout
@@ -70,17 +70,27 @@
                     android:contentDescription="@string/refresh_button_description"
                     android:padding="8dp"
                     app:tint="?attr/colorOnPrimary" />
+
+                <!-- Hardcoded Logout Button -->
+                <ImageButton
+                    android:id="@+id/logoutButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:src="@drawable/ic_logout"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/logout_button_description"
+                    android:padding="8dp"
+                    app:tint="?attr/colorOnPrimary"/>
             </LinearLayout>
         </androidx.appcompat.widget.Toolbar>
     </com.google.android.material.appbar.AppBarLayout>
 
-    <!-- Main content container - this is where we'll place the RecyclerViews -->
+    <!-- Main content container -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-        <!-- Progress Bar for loading state -->
         <ProgressBar
             android:id="@+id/loadingProgressBar"
             android:layout_width="wrap_content"
@@ -92,7 +102,6 @@
             app:layout_constraintTop_toTopOf="parent"
             tools:visibility="visible" />
 
-        <!-- Text for No Data / Error Messages -->
         <TextView
             android:id="@+id/noDataTextView"
             android:layout_width="wrap_content"
@@ -106,7 +115,6 @@
             app:layout_constraintTop_toTopOf="parent"
             tools:visibility="gone" />
 
-        <!-- RecyclerView for displaying Locations -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/locationsRecyclerView"
             android:layout_width="0dp"
@@ -117,18 +125,193 @@
             app:layout_constraintTop_toTopOf="parent"
             tools:listitem="@layout/item_location" />
 
-        <!-- RecyclerView for displaying Meters (initially hidden) -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/metersRecyclerView"
-            android:layout_width="0dp"
-            android:layout_height="0dp"
+        <!-- Container for Meters UI (initially hidden) -->
+        <LinearLayout
+            android:id="@+id/metersContainer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
             android:visibility="gone"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            tools:listitem="@layout/item_meter" />
+            app:layout_constraintTop_toTopOf="parent">
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
+            <!-- Date Selection (Slimmed down and moved to top) -->
+            <LinearLayout
+                android:id="@+id/dateSelectionLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="4dp"
+                android:layout_marginHorizontal="8dp"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/date_selection_frame_background"
+                android:clickable="true"
+                android:focusable="true">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/reading_date_label"
+                    android:textStyle="bold"
+                    android:textAppearance="?attr/textAppearanceSubtitle1" />
+
+                <TextView
+                    android:id="@+id/selectedDateTextView"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:textAppearance="?attr/textAppearanceBody1"
+                    tools:text="2025-06-16"
+                    android:textColor="@android:color/black"
+                    android:paddingVertical="2dp"/>
+
+                <ImageButton
+                    android:id="@+id/selectDateButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:src="@drawable/ic_calendar"
+                    android:contentDescription="@string/select_date_button_description"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:padding="8dp"
+                    app:tint="@color/bright_orange" />
+
+            </LinearLayout>
+
+            <!-- Type Filter -->
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:scrollbars="none">
+                <LinearLayout
+                    android:id="@+id/meterTypeFilterGroup"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingVertical="4dp">
+
+                    <TextView
+                        android:id="@+id/filterAll"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/filter_all"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:paddingTop="8dp"
+                        android:paddingBottom="8dp"
+                        android:background="@drawable/filter_button_background"
+                        android:textColor="@android:color/black"
+                        android:textStyle="normal"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:layout_marginEnd="8dp"/>
+
+                    <TextView
+                        android:id="@+id/filterElectricity"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/filter_electricity"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:paddingTop="8dp"
+                        android:paddingBottom="8dp"
+                        android:background="@drawable/filter_button_background"
+                        android:textColor="@android:color/black"
+                        android:textStyle="normal"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:layout_marginEnd="8dp"/>
+
+                    <TextView
+                        android:id="@+id/filterHeat"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/filter_heat"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:paddingTop="8dp"
+                        android:paddingBottom="8dp"
+                        android:background="@drawable/filter_button_background"
+                        android:textColor="@android:color/black"
+                        android:textStyle="normal"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:layout_marginEnd="8dp"/>
+
+                    <TextView
+                        android:id="@+id/filterGas"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/filter_gas"
+                        android:paddingStart="16dp"
+                        android:paddingEnd="16dp"
+                        android:paddingTop="8dp"
+                        android:paddingBottom="8dp"
+                        android:background="@drawable/filter_button_background"
+                        android:textColor="@android:color/black"
+                        android:textStyle="normal"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:layout_marginEnd="8dp"/>
+                </LinearLayout>
+            </HorizontalScrollView>
+
+            <!-- NEW: CardView wrapper for Meter Search Bar with custom background -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="0dp"
+                app:cardBackgroundColor="@android:color/transparent"
+                android:background="@drawable/search_view_background_selector"> <!-- Apply custom background to CardView -->
+
+                <androidx.appcompat.widget.SearchView
+                    android:id="@+id/meterSearchView"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:iconifiedByDefault="false"
+                    app:queryHint="@string/search_meter_number_hint"
+                    android:background="@android:color/transparent" /> <!-- Ensure SearchView itself has transparent background -->
+
+            </androidx.cardview.widget.CardView>
+
+            <!-- Scrollable list of meters -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/metersRecyclerView"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:padding="8dp"
+                tools:listitem="@layout/item_meter" />
+
+        </LinearLayout> <!-- Closing tag for metersContainer LinearLayout -->
+
+    </androidx.constraintlayout.widget.ConstraintLayout> <!-- Closing tag for main content ConstraintLayout -->
+
+    <!-- Send Button (Extended Floating Action Button - kept as is) -->
+    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+        android:id="@+id/sendReadingsFab"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="16dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:text="@string/send_button_text"
+        android:textColor="@android:color/white"
+        app:icon="@drawable/ic_send"
+        android:contentDescription="@string/send_readings_button_description"
+        app:iconTint="@android:color/white"
+        app:backgroundTint="@color/bright_orange"
+        tools:visibility="visible"
+        android:visibility="gone"/>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

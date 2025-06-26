@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">BEA Zählerablesung</string>
+    <string name="back_button_description">Zurück navigieren</string>
+    <string name="search_locations_hint">Standorte suchen</string>
+    <string name="refresh_button_description">Daten aktualisieren</string>
+    <string name="no_data_found">Keine Daten gefunden.</string>
+    <string name="no_matching_locations_found">Keine übereinstimmenden Standorte für \'%1$s\' gefunden.</string>
+    <string name="no_meters_for_location">Keine Zähler für diesen Standort gefunden.</string>
+    <string name="failed_to_load_meters">Fehler beim Laden der Zähler.</string>
+    <string name="enter_reading_hint">Zählerstand eingeben</string>
+    <string name="send_button_text">Senden</string>
+    <string name="send_readings_button_description">Alle eingegebenen Zählerstände senden</string>
+    <string name="no_readings_entered">Keine Zählerstände für das ausgewählte Datum eingegeben.</string>
+    <string name="no_valid_readings_to_send">Keine gültigen Zählerstände zum Senden.</string>
+    <string name="confirm_send_readings_title">Zählerstände senden bestätigen</string>
+    <string name="confirm_send_readings_message">Möchten Sie wirklich %1$d Zählerstände für das Datum %2$s senden?</string>
+    <string name="cancel_button_text">Abbrechen</string>
+    <string name="readings_sent_queued">%1$d Zählerstände gesendet oder in Warteschlange!</string>
+    <string name="select_date_button_description">Ablesedatum auswählen</string>
+    <string name="filter_all">Alle</string>
+    <string name="filter_electricity">Strom</string>
+    <string name="filter_heat">Wärme</string>
+    <string name="filter_gas">Gas</string>
+    <string name="reading_date_label">Ablesedatum:</string>
+    <string name="energy_type_icon_description">Energietyp Symbol</string>
+    <string name="logout_button_text">Abmelden</string>
+    <string name="logout_button_description">Von der Anwendung abmelden</string>
+    <string name="username_hint">Benutzername</string>
+    <string name="password_hint">Passwort</string>
+    <string name="remember_me">Angemeldet bleiben</string>
+    <string name="login_button_text">Anmelden</string>
+    <string name="log_refreshing_all_meters">Alle Zähler werden aktualisiert.</string>
+    <string name="log_refreshing_meters_for_location">Zähler für Standort werden aktualisiert: %1$s</string>
+    <string name="log_no_list_to_refresh">Keine Liste zum Aktualisieren sichtbar.</string>
+    <string name="search_meter_number_hint">Zählernummer suchen</string>
+    <string name="login_success">Anmeldung erfolgreich!</string>
+    <string name="login_error_empty_fields">Bitte Benutzername und Passwort eingeben.</string>
+    <string name="login_error_credentials">Ungültiger Benutzername oder Passwort.</string>
+    <string name="login_error_network">Netzwerkfehler: %1$s. Bitte überprüfen Sie Ihre Verbindung.</string>
+    <string name="login_error_generic">Anmeldung fehlgeschlagen mit Code: %1$d</string>
+
+    <string name="camera_button_description">Foto vom Zähler machen</string>
+    <string name="view_image_button_description">Angehängtes Bild ansehen</string>
+
+    <string name="picture_saved_success">Bild gespeichert: %1$s</string>
+    <string name="picture_capture_failed">Fotoaufnahme fehlgeschlagen.</string>
+    <string name="error_creating_image_file">Fehler beim Erstellen der Bilddatei.</string>
+    <string name="error_viewing_image">Bild konnte nicht geöffnet werden. Überprüfen Sie, ob Sie eine Bildbetrachter-App haben.</string>
+    <string name="no_readings_or_pictures_entered">Keine Messwerte oder Bilder eingegeben.</string>
+    <string name="confirm_send_data_title">Datenübermittlung bestätigen</string>
+    <string name="confirm_send_data_message">Möchten Sie wirklich %1$d Messwerte und %2$d Bilder für den %3$s senden?</string>
+    <string name="pictures_will_be_uploaded">Bilder werden im Hintergrund hochgeladen.</string>
+    <string name="data_sent_queued">Messwerte in Warteschlange: %1$d, Bilder in Warteschlange: %2$d</string>
+    <string name="camera_permission_denied">Kameraberechtigung ist erforderlich, um Bilder aufzunehmen.</string>
+</resources>
