@@ -8,24 +8,16 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.workDataOf
-import com.amazonaws.auth.BasicAWSCredentials
-import com.amazonaws.mobileconnectors.s3.transferutility.TransferListener
-import com.amazonaws.mobileconnectors.s3.transferutility.TransferNetworkLossHandler
-import com.amazonaws.mobileconnectors.s3.transferutility.TransferState
-import com.amazonaws.mobileconnectors.s3.transferutility.TransferUtility
-import com.amazonaws.regions.Region
-import com.amazonaws.regions.Regions
-import com.amazonaws.services.s3.AmazonS3Client
-import com.amazonaws.services.s3.model.CannedAccessControlList
-import com.example.meterreadingsapp.BuildConfig
 import com.example.meterreadingsapp.api.ApiService
+import com.example.meterreadingsapp.api.RetrofitClient
+import com.example.meterreadingsapp.api.StorageApiService
 import com.example.meterreadingsapp.data.Location
 import com.example.meterreadingsapp.data.Meter
 import com.example.meterreadingsapp.data.MeterDao
 import com.example.meterreadingsapp.data.Reading
 import com.example.meterreadingsapp.data.ReadingDao
 import com.example.meterreadingsapp.data.LocationDao
-import com.example.meterreadingsapp.data.QueuedRequest // Ensure QueuedRequest is imported
+import com.example.meterreadingsapp.data.QueuedRequest
 import com.example.meterreadingsapp.data.QueuedRequestDao
 import com.example.meterreadingsapp.workers.SyncWorker
 import com.example.meterreadingsapp.workers.S3UploadWorker
@@ -34,10 +26,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
 import retrofit2.Response
 import okhttp3.ResponseBody
 import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
+import java.io.InputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -65,26 +62,13 @@ class MeterRepository(
     private val gson = Gson()
     private val workManager = WorkManager.getInstance(appContext)
 
-    private val s3Client: AmazonS3Client
-    private val transferUtility: TransferUtility
+    private val storageApiService: StorageApiService = RetrofitClient.getService(StorageApiService::class.java)
 
-    private val S3_BUCKET_NAME = "project-documents" // Updated S3 bucket name
+    // This bucket name is still being used for splitting path, but the actual path is changed in MainActivity
+    private val SUPABASE_BUCKET_NAME = "project-documents"
 
     init {
-        val credentials = BasicAWSCredentials(
-            BuildConfig.AWS_ACCESS_KEY_ID,
-            BuildConfig.AWS_SECRET_ACCESS_KEY
-        )
-
-        s3Client = AmazonS3Client(credentials, Region.getRegion(Regions.fromName(BuildConfig.AWS_REGION)))
-        TransferNetworkLossHandler.getInstance(appContext)
-        transferUtility = TransferUtility.builder()
-            .context(appContext)
-            .s3Client(s3Client)
-            .defaultBucket(S3_BUCKET_NAME)
-            .build()
-
-        Log.d(TAG, "AWS S3 Client and TransferUtility initialized for region: ${BuildConfig.AWS_REGION}")
+        Log.d(TAG, "MeterRepository initialized with Supabase Storage API approach.")
     }
 
     private fun generateLocationId(
@@ -213,9 +197,8 @@ class MeterRepository(
                 }
             } catch (e: IOException) {
                 Log.e(TAG, "Network error during POST, queuing request: ${e.message}", e)
-                // FIX: Pass the type "reading" to the queueRequest function
                 queueRequest(
-                    type = "reading", // ADDED: type parameter
+                    type = "reading", // Pass the type "reading"
                     endpoint = "readings",
                     method = "POST",
                     body = gson.toJson(reading)
@@ -228,22 +211,14 @@ class MeterRepository(
         }
     }
 
-    /**
-     * Queues an S3 image upload request for later sending using WorkManager.
-     *
-     * @param imageUri The local URI of the image file to upload.
-     * @param s3Key The full S3 object key (path and filename) where the image should be stored.
-     * Format: "project_documents/{project_id}/{date_metername}.jpg"
-     * @param projectId The project ID associated with the meter.
-     */
-    fun queueImageUpload(imageUri: Uri, s3Key: String, projectId: String) {
+    fun queueImageUpload(imageUri: Uri, fullStoragePath: String, projectId: String) {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
 
         val inputData = workDataOf(
             S3UploadWorker.KEY_IMAGE_URI to imageUri.toString(),
-            S3UploadWorker.KEY_S3_KEY to s3Key,
+            S3UploadWorker.KEY_S3_KEY to fullStoragePath,
             S3UploadWorker.KEY_PROJECT_ID to projectId
         )
 
@@ -253,71 +228,81 @@ class MeterRepository(
             .build()
 
         workManager.enqueue(uploadWorkRequest)
-        Log.d(TAG, "S3UploadWorker scheduled for image: $s3Key")
+        Log.d(TAG, "S3UploadWorker scheduled for image: $fullStoragePath (Supabase Storage)")
     }
 
-    suspend fun uploadFileToS3(imageUri: Uri, s3Key: String) {
+    suspend fun uploadFileToS3(imageUri: Uri, fullStoragePath: String) {
         withContext(Dispatchers.IO) {
+            var tempFile: File? = null
+            var inputStream: InputStream? = null
             try {
-                val file = File(imageUri.path ?: throw IOException("Invalid image URI path"))
-                if (!file.exists()) {
-                    throw IOException("File does not exist at URI: $imageUri")
+                inputStream = appContext.contentResolver.openInputStream(imageUri)
+                    ?: throw IOException("Could not open input stream for URI: $imageUri")
+
+                val extension = appContext.contentResolver.getType(imageUri)?.let { mimeType ->
+                    when {
+                        mimeType.contains("jpeg") || mimeType.contains("jpg") -> ".jpg"
+                        mimeType.contains("png") -> ".png"
+                        else -> ".tmp"
+                    }
+                } ?: ".jpg"
+
+                tempFile = File.createTempFile("upload_", extension, appContext.cacheDir)
+                FileOutputStream(tempFile).use { outputStream ->
+                    inputStream.copyTo(outputStream)
                 }
-                Log.d(TAG, "Starting S3 upload for file: ${file.name} to key: $s3Key")
+                inputStream.close()
 
-                val uploadObserver = transferUtility.upload(s3Key, file)
-
-                var isUploadComplete = false
-                var uploadError: Exception? = null
-
-                uploadObserver.setTransferListener(object : TransferListener {
-                    override fun onStateChanged(id: Int, state: TransferState) {
-                        Log.d(TAG, "Transfer ID $id: State changed to $state")
-                        if (state == TransferState.COMPLETED) {
-                            isUploadComplete = true
-                            Log.d(TAG, "S3 upload completed for key: $s3Key")
-                        } else if (state == TransferState.FAILED) {
-                            uploadError = Exception("S3 upload failed for key: $s3Key, State: $state")
-                            Log.e(TAG, "S3 upload failed for key: $s3Key, State: $state")
-                            isUploadComplete = true
-                        }
-                    }
-
-                    override fun onProgressChanged(id: Int, bytesCurrent: Long, bytesTotal: Long) {
-                        val percent = (bytesCurrent.toDouble() / bytesTotal * 100).toInt()
-                        Log.d(TAG, "Transfer ID $id: Progress $percent%")
-                    }
-
-                    override fun onError(id: Int, ex: Exception) {
-                        Log.e(TAG, "Error in S3 Transfer ID $id: ${ex.message}", ex)
-                        uploadError = ex
-                        isUploadComplete = true
-                    }
-                })
-
-                while (!isUploadComplete) {
-                    kotlinx.coroutines.delay(100)
+                if (!tempFile.exists()) {
+                    throw IOException("Temporary file not created at path: ${tempFile.absolutePath}")
                 }
+                Log.d(TAG, "Temporary file created at: ${tempFile.absolutePath}, Size: ${tempFile.length()} bytes")
 
-                uploadError?.let { throw it }
+
+                val contentType = appContext.contentResolver.getType(imageUri) ?: "application/octet-stream"
+                val requestBody = tempFile.asRequestBody(contentType.toMediaTypeOrNull())
+
+                val segments = fullStoragePath.split("/", limit = 2)
+                if (segments.size < 2) {
+                    val errorMessage = "Invalid fullStoragePath format: $fullStoragePath. Expected 'bucketName/path'."
+                    Log.e(TAG, errorMessage)
+                    throw IllegalArgumentException(errorMessage)
+                }
+                val bucketName = segments[0]
+                val pathWithinBucket = segments[1]
+
+                Log.d(TAG, "Attempting Supabase Storage upload to bucket: $bucketName, path: $pathWithinBucket (Content-Type: $contentType)")
+
+                val response = storageApiService.uploadFile(
+                    bucketName = bucketName,
+                    path = pathWithinBucket,
+                    file = MultipartBody.Part.createFormData("file", pathWithinBucket, requestBody)
+                    // FIX: Removed contentType parameter from here
+                )
+
+                if (response.isSuccessful) {
+                    Log.d(TAG, "Supabase Storage upload completed successfully for path: $fullStoragePath. Response code: ${response.code()}")
+                } else {
+                    val errorBody = response.errorBody()?.string()
+                    val errorMessage = "Supabase Storage upload failed for path: $fullStoragePath. Code: ${response.code()}, Message: ${response.message()}. Error Body: $errorBody"
+                    Log.e(TAG, errorMessage)
+                    throw IOException(errorMessage)
+                }
 
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to upload file to S3: ${e.message}", e)
+                Log.e(TAG, "Failed to upload file to Supabase Storage: ${e.message}", e)
                 throw e
+            } finally {
+                tempFile?.delete()
+                Log.d(TAG, "Temporary file deleted: ${tempFile?.absolutePath}")
+                inputStream?.close()
             }
         }
     }
 
 
-    /**
-     * Queues an API request for later sending using WorkManager.
-     * @param type The type of request (e.g., "reading", "image_upload").
-     * @param endpoint The API endpoint.
-     * @param method The HTTP method.
-     * @param body The JSON string body of the request.
-     */
-    private suspend fun queueRequest(type: String, endpoint: String, method: String, body: String) { // FIX: Added 'type' parameter
-        val queuedRequest = QueuedRequest(type = type, endpoint = endpoint, method = method, body = body) // FIX: Pass 'type' to constructor
+    private suspend fun queueRequest(type: String, endpoint: String, method: String, body: String) {
+        val queuedRequest = QueuedRequest(type = type, endpoint = endpoint, method = method, body = body)
         queuedRequestDao.insert(queuedRequest)
         Log.d(TAG, "Request queued locally: ${queuedRequest.id} (Type: $type)")
 

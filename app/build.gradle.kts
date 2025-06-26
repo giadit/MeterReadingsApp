@@ -26,23 +26,29 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Define your API key for release builds
-            buildConfigField("String", "SUPABASE_API_KEY", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0Ymtka29mcGhxemlmbm96dnFlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MzE2NzI4MSwiZXhwIjoyMDU4NzQzMjgxfQ.TkCB6yierJw-SY-Qbbanjgq1xJmwdirbxO-Vs_FRkm0\"") // IMPORTANT: REPLACE THIS
-            // FIX: AWS S3 Credentials for Release Builds (kept as buildConfigField for general access if needed elsewhere)
+            // Define your API key for release builds (still keeping this for main API calls)
+            buildConfigField("String", "SUPABASE_API_KEY", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0Ymtka29mcGhxemlmbm96dnFlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MzE2NzI4MSwiZXhwIjoyMDU4NzQzMjgxfQ.TkCB6yierJw-SY-Qbbanjgq1xJmwdirbxO-Vs_FRkm0\"")
+            // RE-ADD: AWS Access Key ID for authentication (will be used in headers via Retrofit)
             buildConfigField("String", "AWS_ACCESS_KEY_ID", "\"186ae8da1a085f58821956c34a50357c\"") // Replace with actual Access Key ID
+            // RE-ADD: AWS Secret Access Key (might be needed for some manual signing, though typically not put directly in header)
             buildConfigField("String", "AWS_SECRET_ACCESS_KEY", "\"57131e3b6293a82c21814191b6d69ff515193c79d95d8d95c8b919c188ceea96\"") // Replace with actual Secret Access Key
-            buildConfigField("String", "AWS_REGION", "\"eu-central-1\"") // Replace with your S3 bucket region (e.g., "us-east-1", "eu-central-1")
-            buildConfigField("String", "AWS_SERVICE_NAME", "\"s3\"") // Service name for S3
+            // RE-ADD: AWS Region (might be needed for some manual signing)
+            buildConfigField("String", "AWS_REGION", "\"eu-central-1\"") // Replace with your S3 bucket region
+            // FIX: Add AWS Service Name
+            buildConfigField("String", "AWS_SERVICE_NAME", "\"s3\"")
         }
         debug {
-            isMinifyEnabled = false // Often set to false for debug for easier debugging
-            // Define your API key for debug builds
-            buildConfigField("String", "SUPABASE_API_KEY", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0Ymtka29mcGhxemlmbm96dnFlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MzE2NzI4MSwiZXhwIjoyMDU4NzQzMjgxfQ.TkCB6yierJw-SY-Qbbanjgq1xJmwdirbxO-Vs_FRkm0\"") // IMPORTANT: REPLACE THIS
-            // FIX: AWS S3 Credentials for Debug Builds (kept as buildConfigField for general access if needed elsewhere)
+            isMinifyEnabled = false
+            // Define your API key for debug builds (still keeping this for main API calls)
+            buildConfigField("String", "SUPABASE_API_KEY", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0Ymtka29mcGhxemlmbm96dnFlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MzE2NzI4MSwiZXhwIjoyMDU4NzQzMjgxfQ.TkCB6yierJw-SY-Qbbanjgq1xJmwdirbxO-Vs_FRkm0\"")
+            // RE-ADD: AWS Access Key ID for authentication (will be used in headers via Retrofit)
             buildConfigField("String", "AWS_ACCESS_KEY_ID", "\"186ae8da1a085f58821956c34a50357c\"") // Replace with actual Access Key ID
+            // RE-ADD: AWS Secret Access Key
             buildConfigField("String", "AWS_SECRET_ACCESS_KEY", "\"57131e3b6293a82c21814191b6d69ff515193c79d95d8d95c8b919c188ceea96\"") // Replace with actual Secret Access Key
+            // RE-ADD: AWS Region
             buildConfigField("String", "AWS_REGION", "\"eu-central-1\"") // Replace with your S3 bucket region
-            buildConfigField("String", "AWS_SERVICE_NAME", "\"s3\"") // Service name for S3
+            // FIX: Add AWS Service Name
+            buildConfigField("String", "AWS_SERVICE_NAME", "\"s3\"")
         }
     }
     compileOptions {
@@ -104,10 +110,10 @@ dependencies {
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("androidx.cardview:cardview:1.0.0")
 
-    // NEW: WorkManager for background processing
+    // WorkManager for background processing
     implementation("androidx.work:work-runtime-ktx:2.9.0")
 
-    // FIX: AWS Mobile SDK for S3
-    implementation("com.amazonaws:aws-android-sdk-s3:2.62.0") // S3 module
-    implementation("com.amazonaws:aws-android-sdk-core:2.62.0") // Core SDK module
+    // REMOVED: AWS Mobile SDK for S3
+    // implementation("com.amazonaws:aws-android-sdk-s3:2.62.0")
+    // implementation("com.amazonaws:aws-android-sdk-core:2.62.0")
 }

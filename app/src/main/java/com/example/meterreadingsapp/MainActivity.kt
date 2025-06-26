@@ -17,7 +17,6 @@ import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.widget.DatePicker
-import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
@@ -50,6 +49,8 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import android.content.pm.PackageManager
+import android.widget.EditText
 
 class MainActivity : AppCompatActivity() {
 
@@ -60,7 +61,8 @@ class MainActivity : AppCompatActivity() {
 
     private val uiDateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.US)
     private val apiDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-    private val s3KeyDateFormat = SimpleDateFormat("yyyyMMdd", Locale.US) // For S3 key naming
+    private val s3KeyDateFormat = SimpleDateFormat("yyyyMMdd", Locale.US) // For file naming/path for Supabase (Date part)
+    private val timeFormat = SimpleDateFormat("HHmm", Locale.US)
 
     private var selectedReadingDate: Calendar = Calendar.getInstance()
     private val selectedMeterTypesFilter: MutableSet<String> = mutableSetOf("All")
@@ -74,6 +76,20 @@ class MainActivity : AppCompatActivity() {
 
     private var currentPhotoUri: Uri? = null
     private var currentMeterForPhoto: Meter? = null
+
+    // ActivityResultLauncher for requesting camera permission
+    private val requestCameraPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
+            if (isGranted) {
+                currentMeterForPhoto?.let { meter ->
+                    launchCamera(meter)
+                }
+            } else {
+                Toast.makeText(this, getString(R.string.camera_permission_denied), Toast.LENGTH_LONG).show()
+                currentMeterForPhoto = null
+                currentPhotoUri = null
+            }
+        }
 
     private val takePictureLauncher: ActivityResultLauncher<Uri> =
         registerForActivityResult(ActivityResultContracts.TakePicture()) { success: Boolean ->
@@ -162,7 +178,6 @@ class MainActivity : AppCompatActivity() {
             binding.noDataTextView.visibility = View.GONE
 
             binding.toolbarTitle.visibility = View.VISIBLE
-            binding.toolbarTitle.text = getString(R.string.app_name)
             binding.searchView.visibility = View.VISIBLE
             binding.searchView.setQuery("", false)
             binding.searchView.isIconified = true
@@ -205,7 +220,6 @@ class MainActivity : AppCompatActivity() {
                 return false
             }
 
-            // FIX: Corrected method name for onQueryTextChange
             override fun onQueryTextChange(newText: String?): Boolean {
                 locationViewModel.setMeterSearchQuery(newText ?: "")
                 return true
@@ -227,7 +241,7 @@ class MainActivity : AppCompatActivity() {
             binding.locationsRecyclerView.visibility = View.GONE
             binding.metersContainer.visibility = View.VISIBLE
             binding.sendReadingsFab.visibility = View.VISIBLE
-            binding.backButton.visibility = View.VISIBLE
+            binding.backButton.visibility = View.GONE
 
             binding.toolbarTitle.text = location.name ?: location.address ?: getString(R.string.app_name)
 
@@ -248,11 +262,10 @@ class MainActivity : AppCompatActivity() {
         meterAdapter = MeterAdapter(
             onCameraClicked = { meter, currentUri ->
                 currentMeterForPhoto = meter
-                currentPhotoUri = createImageFileForMeter(meter)
-                currentPhotoUri?.let { uri ->
-                    takePictureLauncher.launch(uri)
-                } ?: run {
-                    Toast.makeText(this, getString(R.string.error_creating_image_file), Toast.LENGTH_SHORT).show()
+                if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                    launchCamera(meter)
+                } else {
+                    requestCameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
                 }
             },
             onViewImageClicked = { meter, imageUri ->
@@ -265,10 +278,19 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun launchCamera(meter: Meter) {
+        currentPhotoUri = createImageFileForMeter(meter)
+        currentPhotoUri?.let { uri ->
+            takePictureLauncher.launch(uri)
+        } ?: run {
+            Toast.makeText(this, getString(R.string.error_creating_image_file), Toast.LENGTH_SHORT).show()
+        }
+    }
+
     @Throws(IOException::class)
     private fun createImageFileForMeter(meter: Meter): Uri {
         val timeStamp: String = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-        val imageFileName = "${timeStamp}_${meter.number.replace("/", "_").replace(".", "_")}" // Sanitize meter number for filename
+        val imageFileName = "${timeStamp}_${meter.number.replace("/", "_").replace(".", "_")}"
         val storageDir: File? = getExternalFilesDir(Environment.DIRECTORY_PICTURES)
         val imageFile = File.createTempFile(
             imageFileName,
@@ -286,7 +308,7 @@ class MainActivity : AppCompatActivity() {
         val intent = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(imageUri, "image/*")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) // Needed if launching from non-activity context
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         try {
             startActivity(intent)
@@ -451,7 +473,6 @@ class MainActivity : AppCompatActivity() {
                 binding.loadingProgressBar.visibility = View.GONE
                 binding.noDataTextView.text = getString(R.string.failed_to_load_meters)
                 binding.noDataTextView.visibility = View.VISIBLE
-                meterAdapter.submitList(emptyList())
             }
         }
     }
@@ -498,20 +519,24 @@ class MainActivity : AppCompatActivity() {
                     locationViewModel.postMeterReading(reading)
                 }
 
-                // FIX: Queue image uploads via MeterRepository
+                // Queue image uploads via MeterRepository
                 imagesToUpload.forEach { (meterId, imageUri) ->
                     val meter = meterAdapter.currentList.find { it.id == meterId }
                     if (meter != null) {
-                        val projectId = meter.project_id ?: "unknown_project" // Use meter's project ID
-                        val s3Key = "project_documents/${projectId}/${s3KeyDateFormat.format(selectedReadingDate.time)}_${meter.number.replace("/", "_").replace(".", "_")}.jpg"
-                        locationViewModel.queueImageUpload(imageUri, s3Key, projectId) // Call new ViewModel function
+                        val projectId = meter.project_id ?: "unknown_project" // Project ID is still part of the Meter object, but not used in the storage path anymore
+                        // FIX: Updated fullStoragePath for Supabase Storage to use meter-documents/meter/meter_id
+                        // Format: "meter-documents/meter/meter_id/YYYYMMDD_HHMM_MeterNumber.jpg"
+                        val currentTime = timeFormat.format(Date()) // Get current time in HHmm format
+                        val fileName = "${s3KeyDateFormat.format(selectedReadingDate.time)}_${currentTime}_${meter.number.replace("/", "_").replace(".", "_")}.jpg"
+                        val fullStoragePath = "meter-documents/meter/${meter.id}/${fileName}" // Changed path
+                        locationViewModel.queueImageUpload(imageUri, fullStoragePath, projectId) // projectId is passed but no longer used in path
                     } else {
                         Log.e("MainActivity", "Meter not found for image with ID: $meterId. Skipping upload.")
                     }
                 }
 
                 meterAdapter.clearEnteredReadings()
-                meterAdapter.clearMeterImages() // Clear images from adapter after initiating send
+                meterAdapter.clearMeterImages()
 
                 val totalItemsSent = readingsToSend.size + imagesQueuedCount
                 Toast.makeText(this, getString(R.string.data_sent_queued, readingsToSend.size, imagesQueuedCount), Toast.LENGTH_LONG).show()

@@ -52,4 +52,5 @@
     <string name="confirm_send_data_message">Möchten Sie wirklich %1$d Messwerte und %2$d Bilder für den %3$s senden?</string>
     <string name="pictures_will_be_uploaded">Bilder werden im Hintergrund hochgeladen.</string>
     <string name="data_sent_queued">Messwerte in Warteschlange: %1$d, Bilder in Warteschlange: %2$d</string>
+    <string name="camera_permission_denied">Kameraberechtigung ist erforderlich, um Bilder aufzunehmen.</string>
 </resources>
