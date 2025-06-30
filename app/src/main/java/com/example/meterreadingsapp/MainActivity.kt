@@ -29,13 +29,13 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.meterreadingsapp.adapter.LocationAdapter
 import com.example.meterreadingsapp.adapter.MeterAdapter
-import com.example.meterreadingsapp.adapter.ProjectAdapter // FIX: Import ProjectAdapter
+import com.example.meterreadingsapp.adapter.ProjectAdapter
 import com.example.meterreadingsapp.api.ApiService
 import com.example.meterreadingsapp.api.RetrofitClient
 import com.example.meterreadingsapp.data.AppDatabase
 import com.example.meterreadingsapp.data.Location
 import com.example.meterreadingsapp.data.Meter
-import com.example.meterreadingsapp.data.Project // FIX: Import Project
+import com.example.meterreadingsapp.data.Project
 import com.example.meterreadingsapp.data.Reading
 import com.example.meterreadingsapp.databinding.ActivityMainBinding
 import com.example.meterreadingsapp.repository.MeterRepository
@@ -49,7 +49,7 @@ import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
-import java.util.Locale
+import java.util.Locale // FIX: Added Locale import
 import android.content.pm.PackageManager
 import android.widget.EditText
 import androidx.core.content.edit
@@ -59,7 +59,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var locationViewModel: LocationViewModel
-    private lateinit var projectAdapter: ProjectAdapter // FIX: New adapter for projects
+    private lateinit var projectAdapter: ProjectAdapter
     private lateinit var locationAdapter: LocationAdapter
     private lateinit var meterAdapter: MeterAdapter
 
@@ -139,14 +139,14 @@ class MainActivity : AppCompatActivity() {
         val meterDao = database.meterDao()
         val readingDao = database.readingDao()
         val queuedRequestDao = database.queuedRequestDao()
-        val projectDao = database.projectDao() // FIX: Get ProjectDao instance
+        val projectDao = database.projectDao()
 
-        val repository = MeterRepository(apiService, meterDao, readingDao, locationDao, queuedRequestDao, projectDao, applicationContext) // FIX: Pass projectDao
+        val repository = MeterRepository(apiService, meterDao, readingDao, locationDao, queuedRequestDao, projectDao, applicationContext)
 
         locationViewModel = ViewModelProvider(this, LocationViewModelFactory(repository))
             .get(LocationViewModel::class.java)
 
-        setupProjectRecyclerView() // FIX: Setup project RecyclerView
+        setupProjectRecyclerView()
         setupLocationRecyclerView()
         setupMeterRecyclerView()
         setupSearchView() // This search view will dynamically control project or location search
@@ -155,20 +155,19 @@ class MainActivity : AppCompatActivity() {
         setupSendButton()
         setupMeterSearchView() // This will now be specific to meters
 
-        observeProjects() // FIX: Observe projects
+        observeProjects()
         observeLocations()
         observeMeters()
         observeUiMessages()
 
         // Initial visibility states: Start with projects visible
-        binding.projectsContainer.isVisible = true // FIX: Show projects container initially
+        binding.projectsContainer.isVisible = true
         binding.locationsContainer.isVisible = false
         binding.metersContainer.isVisible = false
         binding.sendReadingsFab.isVisible = false
         binding.backButton.isVisible = false // Hidden initially as we start at the top level (projects)
 
         binding.refreshButton.setOnClickListener {
-            // FIX: Refresh logic now refreshes all data (projects, locations, meters)
             locationViewModel.refreshAllProjectsAndMeters()
             Log.d("MainActivity", getString(R.string.log_refreshing_all_data))
         }
@@ -213,7 +212,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // FIX: Setup Project RecyclerView
     private fun setupProjectRecyclerView() {
         projectAdapter = ProjectAdapter { project ->
             locationViewModel.selectProject(project)
@@ -266,7 +264,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // FIX: Modified setupSearchView to dynamically control project or location search
     private fun setupSearchView() {
         binding.searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean = false
@@ -284,7 +281,6 @@ class MainActivity : AppCompatActivity() {
         binding.searchView.setOnQueryTextFocusChangeListener { _, hasFocus ->
             binding.toolbarTitle.isVisible = !hasFocus && binding.searchView.query.isNullOrEmpty()
         }
-        // Initial hint set in onResume or updateToolbarForProjects
     }
 
     private fun setupMeterSearchView() {
@@ -501,7 +497,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // FIX: Observe projects
     private fun observeProjects() {
         locationViewModel.projects.observe(this) { projects ->
             projects?.let {
@@ -664,38 +659,36 @@ class MainActivity : AppCompatActivity() {
         finish()
     }
 
-    // FIX: Update toolbar for Project list view
     private fun updateToolbarForProjects() {
-        binding.toolbarTitle.text = getString(R.string.app_name) // App name when viewing all projects
-        binding.searchView.queryHint = getString(R.string.search_project_hint) // Set hint for project search
+        binding.toolbarTitle.text = getString(R.string.app_name)
+        binding.searchView.queryHint = getString(R.string.search_project_hint)
         binding.toolbarTitle.isVisible = true
         binding.searchView.isVisible = true
-        binding.meterSearchView.isVisible = false // Hide meter search when in projects view
-        binding.dateSelectionLayout.isVisible = false // Hide date selection
-        binding.filterButtonsLayout.isVisible = false // Hide filter buttons
+        binding.meterSearchView.isVisible = false
+        binding.dateSelectionLayout.isVisible = false
+        binding.filterButtonsLayout.isVisible = false
     }
 
-    // FIX: Update toolbar for Location list view (within a project)
     private fun updateToolbarForLocations(projectId: String?) {
         val projectName = projectId?.let {
             locationViewModel.projects.value?.find { p -> p.id == it }?.name
-        } ?: getString(R.string.app_name) // Fallback to app name if project not found
+        } ?: getString(R.string.app_name)
         binding.toolbarTitle.text = projectName
-        binding.searchView.queryHint = getString(R.string.search_location_hint) // Set hint for location search
+        binding.searchView.queryHint = getString(R.string.search_location_hint)
         binding.toolbarTitle.isVisible = true
         binding.searchView.isVisible = true
-        binding.meterSearchView.isVisible = false // Hide meter search
-        binding.dateSelectionLayout.isVisible = false // Hide date selection
-        binding.filterButtonsLayout.isVisible = false // Hide filter buttons
+        binding.meterSearchView.isVisible = false
+        binding.dateSelectionLayout.isVisible = false
+        binding.filterButtonsLayout.isVisible = false
     }
 
     private fun updateToolbarForMeters(location: Location) {
-        binding.toolbarTitle.text = location.name ?: location.address ?: getString(R.string.app_name) // Display location name or address
-        binding.searchView.isVisible = false // Hide project/location search
-        binding.meterSearchView.isVisible = true // Show meter search
-        binding.dateSelectionLayout.isVisible = true // Show date selection
-        binding.filterButtonsLayout.isVisible = true // Show filter buttons
-        binding.toolbarTitle.isVisible = true // Ensure toolbar title is visible
+        binding.toolbarTitle.text = location.name ?: location.address ?: getString(R.string.app_name)
+        binding.searchView.isVisible = false
+        binding.meterSearchView.isVisible = true
+        binding.dateSelectionLayout.isVisible = true
+        binding.filterButtonsLayout.isVisible = true
+        binding.toolbarTitle.isVisible = true
     }
 
     override fun onResume() {

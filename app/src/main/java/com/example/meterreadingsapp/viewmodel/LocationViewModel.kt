@@ -9,7 +9,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.meterreadingsapp.data.Location
 import com.example.meterreadingsapp.data.Meter
 import com.example.meterreadingsapp.data.Project
-import com.example.meterreadingsapp.data.Reading // FIX: Ensuring this import is present and correct
+import com.example.meterreadingsapp.data.Reading
 import com.example.meterreadingsapp.repository.MeterRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -23,6 +23,7 @@ import kotlinx.coroutines.launch
 import androidx.lifecycle.asLiveData
 import androidx.lifecycle.asFlow
 import kotlinx.coroutines.flow.first
+import java.util.Locale // FIX: Added Locale import
 
 /**
  * ViewModel for managing UI-related data concerning Projects, Locations, and Meters.
@@ -43,19 +44,40 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
     private val _projectSearchQuery = MutableStateFlow("")
     val projectSearchQuery: StateFlow<String> = _projectSearchQuery.asStateFlow()
 
-    val projects: LiveData<List<Project>> = repository.getAllProjectsFromDb()
-        .map { projectList ->
-            val query = _projectSearchQuery.value
-            if (query.isBlank()) {
-                projectList
-            } else {
-                projectList.filter {
-                    it.name?.contains(query, ignoreCase = true) == true ||
-                            it.address?.contains(query, ignoreCase = true) == true ||
-                            it.projectNumber?.contains(query, ignoreCase = true) == true
+    // FIX: LiveData for the list of projects, enhanced to filter by project properties and associated location properties
+    val projects: LiveData<List<Project>> = combine(
+        repository.getAllProjectsFromDb(), // Get all projects
+        repository.getUniqueLocations(), // Get all locations to check for associated locations
+        _projectSearchQuery
+    ) { projectList, allLocations, query ->
+        if (query.isBlank()) {
+            projectList // If no query, return all projects
+        } else {
+            val lowerCaseQuery = query.lowercase(Locale.ROOT) // FIX: Changed to lowercase()
+            projectList.filter { project ->
+                // Check if project's own properties match
+                val projectMatches =
+                    project.name?.lowercase(Locale.ROOT)?.contains(lowerCaseQuery) == true || // FIX: Changed to lowercase()
+                            project.address?.lowercase(Locale.ROOT)?.contains(lowerCaseQuery) == true || // FIX: Changed to lowercase()
+                            project.projectNumber?.lowercase(Locale.ROOT)?.contains(lowerCaseQuery) == true // FIX: Changed to lowercase()
+
+                if (projectMatches) {
+                    true // If project itself matches, include it
+                } else {
+                    // Check if any associated location matches the query
+                    allLocations.any { location ->
+                        location.project_id == project.id && // Check if location belongs to this project
+                                (location.name?.lowercase(Locale.ROOT)?.contains(lowerCaseQuery) == true || // FIX: Changed to lowercase()
+                                        location.address?.lowercase(Locale.ROOT)?.contains(lowerCaseQuery) == true || // FIX: Changed to lowercase()
+                                        location.city?.lowercase(Locale.ROOT)?.contains(lowerCaseQuery) == true || // FIX: Changed to lowercase()
+                                        location.postal_code?.lowercase(Locale.ROOT)?.contains(lowerCaseQuery) == true || // FIX: Changed to lowercase()
+                                        location.house_number?.lowercase(Locale.ROOT)?.contains(lowerCaseQuery) == true || // FIX: Changed to lowercase()
+                                        location.house_number_addition?.lowercase(Locale.ROOT)?.contains(lowerCaseQuery) == true) // FIX: Changed to lowercase()
+                    }
                 }
             }
-        }.asLiveData(viewModelScope.coroutineContext)
+        }
+    }.asLiveData(viewModelScope.coroutineContext)
 
     val selectedProjectId: MutableLiveData<String?> = MutableLiveData(null)
 
@@ -195,18 +217,18 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
      * Posts a new meter reading to the API.
      * @param reading The Reading object to be posted.
      */
-    fun postMeterReading(reading: Reading) { // The 'Reading' type is used correctly here
+    fun postMeterReading(reading: Reading) {
         viewModelScope.launch {
             try {
                 val response = repository.postMeterReading(reading)
                 if (response.isSuccessful) {
-                    _uiMessage.value = "Reading for meter ${reading.meter_id} posted successfully!" // Accessing meter_id
+                    _uiMessage.value = "Reading for meter ${reading.meter_id} posted successfully!"
                 } else {
                     val errorMessage = response.errorBody()?.string() ?: response.message()
-                    _uiMessage.value = "Failed to post reading for meter ${reading.meter_id}: $errorMessage" // Accessing meter_id
+                    _uiMessage.value = "Failed to post reading for meter ${reading.meter_id}: $errorMessage"
                 }
             } catch (e: Exception) {
-                _uiMessage.value = "Error posting reading for meter ${reading.meter_id}: ${e.message}" // Accessing meter_id
+                _uiMessage.value = "Error posting reading for meter ${reading.meter_id}: ${e.message}"
                 Log.e(TAG, "Error posting reading: ${e.message}", e)
             }
         }
