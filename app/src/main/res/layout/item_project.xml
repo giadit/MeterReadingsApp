@@ -25,25 +25,8 @@
             android:textColor="@android:color/black"
             tools:text="IHK Gebäude" />
 
-        <!-- Project Address -->
-        <TextView
-            android:id="@+id/projectAddressTextView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:textSize="14sp"
-            android:textColor="@android:color/darker_gray"
-            tools:text="Fasanenstraße 85, 10623 Berlin" />
-
-        <!-- Project Status -->
-        <TextView
-            android:id="@+id/projectStatusTextView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:textSize="14sp"
-            android:textColor="@android:color/darker_gray"
-            tools:text="Status: active" />
+        <!-- REMOVED: Project Address TextView -->
+        <!-- REMOVED: Project Status TextView -->
 
         <!-- Project Responsible -->
         <TextView

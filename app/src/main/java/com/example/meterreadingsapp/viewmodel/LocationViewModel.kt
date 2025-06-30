@@ -23,7 +23,7 @@ import kotlinx.coroutines.launch
 import androidx.lifecycle.asLiveData
 import androidx.lifecycle.asFlow
 import kotlinx.coroutines.flow.first
-import java.util.Locale // FIX: Added Locale import
+import java.util.Locale
 
 /**
  * ViewModel for managing UI-related data concerning Projects, Locations, and Meters.
@@ -50,31 +50,38 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
         repository.getUniqueLocations(), // Get all locations to check for associated locations
         _projectSearchQuery
     ) { projectList, allLocations, query ->
-        if (query.isBlank()) {
-            projectList // If no query, return all projects
-        } else {
-            val lowerCaseQuery = query.lowercase(Locale.ROOT) // FIX: Changed to lowercase()
-            projectList.filter { project ->
-                // Check if project's own properties match
-                val projectMatches =
-                    project.name?.lowercase(Locale.ROOT)?.contains(lowerCaseQuery) == true || // FIX: Changed to lowercase()
-                            project.address?.lowercase(Locale.ROOT)?.contains(lowerCaseQuery) == true || // FIX: Changed to lowercase()
-                            project.projectNumber?.lowercase(Locale.ROOT)?.contains(lowerCaseQuery) == true // FIX: Changed to lowercase()
+        val lowerCaseQuery = query.lowercase(Locale.ROOT)
 
-                if (projectMatches) {
-                    true // If project itself matches, include it
-                } else {
-                    // Check if any associated location matches the query
-                    allLocations.any { location ->
-                        location.project_id == project.id && // Check if location belongs to this project
-                                (location.name?.lowercase(Locale.ROOT)?.contains(lowerCaseQuery) == true || // FIX: Changed to lowercase()
-                                        location.address?.lowercase(Locale.ROOT)?.contains(lowerCaseQuery) == true || // FIX: Changed to lowercase()
-                                        location.city?.lowercase(Locale.ROOT)?.contains(lowerCaseQuery) == true || // FIX: Changed to lowercase()
-                                        location.postal_code?.lowercase(Locale.ROOT)?.contains(lowerCaseQuery) == true || // FIX: Changed to lowercase()
-                                        location.house_number?.lowercase(Locale.ROOT)?.contains(lowerCaseQuery) == true || // FIX: Changed to lowercase()
-                                        location.house_number_addition?.lowercase(Locale.ROOT)?.contains(lowerCaseQuery) == true) // FIX: Changed to lowercase()
-                    }
+        projectList.filter { project ->
+            // Check if project's own properties match the query
+            val projectMatches =
+                project.name?.lowercase(Locale.ROOT)?.contains(lowerCaseQuery) == true ||
+                        project.address?.lowercase(Locale.ROOT)?.contains(lowerCaseQuery) == true ||
+                        project.projectNumber?.lowercase(Locale.ROOT)?.contains(lowerCaseQuery) == true
+
+            if (projectMatches) {
+                true // If project itself matches, include it
+            } else {
+                // Check if any associated location matches the query
+                allLocations.any { location ->
+                    location.project_id == project.id && // Check if location belongs to this project
+                            (location.name?.lowercase(Locale.ROOT)?.contains(lowerCaseQuery) == true ||
+                                    location.address?.lowercase(Locale.ROOT)?.contains(lowerCaseQuery) == true ||
+                                    location.city?.lowercase(Locale.ROOT)?.contains(lowerCaseQuery) == true ||
+                                    location.postal_code?.lowercase(Locale.ROOT)?.contains(lowerCaseQuery) == true ||
+                                    location.house_number?.lowercase(Locale.ROOT)?.contains(lowerCaseQuery) == true ||
+                                    location.house_number_addition?.lowercase(Locale.ROOT)?.contains(lowerCaseQuery) == true)
                 }
+            }
+        }.map { project -> // FIX: Map the filtered projects to include calculated buildingsCount
+            // For each project, count its associated locations
+            val buildingsCount = allLocations.count { it.project_id == project.id }
+            project.copy(buildingsCount = buildingsCount) // Create a copy with updated buildingsCount
+        }.let {
+            if (query.isBlank()) {
+                it // If no query, return the list with computed building counts
+            } else {
+                it // Return filtered and augmented list
             }
         }
     }.asLiveData(viewModelScope.coroutineContext)
