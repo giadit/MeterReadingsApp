@@ -29,11 +29,13 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.meterreadingsapp.adapter.LocationAdapter
 import com.example.meterreadingsapp.adapter.MeterAdapter
+import com.example.meterreadingsapp.adapter.ProjectAdapter // FIX: Import ProjectAdapter
 import com.example.meterreadingsapp.api.ApiService
 import com.example.meterreadingsapp.api.RetrofitClient
 import com.example.meterreadingsapp.data.AppDatabase
 import com.example.meterreadingsapp.data.Location
 import com.example.meterreadingsapp.data.Meter
+import com.example.meterreadingsapp.data.Project // FIX: Import Project
 import com.example.meterreadingsapp.data.Reading
 import com.example.meterreadingsapp.databinding.ActivityMainBinding
 import com.example.meterreadingsapp.repository.MeterRepository
@@ -57,6 +59,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var locationViewModel: LocationViewModel
+    private lateinit var projectAdapter: ProjectAdapter // FIX: New adapter for projects
     private lateinit var locationAdapter: LocationAdapter
     private lateinit var meterAdapter: MeterAdapter
 
@@ -128,7 +131,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         setSupportActionBar(binding.toolbar)
-        binding.toolbarTitle.text = getString(R.string.app_name)
+        // No title initially, will be set by navigation state
 
         val apiService = RetrofitClient.getService(ApiService::class.java)
         val database = AppDatabase.getDatabase(applicationContext)
@@ -136,55 +139,73 @@ class MainActivity : AppCompatActivity() {
         val meterDao = database.meterDao()
         val readingDao = database.readingDao()
         val queuedRequestDao = database.queuedRequestDao()
-        val repository = MeterRepository(apiService, meterDao, readingDao, locationDao, queuedRequestDao, applicationContext)
+        val projectDao = database.projectDao() // FIX: Get ProjectDao instance
+
+        val repository = MeterRepository(apiService, meterDao, readingDao, locationDao, queuedRequestDao, projectDao, applicationContext) // FIX: Pass projectDao
 
         locationViewModel = ViewModelProvider(this, LocationViewModelFactory(repository))
             .get(LocationViewModel::class.java)
 
+        setupProjectRecyclerView() // FIX: Setup project RecyclerView
         setupLocationRecyclerView()
         setupMeterRecyclerView()
-        setupSearchView()
+        setupSearchView() // This search view will dynamically control project or location search
         setupDateSelection()
         setupTypeFilter()
         setupSendButton()
-        setupMeterSearchView()
+        setupMeterSearchView() // This will now be specific to meters
 
+        observeProjects() // FIX: Observe projects
         observeLocations()
         observeMeters()
         observeUiMessages()
 
-        binding.backButton.isVisible = false
+        // Initial visibility states: Start with projects visible
+        binding.projectsContainer.isVisible = true // FIX: Show projects container initially
+        binding.locationsContainer.isVisible = false
         binding.metersContainer.isVisible = false
         binding.sendReadingsFab.isVisible = false
+        binding.backButton.isVisible = false // Hidden initially as we start at the top level (projects)
 
         binding.refreshButton.setOnClickListener {
-            if (binding.locationsRecyclerView.isVisible) {
-                locationViewModel.refreshAllMeters()
-                Log.d("MainActivity", getString(R.string.log_refreshing_all_meters))
-            } else if (binding.metersContainer.isVisible && locationViewModel.selectedLocationId.value != null) {
-                locationViewModel.refreshAllMeters()
-                Log.d("MainActivity", getString(R.string.log_refreshing_meters_for_location, locationViewModel.selectedLocationId.value))
-            } else {
-                Log.d("MainActivity", getString(R.string.log_no_list_to_refresh))
-            }
+            // FIX: Refresh logic now refreshes all data (projects, locations, meters)
+            locationViewModel.refreshAllProjectsAndMeters()
+            Log.d("MainActivity", getString(R.string.log_refreshing_all_data))
         }
 
         binding.backButton.setOnClickListener {
-            locationViewModel.selectLocation(null)
-            binding.locationsRecyclerView.isVisible = true
-            binding.metersContainer.isVisible = false
-            binding.sendReadingsFab.isVisible = false
-            binding.backButton.isVisible = false
-            binding.noDataTextView.isVisible = false
+            when {
+                // If currently viewing meters, go back to locations
+                binding.metersContainer.isVisible -> {
+                    locationViewModel.selectLocation(null) // Deselect location to show all locations for current project
+                    binding.metersContainer.isVisible = false
+                    binding.locationsContainer.isVisible = true // Show locations container
+                    binding.sendReadingsFab.isVisible = false // FAB visible only for meters
+                    binding.backButton.isVisible = true // Still need back button to go to projects
 
-            binding.toolbarTitle.text = getString(R.string.app_name)
-            binding.toolbarTitle.isVisible = true
-            binding.searchView.isVisible = true
-            binding.searchView.setQuery("", false)
-            binding.searchView.isIconified = true
-            locationViewModel.setSearchQuery("")
-            binding.meterSearchView.setQuery("", false)
-            locationViewModel.setMeterSearchQuery("")
+                    // Reset meter search, keep location search
+                    binding.meterSearchView.setQuery("", false)
+                    locationViewModel.setMeterSearchQuery("")
+                    updateToolbarForLocations(locationViewModel.selectedProjectId.value) // Update toolbar title for locations
+                }
+                // If currently viewing locations, go back to projects
+                binding.locationsContainer.isVisible -> {
+                    locationViewModel.selectProject(null) // Deselect project to show all projects
+                    binding.locationsContainer.isVisible = false
+                    binding.projectsContainer.isVisible = true // Show projects container
+                    binding.backButton.isVisible = false // No back button needed on project list (top level)
+                    binding.sendReadingsFab.isVisible = false // FAB visible only for meters
+
+                    // Reset all search views
+                    binding.searchView.setQuery("", false)
+                    binding.searchView.isIconified = true
+                    locationViewModel.setProjectSearchQuery("") // Reset project search query
+                    binding.meterSearchView.setQuery("", false)
+                    locationViewModel.setMeterSearchQuery("")
+                    updateToolbarForProjects() // Update toolbar title for projects
+                }
+            }
+            binding.noDataTextView.isVisible = false // Hide no data message on back navigation
         }
 
         binding.logoutButton.setOnClickListener {
@@ -192,21 +213,78 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // FIX: Setup Project RecyclerView
+    private fun setupProjectRecyclerView() {
+        projectAdapter = ProjectAdapter { project ->
+            locationViewModel.selectProject(project)
+            binding.projectsContainer.isVisible = false // Hide projects
+            binding.locationsContainer.isVisible = true // Show locations for selected project
+            binding.backButton.isVisible = true // Show back button
+            updateToolbarForLocations(project.id) // Update toolbar title for locations
+        }
+        binding.projectsRecyclerView.apply {
+            layoutManager = LinearLayoutManager(this@MainActivity)
+            adapter = projectAdapter
+        }
+    }
+
+    private fun setupLocationRecyclerView() {
+        locationAdapter = LocationAdapter { location ->
+            locationViewModel.selectLocation(location)
+            binding.locationsContainer.isVisible = false
+            binding.metersContainer.isVisible = true
+            binding.sendReadingsFab.isVisible = true
+            binding.backButton.isVisible = true // Still show back button when going to meters
+            updateToolbarForMeters(location) // Update toolbar for meters
+        }
+        binding.locationsRecyclerView.apply {
+            layoutManager = LinearLayoutManager(this@MainActivity)
+            adapter = locationAdapter
+        }
+    }
+
+    private fun setupMeterRecyclerView() {
+        meterAdapter = MeterAdapter(
+            onCameraClicked = { meter, currentUri ->
+                currentMeterForPhoto = meter
+                if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                    launchCamera(meter)
+                } else {
+                    requestCameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+                }
+            },
+            onViewImageClicked = { meter, imageUri ->
+                viewImage(imageUri)
+            },
+            onDeleteImageClicked = { meter, imageUri ->
+                confirmAndDeleteImage(meter, imageUri)
+            }
+        )
+        binding.metersRecyclerView.apply {
+            layoutManager = LinearLayoutManager(this@MainActivity)
+            adapter = meterAdapter
+        }
+    }
+
+    // FIX: Modified setupSearchView to dynamically control project or location search
     private fun setupSearchView() {
         binding.searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
-            override fun onQueryTextSubmit(query: String?): Boolean {
-                return false
-            }
-
+            override fun onQueryTextSubmit(query: String?): Boolean = false
             override fun onQueryTextChange(newText: String?): Boolean {
-                locationViewModel.setSearchQuery(newText ?: "")
+                if (binding.projectsContainer.isVisible) {
+                    locationViewModel.setProjectSearchQuery(newText ?: "")
+                } else if (binding.locationsContainer.isVisible) {
+                    locationViewModel.setLocationSearchQuery(newText ?: "")
+                }
                 return true
             }
         })
 
+        // Adjust toolbar title visibility based on current active container
         binding.searchView.setOnQueryTextFocusChangeListener { _, hasFocus ->
-            binding.toolbarTitle.isVisible = !hasFocus && binding.locationsRecyclerView.isVisible && binding.searchView.query.isNullOrEmpty()
+            binding.toolbarTitle.isVisible = !hasFocus && binding.searchView.query.isNullOrEmpty()
         }
+        // Initial hint set in onResume or updateToolbarForProjects
     }
 
     private fun setupMeterSearchView() {
@@ -232,61 +310,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupLocationRecyclerView() {
-        locationAdapter = LocationAdapter { location ->
-            locationViewModel.selectLocation(location)
-            binding.locationsRecyclerView.isVisible = false
-            binding.metersContainer.isVisible = true
-            binding.sendReadingsFab.isVisible = true
-            binding.backButton.isVisible = true
-
-            binding.toolbarTitle.text = location.name ?: location.address ?: getString(R.string.app_name)
-
-            binding.toolbarTitle.isVisible = true
-            binding.searchView.isVisible = false
-            binding.searchView.setQuery("", false)
-            binding.searchView.isIconified = true
-            locationViewModel.setSearchQuery("")
-            binding.meterSearchView.setQuery("", false)
-            locationViewModel.setMeterSearchQuery("")
-        }
-        binding.locationsRecyclerView.apply {
-            layoutManager = LinearLayoutManager(this@MainActivity)
-            adapter = locationAdapter
-        }
-    }
-
-    private fun setupMeterRecyclerView() {
-        meterAdapter = MeterAdapter(
-            onCameraClicked = { meter, currentUri ->
-                currentMeterForPhoto = meter
-                if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-                    launchCamera(meter)
-                } else {
-                    requestCameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
-                }
-            },
-            onViewImageClicked = { meter, imageUri ->
-                viewImage(imageUri)
-            },
-            // FIX: Pass the new onDeleteImageClicked lambda to MeterAdapter
-            onDeleteImageClicked = { meter, imageUri ->
-                confirmAndDeleteImage(meter, imageUri)
-            }
-        )
-        binding.metersRecyclerView.apply {
-            layoutManager = LinearLayoutManager(this@MainActivity)
-            adapter = meterAdapter
-        }
-    }
-
     private fun launchCamera(meter: Meter) {
         currentPhotoUri = createImageFileForMeter(meter)
         currentPhotoUri?.let { uri ->
             val cameraIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
                 putExtra(MediaStore.EXTRA_OUTPUT, uri)
-                // Attempt to force flash on. Note: Not all camera apps respect this extra.
-                putExtra("android.intent.extra.FLASH_MODE", "on") // Requesting flash ON
+                putExtra("android.intent.extra.FLASH_MODE", "on")
             }
             takePictureLauncher.launch(cameraIntent)
         } ?: run {
@@ -325,11 +354,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * FIX: Confirms with the user before deleting the image and removes it from adapter/file system.
-     * @param meter The Meter associated with the image.
-     * @param imageUri The Uri of the image file to be deleted.
-     */
     private fun confirmAndDeleteImage(meter: Meter, imageUri: Uri) {
         MaterialAlertDialogBuilder(this)
             .setTitle(getString(R.string.confirm_delete_image_title))
@@ -347,7 +371,7 @@ class MainActivity : AppCompatActivity() {
                             Log.e("MainActivity", "Failed to delete image file: ${imageUri.path}")
                         }
                     } else {
-                        meterAdapter.removeMeterImageUri(meter.id) // Still remove from adapter if file somehow doesn't exist
+                        meterAdapter.removeMeterImageUri(meter.id)
                         Toast.makeText(this, getString(R.string.image_file_not_found), Toast.LENGTH_SHORT).show()
                         Log.w("MainActivity", "Image file not found at path: ${imageUri.path}, removed from adapter state.")
                     }
@@ -362,7 +386,6 @@ class MainActivity : AppCompatActivity() {
             }
             .show()
     }
-
 
     private fun setupDateSelection() {
         updateSelectedDateText()
@@ -425,12 +448,13 @@ class MainActivity : AppCompatActivity() {
             }
         } else {
             if (type in selectedMeterTypesFilter) {
-                selectedMeterTypesFilter.remove(type)
-                if (selectedMeterTypesFilter.isEmpty()) {
+                selectedMeterTypesFilter.remove("All")
+                selectedMeterTypesFilter.remove(type) // Remove the specific type if already selected
+                if (selectedMeterTypesFilter.isEmpty()) { // If no types selected, default to All
                     selectedMeterTypesFilter.add("All")
                 }
             } else {
-                selectedMeterTypesFilter.remove("All")
+                selectedMeterTypesFilter.remove("All") // If selecting a specific type, remove "All"
                 selectedMeterTypesFilter.add(type)
             }
         }
@@ -477,26 +501,49 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // FIX: Observe projects
+    private fun observeProjects() {
+        locationViewModel.projects.observe(this) { projects ->
+            projects?.let {
+                binding.loadingProgressBar.isVisible = false
+                if (it.isEmpty()) {
+                    if (locationViewModel.projectSearchQuery.value.isEmpty()) {
+                        binding.noDataTextView.text = getString(R.string.no_projects_found)
+                        binding.noDataTextView.isVisible = true
+                    } else {
+                        binding.noDataTextView.text = getString(R.string.no_matching_projects_found, locationViewModel.projectSearchQuery.value)
+                        binding.noDataTextView.isVisible = true
+                    }
+                } else {
+                    binding.noDataTextView.isVisible = false
+                    projectAdapter.submitList(it)
+                }
+            } ?: run {
+                binding.loadingProgressBar.isVisible = false
+                binding.noDataTextView.text = getString(R.string.no_projects_found) // Default error
+                binding.noDataTextView.isVisible = true
+            }
+        }
+    }
+
+
     private fun observeLocations() {
         locationViewModel.locations.observe(this) { locations ->
             locations?.let {
                 binding.loadingProgressBar.isVisible = false
-                if (it.isEmpty()) {
-                    if (locationViewModel.searchQuery.value.isEmpty()) {
-                        binding.noDataTextView.text = getString(R.string.no_data_found)
-                        binding.noDataTextView.isVisible = true
-                    } else {
-                        binding.noDataTextView.text = getString(R.string.no_matching_locations_found, locationViewModel.searchQuery.value)
-                        binding.noDataTextView.isVisible = true
-                    }
-                } else {
+                if (it.isEmpty() && locationViewModel.selectedProjectId.value != null) {
+                    binding.noDataTextView.text = getString(R.string.no_locations_for_project)
+                    binding.noDataTextView.isVisible = true
+                    locationAdapter.submitList(emptyList()) // Clear list if no locations
+                } else if (it.isNotEmpty()) {
                     binding.noDataTextView.isVisible = false
                     locationAdapter.submitList(it)
                 }
             } ?: run {
                 binding.loadingProgressBar.isVisible = false
-                binding.noDataTextView.text = getString(R.string.no_data_found)
+                binding.noDataTextView.text = getString(R.string.failed_to_load_locations)
                 binding.noDataTextView.isVisible = true
+                locationAdapter.submitList(emptyList())
             }
         }
     }
@@ -615,5 +662,54 @@ class MainActivity : AppCompatActivity() {
         }
 
         finish()
+    }
+
+    // FIX: Update toolbar for Project list view
+    private fun updateToolbarForProjects() {
+        binding.toolbarTitle.text = getString(R.string.app_name) // App name when viewing all projects
+        binding.searchView.queryHint = getString(R.string.search_project_hint) // Set hint for project search
+        binding.toolbarTitle.isVisible = true
+        binding.searchView.isVisible = true
+        binding.meterSearchView.isVisible = false // Hide meter search when in projects view
+        binding.dateSelectionLayout.isVisible = false // Hide date selection
+        binding.filterButtonsLayout.isVisible = false // Hide filter buttons
+    }
+
+    // FIX: Update toolbar for Location list view (within a project)
+    private fun updateToolbarForLocations(projectId: String?) {
+        val projectName = projectId?.let {
+            locationViewModel.projects.value?.find { p -> p.id == it }?.name
+        } ?: getString(R.string.app_name) // Fallback to app name if project not found
+        binding.toolbarTitle.text = projectName
+        binding.searchView.queryHint = getString(R.string.search_location_hint) // Set hint for location search
+        binding.toolbarTitle.isVisible = true
+        binding.searchView.isVisible = true
+        binding.meterSearchView.isVisible = false // Hide meter search
+        binding.dateSelectionLayout.isVisible = false // Hide date selection
+        binding.filterButtonsLayout.isVisible = false // Hide filter buttons
+    }
+
+    private fun updateToolbarForMeters(location: Location) {
+        binding.toolbarTitle.text = location.name ?: location.address ?: getString(R.string.app_name) // Display location name or address
+        binding.searchView.isVisible = false // Hide project/location search
+        binding.meterSearchView.isVisible = true // Show meter search
+        binding.dateSelectionLayout.isVisible = true // Show date selection
+        binding.filterButtonsLayout.isVisible = true // Show filter buttons
+        binding.toolbarTitle.isVisible = true // Ensure toolbar title is visible
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Determine current view and set toolbar/search hints accordingly
+        when {
+            binding.projectsContainer.isVisible -> updateToolbarForProjects()
+            binding.locationsContainer.isVisible -> updateToolbarForLocations(locationViewModel.selectedProjectId.value)
+            binding.metersContainer.isVisible -> locationViewModel.selectedLocationId.value?.let { locationId ->
+                locationViewModel.locations.value?.find { it.id == locationId }?.let { location ->
+                    updateToolbarForMeters(location)
+                }
+            }
+            else -> updateToolbarForProjects() // Default to projects view if no state is active (e.g., initial launch)
+        }
     }
 }

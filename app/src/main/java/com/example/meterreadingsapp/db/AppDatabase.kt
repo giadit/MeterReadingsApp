@@ -12,19 +12,19 @@ import com.example.meterreadingsapp.converters.ListConverter
  * The Room database class for the application.
  * Defines the database configuration and provides access to the DAOs.
  * @param entities Specifies the entities (tables) included in this database.
- * @param version The version number of the database. **INCREMENT THIS TO 6** due to schema changes.
+ * @param version The version number of the database. **INCREMENTED TO 16** for the Project entity.
  * @param exportSchema Set to false to prevent exporting schema to a folder.
  */
 @Database(
-    entities = [Location::class, Meter::class, Reading::class, QueuedRequest::class], // FIX: Added Location::class and QueuedRequest::class
-    version = 15, // FIX: Increment version to 6 for new table/entity changes
+    entities = [Location::class, Meter::class, Reading::class, QueuedRequest::class, Project::class], // FIX: Added Project::class
+    version = 17, // FIX: Increment version to 16 for new Project entity
     exportSchema = false
 )
 @TypeConverters(MapConverter::class, ListConverter::class)
 abstract class AppDatabase : RoomDatabase() {
 
     // Abstract function to get the DAO for Location entities.
-    abstract fun locationDao(): LocationDao // FIX: Added LocationDao
+    abstract fun locationDao(): LocationDao
 
     // Abstract function to get the DAO for Meter entities.
     abstract fun meterDao(): MeterDao
@@ -34,6 +34,9 @@ abstract class AppDatabase : RoomDatabase() {
 
     // Abstract function to get the DAO for QueuedRequest entities.
     abstract fun queuedRequestDao(): QueuedRequestDao
+
+    // FIX: Abstract function to get the DAO for Project entities.
+    abstract fun projectDao(): ProjectDao
 
     // Companion object to provide a singleton instance of the database.
     companion object {

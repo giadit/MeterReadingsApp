@@ -46,10 +46,11 @@ class S3UploadWorker(
             val readingDao = database.readingDao()
             val locationDao = database.locationDao()
             val queuedRequestDao = database.queuedRequestDao()
+            val projectDao = database.projectDao() // FIX: Get ProjectDao instance
             val apiService = RetrofitClient.getService(com.example.meterreadingsapp.api.ApiService::class.java)
 
-            // Initialize MeterRepository with all its dependencies
-            val repository = MeterRepository(apiService, meterDao, readingDao, locationDao, queuedRequestDao, applicationContext)
+            // Initialize MeterRepository with all its dependencies, including projectDao
+            val repository = MeterRepository(apiService, meterDao, readingDao, locationDao, queuedRequestDao, projectDao, applicationContext) // FIX: Pass projectDao
 
             // Perform the Supabase Storage upload via MeterRepository
             repository.uploadFileToS3(imageUri, s3Key)

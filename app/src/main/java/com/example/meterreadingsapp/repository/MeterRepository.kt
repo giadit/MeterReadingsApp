@@ -13,12 +13,14 @@ import com.example.meterreadingsapp.api.RetrofitClient
 import com.example.meterreadingsapp.api.StorageApiService
 import com.example.meterreadingsapp.data.Location
 import com.example.meterreadingsapp.data.Meter
-import com.example.meterreadingsapp.data.MeterDao
 import com.example.meterreadingsapp.data.Reading
+import com.example.meterreadingsapp.data.Project // FIX: Import Project
+import com.example.meterreadingsapp.data.MeterDao
 import com.example.meterreadingsapp.data.ReadingDao
 import com.example.meterreadingsapp.data.LocationDao
 import com.example.meterreadingsapp.data.QueuedRequest
 import com.example.meterreadingsapp.data.QueuedRequestDao
+import com.example.meterreadingsapp.data.ProjectDao // FIX: Import ProjectDao
 import com.example.meterreadingsapp.workers.SyncWorker
 import com.example.meterreadingsapp.workers.S3UploadWorker
 import com.google.gson.Gson
@@ -31,24 +33,23 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import retrofit2.Response
 import okhttp3.ResponseBody
+import kotlinx.coroutines.flow.first // Needed for .first() call on Flow
+
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.io.InputStream
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-// Reverted: Removed kotlinx.coroutines.flow.first import as it's no longer directly used here.
 
 /**
- * Repository class that abstracts the data sources (API and local database) for meters and readings.
- * It provides a clean API for the ViewModel to interact with data.
+ * Repository class that abstracts the data sources (API and local database) for meters, readings,
+ * and now projects. It provides a clean API for the ViewModel to interact with data.
  *
  * @param apiService The Retrofit service for making API calls.
  * @param meterDao The Room DAO for accessing meter data in the local database.
  * @param readingDao The Room DAO for accessing reading data in the local database.
  * @param locationDao The Room DAO for accessing location data in the local database.
  * @param queuedRequestDao The Room DAO for accessing queued requests in the local database.
+ * @param projectDao The Room DAO for accessing project data in the local database. // FIX: New dependency
  * @param appContext The application context, needed for WorkManager.
  */
 class MeterRepository(
@@ -57,6 +58,7 @@ class MeterRepository(
     private val readingDao: ReadingDao,
     private val locationDao: LocationDao,
     private val queuedRequestDao: QueuedRequestDao,
+    private val projectDao: ProjectDao, // FIX: Added ProjectDao to constructor
     private val appContext: Context
 ) {
     private val TAG = "MeterRepository"
@@ -65,10 +67,10 @@ class MeterRepository(
 
     private val storageApiService: StorageApiService = RetrofitClient.getService(StorageApiService::class.java)
 
-    private val SUPABASE_BUCKET_NAME = "project-documents" // This bucket name is still being used for splitting path, but the actual path is changed in MainActivity
+    private val SUPABASE_BUCKET_NAME = "project-documents"
 
     init {
-        Log.d(TAG, "MeterRepository initialized with Supabase Storage API approach.")
+        Log.d(TAG, "MeterRepository initialized with Supabase Storage API approach and ProjectDao.")
     }
 
     private fun generateLocationId(
@@ -86,6 +88,30 @@ class MeterRepository(
         return "${safeAddress}|${safePostalCode}|${safeCity}|${safeHouseNumber}|${safeHouseNumberAddition}"
     }
 
+    // --- Project-related methods ---
+    fun getAllProjectsFromDb(): Flow<List<Project>> {
+        return projectDao.getAllProjects()
+    }
+
+    fun getProjectByIdFromDb(projectId: String): Flow<Project?> {
+        return projectDao.getProjectById(projectId)
+    }
+
+    fun getLocationsByProjectId(projectId: String?): Flow<List<Location>> {
+        return if (projectId == null) {
+            // If no project is selected, return all unique locations that have no project_id or empty project_id
+            locationDao.getAllLocations().map { locations ->
+                locations.filter { it.project_id.isNullOrBlank() }
+            }
+        } else {
+            // Return locations associated with a specific project ID
+            locationDao.getAllLocations().map { locations ->
+                locations.filter { it.project_id == projectId }
+            }
+        }
+    }
+
+    // --- Meter-related methods ---
     fun getAllMetersFromDb(): Flow<List<Meter>> {
         return meterDao.getAllMeters()
     }
@@ -119,20 +145,36 @@ class MeterRepository(
         address: String,
         postalCode: String?,
         city: String?,
-        houseNumber: String?, // FIX: New parameter for filtering
-        houseNumberAddition: String? // FIX: New parameter for filtering
+        houseNumber: String?,
+        houseNumberAddition: String?
     ): Flow<List<Meter>> {
         return meterDao.getMetersByAddress(address, postalCode, city, houseNumber, houseNumberAddition)
     }
 
-
-    suspend fun refreshAllMeters() {
+    /**
+     * FIX: Refreshes all projects and their associated meters/locations from the API and updates the local database.
+     * This is the comprehensive data sync now that we have a project layer.
+     */
+    suspend fun refreshAllProjectsAndMeters() { // FIX: Renamed to reflect new functionality
         withContext(Dispatchers.IO) {
             try {
+                Log.d(TAG, "Attempting to fetch all projects from API...")
+                val projectsResponse = apiService.getProjects()
+                if (projectsResponse.isSuccessful && projectsResponse.body() != null) {
+                    val projects = projectsResponse.body()
+                    Log.d(TAG, "Successfully fetched ${projects?.size} projects from API.")
+                    projectDao.deleteAllProjects()
+                    projects?.let { projectDao.insertAll(it) }
+                    Log.d(TAG, "All projects refreshed in local database.")
+                } else {
+                    val errorBody = projectsResponse.errorBody()?.string()
+                    Log.e(TAG, "Failed to fetch all projects: ${projectsResponse.code()} - ${projectsResponse.message()}. Error Body: $errorBody")
+                }
+
                 Log.d(TAG, "Attempting to fetch all meters from API...")
-                val response = apiService.getAllMeters()
-                if (response.isSuccessful && response.body() != null) {
-                    val meters = response.body()
+                val metersResponse = apiService.getAllMeters()
+                if (metersResponse.isSuccessful && metersResponse.body() != null) {
+                    val meters = metersResponse.body()
                     Log.d(TAG, "Successfully fetched ${meters?.size} meters from API.")
 
                     meters?.let { meterList ->
@@ -158,7 +200,7 @@ class MeterRepository(
                                     meterHouseNumberAddition
                                 ),
                                 name = locationDisplayName,
-                                project_id = meter.project_id,
+                                project_id = meter.project_id, // FIX: Pass project_id
                                 address = meterAddress,
                                 postal_code = meterPostalCode,
                                 city = meterCity,
@@ -178,11 +220,11 @@ class MeterRepository(
                     Log.d(TAG, "All meters refreshed in local database.")
 
                 } else {
-                    val errorBody = response.errorBody()?.string()
-                    Log.e(TAG, "Failed to fetch all meters: ${response.code()} - ${response.message()}. Error Body: $errorBody")
+                    val errorBody = metersResponse.errorBody()?.string()
+                    Log.e(TAG, "Failed to fetch all meters: ${metersResponse.code()} - ${metersResponse.message()}. Error Body: $errorBody")
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error refreshing all meters: ${e.message}", e)
+                Log.e(TAG, "Error refreshing all projects and meters: ${e.message}", e)
                 e.printStackTrace()
             }
         }
@@ -210,17 +252,17 @@ class MeterRepository(
                 val response = apiService.postReading(reading)
                 if (response.isSuccessful) {
                     Log.d(TAG, "Successfully POSTed reading. Response status: ${response.code()}")
-                    refreshAllMeters()
+                    refreshAllProjectsAndMeters() // FIX: Call refreshAllProjectsAndMeters after successful post
                     Response.success(Unit)
                 } else {
                     val errorBody = response.errorBody()?.string()
                     Log.e(TAG, "Failed to POST meter reading: ${response.code()} - ${response.message()}. Error Body: $errorBody")
-                    Response.error(response.code(), ResponseBody.create(null, "Error: ${response.code()} - ${response.message()}"))
+                    Response.error(response.code(), ResponseBody.create(null, errorBody ?: "Unknown error"))
                 }
             } catch (e: IOException) {
                 Log.e(TAG, "Network error during POST, queuing request: ${e.message}", e)
                 queueRequest(
-                    type = "reading", // Pass the type "reading"
+                    type = "reading",
                     endpoint = "readings",
                     method = "POST",
                     body = gson.toJson(reading)

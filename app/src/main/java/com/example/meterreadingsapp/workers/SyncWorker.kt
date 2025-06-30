@@ -9,12 +9,12 @@ import com.example.meterreadingsapp.api.ApiService
 import com.example.meterreadingsapp.api.RetrofitClient
 import com.example.meterreadingsapp.data.AppDatabase
 import com.google.gson.Gson
-import com.google.gson.JsonSyntaxException // Import for JSON parsing errors
+import com.google.gson.JsonSyntaxException
 import com.example.meterreadingsapp.data.Reading
-import com.example.meterreadingsapp.data.QueuedRequest // Ensure QueuedRequest is imported
-import com.example.meterreadingsapp.repository.MeterRepository // Import MeterRepository
+import com.example.meterreadingsapp.data.QueuedRequest
+import com.example.meterreadingsapp.repository.MeterRepository
 import kotlinx.coroutines.flow.first
-import java.io.File // Import File for potential image cleanup
+import java.io.File
 
 /**
  * A Worker that attempts to synchronize queued API requests (readings and image uploads) with the backend.
@@ -26,19 +26,20 @@ class SyncWorker(
 ) : CoroutineWorker(appContext, workerParams) {
 
     private val TAG = "SyncWorker"
-    private val database = AppDatabase.getDatabase(appContext) // Get database instance once
+    private val database = AppDatabase.getDatabase(appContext)
     private val queuedRequestDao = database.queuedRequestDao()
     private val apiService = RetrofitClient.getService(ApiService::class.java)
     private val gson = Gson()
 
-    // Initialize MeterRepository with all its dependencies for image upload logic
+    // Initialize MeterRepository with all its dependencies, including the new ProjectDao
     private val meterRepository: MeterRepository = MeterRepository(
         apiService,
         database.meterDao(),
         database.readingDao(),
         database.locationDao(),
         database.queuedRequestDao(),
-        appContext
+        database.projectDao(), // FIX: Added ProjectDao dependency
+        applicationContext
     )
 
     override suspend fun doWork(): Result {
@@ -59,7 +60,6 @@ class SyncWorker(
 
                 when (request.type) {
                     "reading" -> {
-                        // Handle meter reading upload
                         val reading = gson.fromJson(request.body, Reading::class.java)
                         val response = apiService.postReading(reading)
 
@@ -75,21 +75,16 @@ class SyncWorker(
                         }
                     }
                     "image_upload" -> {
-                        // Handle image upload to S3
-                        // The body of this request contains the imageUriString, s3Key, and projectId
-                        // We need to parse these from the JSON string
                         try {
                             val imageUploadData = gson.fromJson(request.body, ImageUploadData::class.java)
                             val imageUri = Uri.parse(imageUploadData.imageUriString)
                             val s3Key = imageUploadData.s3Key
 
-                            // Pass to MeterRepository to perform the S3 upload using AWS SDK
                             meterRepository.uploadFileToS3(imageUri, s3Key)
 
                             Log.d(TAG, "Successfully uploaded queued image (ID: ${request.id}, S3 Key: $s3Key). Deleting from queue and local file.")
                             queuedRequestDao.delete(request.id)
 
-                            // Optional: Delete local image file after successful upload
                             val file = File(imageUri.path ?: "")
                             if (file.exists()) {
                                 if (file.delete()) {
@@ -101,7 +96,7 @@ class SyncWorker(
 
                         } catch (e: JsonSyntaxException) {
                             Log.e(TAG, "Error parsing image upload data JSON (ID: ${request.id}): ${e.message}. Deleting from queue.", e)
-                            queuedRequestDao.delete(request.id) // Malformed JSON, don't retry
+                            queuedRequestDao.delete(request.id)
                             allSuccessful = false
                         } catch (e: Exception) {
                             Log.e(TAG, "Failed to upload queued image (ID: ${request.id}): ${e.message}", e)
@@ -113,7 +108,7 @@ class SyncWorker(
                     else -> {
                         Log.w(TAG, "Unsupported queued request type (ID: ${request.id}, Type: ${request.type}). Deleting from queue.")
                         queuedRequestDao.delete(request.id)
-                        allSuccessful = false // Mark as not all successful if unsupported
+                        allSuccessful = false
                     }
                 }
             } catch (e: Exception) {
@@ -127,12 +122,9 @@ class SyncWorker(
         return if (allSuccessful) Result.success() else Result.retry()
     }
 
-    /**
-     * Helper data class to deserialize the JSON body of an "image_upload" queued request.
-     */
     private data class ImageUploadData(
         val imageUriString: String,
         val s3Key: String,
-        val projectId: String // Match the data passed in MeterRepository
+        val projectId: String
     )
 }

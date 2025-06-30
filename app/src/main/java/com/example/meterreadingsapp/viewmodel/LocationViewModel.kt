@@ -1,16 +1,15 @@
 package com.example.meterreadingsapp.viewmodel
 
-// Removed: import android.app.Application // No longer needed if not AndroidViewModel
 import android.net.Uri
 import android.util.Log
-// FIX: Changed from AndroidViewModel to ViewModel import
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.example.meterreadingsapp.data.Location
 import com.example.meterreadingsapp.data.Meter
-import com.example.meterreadingsapp.data.Reading
+import com.example.meterreadingsapp.data.Project
+import com.example.meterreadingsapp.data.Reading // FIX: Ensuring this import is present and correct
 import com.example.meterreadingsapp.repository.MeterRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -26,16 +25,12 @@ import androidx.lifecycle.asFlow
 import kotlinx.coroutines.flow.first
 
 /**
- * ViewModel for managing UI-related data concerning Locations and Meters.
+ * ViewModel for managing UI-related data concerning Projects, Locations, and Meters.
  * It interacts with the MeterRepository to fetch and update data, and provides LiveData streams
  * for UI observation.
  *
- * NOTE: This version of ViewModel will *not* apply the meter type filter.
- * The meter type filtering logic will reside in MainActivity.kt as per user's old logic.
- *
  * @param repository The MeterRepository instance for data operations.
  */
-// FIX: Explicitly extending ViewModel and removed Application parameter
 class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
 
     private val TAG = "LocationViewModel"
@@ -44,25 +39,52 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
     private val _uiMessage = MutableStateFlow<String?>(null)
     val uiMessage: StateFlow<String?> = _uiMessage.asStateFlow()
 
-    // --- State for Location List View ---
-    private val _searchQuery = MutableStateFlow("")
-    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+    // --- State for Project List View ---
+    private val _projectSearchQuery = MutableStateFlow("")
+    val projectSearchQuery: StateFlow<String> = _projectSearchQuery.asStateFlow()
 
-    // Locations filtered by search query
-    val locations: LiveData<List<Location>> = repository.getUniqueLocations()
-        .map { locationList ->
-            val query = _searchQuery.value
+    val projects: LiveData<List<Project>> = repository.getAllProjectsFromDb()
+        .map { projectList ->
+            val query = _projectSearchQuery.value
             if (query.isBlank()) {
-                locationList
+                projectList
             } else {
-                locationList.filter {
+                projectList.filter {
                     it.name?.contains(query, ignoreCase = true) == true ||
                             it.address?.contains(query, ignoreCase = true) == true ||
-                            it.city?.contains(query, ignoreCase = true) == true ||
-                            it.postal_code?.contains(query, ignoreCase = true) == true
+                            it.projectNumber?.contains(query, ignoreCase = true) == true
                 }
             }
         }.asLiveData(viewModelScope.coroutineContext)
+
+    val selectedProjectId: MutableLiveData<String?> = MutableLiveData(null)
+
+    // --- State for Location List View (now dependent on selected project) ---
+    private val _locationSearchQuery = MutableStateFlow("")
+    val locationSearchQuery: StateFlow<String> = _locationSearchQuery.asStateFlow()
+
+
+    val locations: LiveData<List<Location>> = combine(
+        selectedProjectId.asFlow(),
+        _locationSearchQuery
+    ) { projectId, locationQuery ->
+        repository.getLocationsByProjectId(projectId).first()
+            .filter { location ->
+                val query = locationQuery
+                if (query.isBlank()) {
+                    true
+                } else {
+                    location.name?.contains(query, ignoreCase = true) == true ||
+                            location.address?.contains(query, ignoreCase = true) == true ||
+                            location.city?.contains(query, ignoreCase = true) == true ||
+                            location.postal_code?.contains(query, ignoreCase = true) == true
+                }
+            }
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.Lazily,
+        emptyList()
+    ).asLiveData(viewModelScope.coroutineContext)
 
     // --- State for Meter List View ---
     val selectedLocationId: MutableLiveData<String?> = MutableLiveData(null)
@@ -74,7 +96,6 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
         selectedLocationId.asFlow().filterNotNull(),
         _meterSearchQuery
     ) { locationId, meterQuery ->
-        // Fetch the location details from the repository (which uses LocationDao)
         val selectedLocation = repository.getLocationByIdFromDb(locationId).first()
         if (selectedLocation != null) {
             repository.getMetersByAddress(
@@ -84,7 +105,6 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
                 houseNumber = selectedLocation.house_number,
                 houseNumberAddition = selectedLocation.house_number_addition
             ).map { meterList ->
-                // Apply meter search query filter only, type filter is handled in Activity
                 if (meterQuery.isBlank()) {
                     meterList
                 } else {
@@ -103,13 +123,36 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
         emptyList()
     ).asLiveData(viewModelScope.coroutineContext)
 
+
     /**
-     * Sets the search query for filtering the list of locations.
+     * Sets the search query for filtering the list of projects.
      * @param query The search query string.
      */
-    fun setSearchQuery(query: String) {
-        _searchQuery.value = query
-        Log.d(TAG, "Search query updated to: $query")
+    fun setProjectSearchQuery(query: String) {
+        _projectSearchQuery.value = query
+        Log.d(TAG, "Project search query updated to: $query")
+    }
+
+    /**
+     * Selects a project, triggering the display of locations for that project.
+     * @param project The selected Project object, or null to go back to the project list.
+     */
+    fun selectProject(project: Project?) {
+        selectedProjectId.value = project?.id
+        Log.d(TAG, "Selected project ID: ${project?.id ?: "null"}")
+        // Reset location and meter specific filters when changing project
+        _locationSearchQuery.value = ""
+        selectedLocationId.value = null
+        _meterSearchQuery.value = ""
+    }
+
+    /**
+     * Sets the search query for filtering the list of locations within the selected project.
+     * @param query The location search query string.
+     */
+    fun setLocationSearchQuery(query: String) {
+        _locationSearchQuery.value = query
+        Log.d(TAG, "Location search query updated to: $query")
     }
 
     /**
@@ -133,17 +176,17 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
     }
 
     /**
-     * Refreshes all meter data from the API and updates the local database.
+     * Refreshes all project and meter data from the API and updates the local database.
      */
-    fun refreshAllMeters() {
+    fun refreshAllProjectsAndMeters() {
         viewModelScope.launch {
-            Log.d(TAG, "Initiating refreshAllMeters from ViewModel.")
+            Log.d(TAG, "Initiating refreshAllProjectsAndMeters from ViewModel.")
             try {
-                repository.refreshAllMeters()
-                _uiMessage.value = "Meters refreshed successfully!"
+                repository.refreshAllProjectsAndMeters()
+                _uiMessage.value = "All data refreshed successfully!"
             } catch (e: Exception) {
-                _uiMessage.value = "Error refreshing meters: ${e.message}"
-                Log.e(TAG, "Error refreshing meters: ${e.message}", e)
+                _uiMessage.value = "Error refreshing data: ${e.message}"
+                Log.e(TAG, "Error refreshing all projects and meters: ${e.message}", e)
             }
         }
     }
@@ -152,18 +195,18 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
      * Posts a new meter reading to the API.
      * @param reading The Reading object to be posted.
      */
-    fun postMeterReading(reading: Reading) {
+    fun postMeterReading(reading: Reading) { // The 'Reading' type is used correctly here
         viewModelScope.launch {
             try {
                 val response = repository.postMeterReading(reading)
                 if (response.isSuccessful) {
-                    _uiMessage.value = "Reading for meter ${reading.meter_id} posted successfully!"
+                    _uiMessage.value = "Reading for meter ${reading.meter_id} posted successfully!" // Accessing meter_id
                 } else {
                     val errorMessage = response.errorBody()?.string() ?: response.message()
-                    _uiMessage.value = "Failed to post reading for meter ${reading.meter_id}: $errorMessage"
+                    _uiMessage.value = "Failed to post reading for meter ${reading.meter_id}: $errorMessage" // Accessing meter_id
                 }
             } catch (e: Exception) {
-                _uiMessage.value = "Error posting reading for meter ${reading.meter_id}: ${e.message}"
+                _uiMessage.value = "Error posting reading for meter ${reading.meter_id}: ${e.message}" // Accessing meter_id
                 Log.e(TAG, "Error posting reading: ${e.message}", e)
             }
         }
@@ -178,7 +221,6 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
     fun queueImageUpload(imageUri: Uri, fullStoragePath: String, projectId: String) {
         viewModelScope.launch {
             try {
-                // The actual upload logic is now handled by WorkManager via MeterRepository
                 repository.queueImageUpload(imageUri, fullStoragePath, projectId)
                 _uiMessage.value = "Image queued for upload to $fullStoragePath"
             } catch (e: Exception) {

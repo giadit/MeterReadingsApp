@@ -30,23 +30,23 @@ import com.google.gson.annotations.SerializedName
  */
 @Entity(tableName = "readings")
 data class Reading(
-    @PrimaryKey
+    @PrimaryKey // Room annotation for primary key (still no autoGenerate=true as it's from UUID)
     @SerializedName("id") val id: String, // UUID from Supabase
-    @SerializedName("meter_id") val meter_id: String, // FIX: Changed back to non-nullable String as per DB schema
-    @SerializedName("value") val value: String, // Value as String as per schema, convert to Double for calculations
-    @SerializedName("date") val date: String, // Date as String as per schema
+    @SerializedName("meter_id") val meter_id: String,
+    @SerializedName("value") val value: String,
+    @SerializedName("date") val date: String,
     @SerializedName("consumption") val consumption: String? = null,
     @SerializedName("generation") val generation: String? = null,
     @SerializedName("is_valid") val is_valid: Boolean = true,
     @SerializedName("validation_message") val validation_message: String? = null,
-    @SerializedName("created_by") val created_by: String? = null, // UUID of user who created
-    @SerializedName("created_at") var created_at: String? = null, // This is server-populated, so nullable 'var' is correct
+    @SerializedName("created_by") val created_by: String? = null,
+    @SerializedName("created_at") var created_at: String? = null, // Changed to 'var' as per original
     @SerializedName("value_2") val value_2: String? = null,
     @SerializedName("is_auto_generated") val is_auto_generated: Boolean = false,
     @SerializedName("notes") val notes: String? = null,
     @SerializedName("read_by") val read_by: String? = null,
     @SerializedName("source_type") val source_type: String? = null,
-    @SerializedName("source_metadata") val source_metadata: Map<String, Any?>? = null, // Stays Map<String, Any?>
+    @SerializedName("source_metadata") val source_metadata: Map<String, Any?>? = null,
     @SerializedName("validation_status") val validation_status: String? = null,
     @SerializedName("validation_messages") val validation_messages: List<String>? = null
 )

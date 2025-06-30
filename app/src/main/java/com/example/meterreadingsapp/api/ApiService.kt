@@ -2,13 +2,13 @@ package com.example.meterreadingsapp.api
 
 import com.example.meterreadingsapp.data.Meter
 import com.example.meterreadingsapp.data.Reading
+import com.example.meterreadingsapp.data.Project // FIX: Import Project data class
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Query
-// Removed: import retrofit2.http.PATCH
-import retrofit2.http.Header // Import for Header
+import retrofit2.http.Header
 
 /**
  * Retrofit interface for interacting with your Supabase API.
@@ -53,18 +53,6 @@ interface ApiService {
         @Query("id") meterIdFilter: String // Use @Query("id") to filter by ID
     ): Response<List<Meter>> // PostgREST returns a list, even for a single item filter
 
-
-    // Removed: PATCH method for updating meters
-    /*
-    @PATCH("meters")
-    suspend fun patchMeter(
-        @Query("id") meterIdFilter: String,
-        @Body updates: Map<String, String?>,
-        @Header("Prefer") prefer: String = "return=representation"
-    ): Response<List<Meter>>
-    */
-
-
     /**
      * Submits a new meter reading to the database.
      * Corresponds to a POST request to the '/readings' endpoint.
@@ -76,7 +64,14 @@ interface ApiService {
     @POST("readings")
     suspend fun postReading(
         @Body reading: Reading,
-        @Header("Prefer") prefer: String = "return=minimal" // FIX: Request minimal response (no body)
-        // Removed: @Query("select") select: String = "*"
-    ): Response<Unit> // FIX: Changed return type to Response<Unit> for minimal response
+        @Header("Prefer") prefer: String = "return=minimal"
+    ): Response<Unit>
+
+    /**
+     * FIX: Fetches a list of all projects from the API.
+     * Corresponds to a GET request to the '/projects' endpoint.
+     * @return A Retrofit Response object containing a list of Project objects.
+     */
+    @GET("projects")
+    suspend fun getProjects(): Response<List<Project>>
 }
