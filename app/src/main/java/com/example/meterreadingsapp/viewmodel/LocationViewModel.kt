@@ -44,7 +44,7 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
     private val _projectSearchQuery = MutableStateFlow("")
     val projectSearchQuery: StateFlow<String> = _projectSearchQuery.asStateFlow()
 
-    // FIX: LiveData for the list of projects, enhanced to filter by project properties and associated location properties
+    // LiveData for the list of projects, enhanced to filter by project properties and associated location properties
     val projects: LiveData<List<Project>> = combine(
         repository.getAllProjectsFromDb(), // Get all projects
         repository.getUniqueLocations(), // Get all locations to check for associated locations
@@ -73,7 +73,7 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
                                     location.house_number_addition?.lowercase(Locale.ROOT)?.contains(lowerCaseQuery) == true)
                 }
             }
-        }.map { project -> // FIX: Map the filtered projects to include calculated buildingsCount
+        }.map { project ->
             // For each project, count its associated locations
             val buildingsCount = allLocations.count { it.project_id == project.id }
             project.copy(buildingsCount = buildingsCount) // Create a copy with updated buildingsCount
@@ -151,6 +151,9 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
         SharingStarted.Lazily,
         emptyList()
     ).asLiveData(viewModelScope.coroutineContext)
+
+    // REMOVED: LiveData for FileMetadata associated with the currently selected location's meters
+    // val fileMetadataForMeters: LiveData<Map<String, FileMetadata>> = ... (removed)
 
 
     /**
@@ -246,11 +249,12 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
      * @param imageUri The local URI of the image file.
      * @param fullStoragePath The full path in Supabase Storage (including bucket and file name).
      * @param projectId The ID of the project associated with the meter (for worker data).
+     * @param meterId The ID of the meter associated with the image.
      */
-    fun queueImageUpload(imageUri: Uri, fullStoragePath: String, projectId: String) {
+    fun queueImageUpload(imageUri: Uri, fullStoragePath: String, projectId: String, meterId: String) {
         viewModelScope.launch {
             try {
-                repository.queueImageUpload(imageUri, fullStoragePath, projectId)
+                repository.queueImageUpload(imageUri, fullStoragePath, projectId, meterId)
                 _uiMessage.value = "Image queued for upload to $fullStoragePath"
             } catch (e: Exception) {
                 _uiMessage.value = "Failed to queue image for upload: ${e.message}"
@@ -258,4 +262,7 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
             }
         }
     }
+
+    // REMOVED: deleteFileAndMetadata as it's no longer needed for server-side metadata deletion
+    // fun deleteFileAndMetadata(fileMetadataId: String, storagePath: String, localFileUri: Uri?) { ... }
 }

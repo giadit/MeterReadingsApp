@@ -14,13 +14,14 @@ import com.example.meterreadingsapp.api.StorageApiService
 import com.example.meterreadingsapp.data.Location
 import com.example.meterreadingsapp.data.Meter
 import com.example.meterreadingsapp.data.Reading
-import com.example.meterreadingsapp.data.Project // FIX: Import Project
+import com.example.meterreadingsapp.data.Project
 import com.example.meterreadingsapp.data.MeterDao
 import com.example.meterreadingsapp.data.ReadingDao
 import com.example.meterreadingsapp.data.LocationDao
 import com.example.meterreadingsapp.data.QueuedRequest
 import com.example.meterreadingsapp.data.QueuedRequestDao
-import com.example.meterreadingsapp.data.ProjectDao // FIX: Import ProjectDao
+import com.example.meterreadingsapp.data.ProjectDao
+import com.example.meterreadingsapp.data.FileMetadata // Still needed for API request body
 import com.example.meterreadingsapp.workers.SyncWorker
 import com.example.meterreadingsapp.workers.S3UploadWorker
 import com.google.gson.Gson
@@ -33,23 +34,25 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import retrofit2.Response
 import okhttp3.ResponseBody
-import kotlinx.coroutines.flow.first // Needed for .first() call on Flow
+import kotlinx.coroutines.flow.first
 
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.io.InputStream
+import java.util.UUID
 
 /**
  * Repository class that abstracts the data sources (API and local database) for meters, readings,
- * and now projects. It provides a clean API for the ViewModel to interact with data.
+ * and projects. It provides a clean API for the ViewModel to interact with data.
+ * File metadata will now be queued as a QueuedRequest if API submission fails.
  *
  * @param apiService The Retrofit service for making API calls.
  * @param meterDao The Room DAO for accessing meter data in the local database.
  * @param readingDao The Room DAO for accessing reading data in the local database.
  * @param locationDao The Room DAO for accessing location data in the local database.
  * @param queuedRequestDao The Room DAO for accessing queued requests in the local database.
- * @param projectDao The Room DAO for accessing project data in the local database. // FIX: New dependency
+ * @param projectDao The Room DAO for accessing project data in the local database.
  * @param appContext The application context, needed for WorkManager.
  */
 class MeterRepository(
@@ -58,7 +61,7 @@ class MeterRepository(
     private val readingDao: ReadingDao,
     private val locationDao: LocationDao,
     private val queuedRequestDao: QueuedRequestDao,
-    private val projectDao: ProjectDao, // FIX: Added ProjectDao to constructor
+    private val projectDao: ProjectDao,
     private val appContext: Context
 ) {
     private val TAG = "MeterRepository"
@@ -70,7 +73,7 @@ class MeterRepository(
     private val SUPABASE_BUCKET_NAME = "project-documents"
 
     init {
-        Log.d(TAG, "MeterRepository initialized with Supabase Storage API approach and ProjectDao.")
+        Log.d(TAG, "MeterRepository initialized with Supabase Storage API approach and ProjectDao. File metadata will be queued.")
     }
 
     private fun generateLocationId(
@@ -152,10 +155,10 @@ class MeterRepository(
     }
 
     /**
-     * FIX: Refreshes all projects and their associated meters/locations from the API and updates the local database.
+     * Refreshes all projects and their associated meters/locations from the API and updates the local database.
      * This is the comprehensive data sync now that we have a project layer.
      */
-    suspend fun refreshAllProjectsAndMeters() { // FIX: Renamed to reflect new functionality
+    suspend fun refreshAllProjectsAndMeters() {
         withContext(Dispatchers.IO) {
             try {
                 Log.d(TAG, "Attempting to fetch all projects from API...")
@@ -200,7 +203,7 @@ class MeterRepository(
                                     meterHouseNumberAddition
                                 ),
                                 name = locationDisplayName,
-                                project_id = meter.project_id, // FIX: Pass project_id
+                                project_id = meter.project_id,
                                 address = meterAddress,
                                 postal_code = meterPostalCode,
                                 city = meterCity,
@@ -252,7 +255,7 @@ class MeterRepository(
                 val response = apiService.postReading(reading)
                 if (response.isSuccessful) {
                     Log.d(TAG, "Successfully POSTed reading. Response status: ${response.code()}")
-                    refreshAllProjectsAndMeters() // FIX: Call refreshAllProjectsAndMeters after successful post
+                    refreshAllProjectsAndMeters()
                     Response.success(Unit)
                 } else {
                     val errorBody = response.errorBody()?.string()
@@ -275,7 +278,7 @@ class MeterRepository(
         }
     }
 
-    fun queueImageUpload(imageUri: Uri, fullStoragePath: String, projectId: String) {
+    fun queueImageUpload(imageUri: Uri, fullStoragePath: String, projectId: String, meterId: String) {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
@@ -283,7 +286,8 @@ class MeterRepository(
         val inputData = workDataOf(
             S3UploadWorker.KEY_IMAGE_URI to imageUri.toString(),
             S3UploadWorker.KEY_S3_KEY to fullStoragePath,
-            S3UploadWorker.KEY_PROJECT_ID to projectId
+            S3UploadWorker.KEY_PROJECT_ID to projectId,
+            S3UploadWorker.KEY_METER_ID to meterId
         )
 
         val uploadWorkRequest = OneTimeWorkRequestBuilder<S3UploadWorker>()
@@ -295,8 +299,8 @@ class MeterRepository(
         Log.d(TAG, "S3UploadWorker scheduled for image: $fullStoragePath (Supabase Storage)")
     }
 
-    suspend fun uploadFileToS3(imageUri: Uri, fullStoragePath: String) {
-        withContext(Dispatchers.IO) {
+    suspend fun uploadFileToS3(imageUri: Uri, fullStoragePath: String): Boolean {
+        return withContext(Dispatchers.IO) {
             var tempFile: File? = null
             var inputStream: InputStream? = null
             try {
@@ -345,24 +349,137 @@ class MeterRepository(
 
                 if (response.isSuccessful) {
                     Log.d(TAG, "Supabase Storage upload completed successfully for path: $fullStoragePath. Response code: ${response.code()}")
+                    true // Indicate success
                 } else {
                     val errorBody = response.errorBody()?.string()
                     val errorMessage = "Supabase Storage upload failed for path: $fullStoragePath. Code: ${response.code()}, Message: ${response.message()}. Error Body: $errorBody"
                     Log.e(TAG, errorMessage)
-                    throw IOException(errorMessage)
+                    false // Indicate failure
                 }
 
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to upload file to Supabase Storage: ${e.message}", e)
-                throw e
+                false // Indicate failure
             } finally {
-                tempFile?.delete()
+                tempFile?.delete() // Ensure temporary file is deleted
                 Log.d(TAG, "Temporary file deleted: ${tempFile?.absolutePath}")
                 inputStream?.close()
             }
         }
     }
 
+    /**
+     * Posts file metadata to the backend API. If the API call fails, it queues the request.
+     *
+     * @param fileName The name of the file.
+     * @param bucketName The name of the storage bucket.
+     * @param storagePath The full path to the file within the bucket.
+     * @param fileSize The size of the file in bytes.
+     * @param fileMimeType The MIME type of the file.
+     * @param entityId The ID of the entity this file is associated with (e.g., meter ID).
+     * @param entityType The type of entity (e.g., "meter", "project").
+     * @param documentType The type of document (e.g., "picture", "report", "other"). Defaults to "other".
+     * @return True if metadata was posted successfully or queued, false if an unrecoverable error occurred.
+     */
+    suspend fun postFileMetadata(
+        fileName: String,
+        bucketName: String,
+        storagePath: String,
+        fileSize: Long,
+        fileMimeType: String,
+        entityId: String,
+        entityType: String,
+        documentType: String = "other"
+    ): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                val fileMetadata = FileMetadata(
+                    id = UUID.randomUUID().toString(), // Generate a new UUID for the metadata entry
+                    name = fileName,
+                    bucket = bucketName,
+                    storage_path = storagePath,
+                    size = fileSize,
+                    type = fileMimeType,
+                    metadata = mapOf(
+                        "entity_id" to entityId,
+                        "entity_type" to entityType,
+                        "document_type" to documentType
+                    )
+                )
+
+                Log.d(TAG, "Attempting to POST file metadata for: $storagePath")
+                val response = apiService.postFileMetadata(fileMetadata)
+
+                if (response.isSuccessful) {
+                    Log.d(TAG, "Successfully POSTed file metadata. Response status: ${response.code()}")
+                    true
+                } else {
+                    val errorBody = response.errorBody()?.string()
+                    Log.e(TAG, "Failed to POST file metadata: ${response.code()} - ${response.message()}. Error Body: $errorBody")
+                    // Queue the request if API call fails
+                    queueRequest(
+                        type = "file_metadata", // NEW: Type for file metadata
+                        endpoint = "files",
+                        method = "POST",
+                        body = gson.toJson(fileMetadata)
+                    )
+                    true // Indicate that the request was handled (either sent or queued)
+                }
+            } catch (e: IOException) {
+                Log.e(TAG, "Network error during POSTing file metadata, queuing request: ${e.message}", e)
+                // Queue the request on network error
+                val fileMetadata = FileMetadata( // Re-create FileMetadata for queuing if network error happens before it's sent
+                    id = UUID.randomUUID().toString(),
+                    name = fileName,
+                    bucket = bucketName,
+                    storage_path = storagePath,
+                    size = fileSize,
+                    type = fileMimeType,
+                    metadata = mapOf(
+                        "entity_id" to entityId,
+                        "entity_type" to entityType,
+                        "document_type" to documentType
+                    )
+                )
+                queueRequest(
+                    type = "file_metadata",
+                    endpoint = "files",
+                    method = "POST",
+                    body = gson.toJson(fileMetadata)
+                )
+                true // Indicate that the request was handled (queued)
+            } catch (e: Exception) {
+                Log.e(TAG, "Unexpected error during POSTing file metadata: ${e.message}", e)
+                false // Indicate an unrecoverable error
+            }
+        }
+    }
+
+    suspend fun processQueuedRequest(request: QueuedRequest): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                when (request.type) {
+                    "reading" -> {
+                        val reading = gson.fromJson(request.body, Reading::class.java)
+                        val response = apiService.postReading(reading)
+                        response.isSuccessful
+                    }
+                    "file_metadata" -> { // NEW: Handle file_metadata type
+                        val fileMetadata = gson.fromJson(request.body, FileMetadata::class.java)
+                        val response = apiService.postFileMetadata(fileMetadata)
+                        response.isSuccessful
+                    }
+                    else -> {
+                        Log.w(TAG, "Unknown queued request type: ${request.type}")
+                        false
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error processing queued request ${request.id}: ${e.message}", e)
+                false
+            }
+        }
+    }
 
     private suspend fun queueRequest(type: String, endpoint: String, method: String, body: String) {
         val queuedRequest = QueuedRequest(type = type, endpoint = endpoint, method = method, body = body)

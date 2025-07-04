@@ -66,6 +66,8 @@
     <string name="image_deleted_failed">Failed to delete image.</string>
     <string name="image_file_not_found">Image file not found locally, removed from list.</string>
     <string name="image_deleted_error">Error deleting image: %s</string>
+    <string name="no_image_to_view">No image available to view.</string> <!-- NEW -->
+    <string name="no_image_to_delete">No image available to delete.</string> <!-- NEW -->
 
     <!-- Additional Login-related error messages from your original file -->
     <string name="login_error_empty_fields">Please enter username and password.</string>

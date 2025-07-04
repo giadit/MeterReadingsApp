@@ -37,6 +37,7 @@ import com.example.meterreadingsapp.data.Location
 import com.example.meterreadingsapp.data.Meter
 import com.example.meterreadingsapp.data.Project
 import com.example.meterreadingsapp.data.Reading
+// REMOVED: import com.example.meterreadingsapp.data.FileMetadata // No longer directly used in MainActivity
 import com.example.meterreadingsapp.databinding.ActivityMainBinding
 import com.example.meterreadingsapp.repository.MeterRepository
 import com.example.meterreadingsapp.viewmodel.LocationViewModel
@@ -49,7 +50,7 @@ import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
-import java.util.Locale // FIX: Added Locale import
+import java.util.Locale
 import android.content.pm.PackageManager
 import android.widget.EditText
 import androidx.core.content.edit
@@ -140,7 +141,9 @@ class MainActivity : AppCompatActivity() {
         val readingDao = database.readingDao()
         val queuedRequestDao = database.queuedRequestDao()
         val projectDao = database.projectDao()
+        // REMOVED: val fileMetadataDao = database.fileMetadataDao() // No longer needed for this simplified flow
 
+        // UPDATED: Pass MeterRepository constructor without fileMetadataDao
         val repository = MeterRepository(apiService, meterDao, readingDao, locationDao, queuedRequestDao, projectDao, applicationContext)
 
         locationViewModel = ViewModelProvider(this, LocationViewModelFactory(repository))
@@ -159,6 +162,7 @@ class MainActivity : AppCompatActivity() {
         observeLocations()
         observeMeters()
         observeUiMessages()
+        // REMOVED: observeFileMetadata() // No longer observing file metadata from server
 
         // Initial visibility states: Start with projects visible
         binding.projectsContainer.isVisible = true
@@ -254,9 +258,18 @@ class MainActivity : AppCompatActivity() {
             onViewImageClicked = { meter, imageUri ->
                 viewImage(imageUri)
             },
-            onDeleteImageClicked = { meter, imageUri ->
-                confirmAndDeleteImage(meter, imageUri)
-            }
+            onDeleteImageClicked = { meter, imageUri -> // UPDATED: Removed FileMetadata parameter
+                confirmAndDeleteImage(meter, imageUri) // UPDATED: Removed FileMetadata parameter
+            },
+            onEditMeterClicked = { meter ->
+                // TODO: Implement edit meter dialog
+                Toast.makeText(this, "Edit meter: ${meter.number}", Toast.LENGTH_SHORT).show()
+            },
+            onDeleteMeterClicked = { meter ->
+                // TODO: Implement delete meter confirmation
+                Toast.makeText(this, "Delete meter: ${meter.number}", Toast.LENGTH_SHORT).show()
+            },
+            currentMode = { AppMode.READINGS } // Default to READINGS mode for now
         )
         binding.metersRecyclerView.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
@@ -350,30 +363,29 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // UPDATED: Simplified confirmAndDeleteImage to only handle local image deletion
     private fun confirmAndDeleteImage(meter: Meter, imageUri: Uri) {
         MaterialAlertDialogBuilder(this)
             .setTitle(getString(R.string.confirm_delete_image_title))
             .setMessage(getString(R.string.confirm_delete_image_message, meter.number))
             .setPositiveButton(getString(R.string.delete_button_text)) { dialog, _ ->
-                try {
-                    val file = File(imageUri.path ?: "")
+                // Only delete the local image file and update adapter
+                imageUri.path?.let { path ->
+                    val file = File(path)
                     if (file.exists()) {
                         if (file.delete()) {
-                            meterAdapter.removeMeterImageUri(meter.id)
+                            Log.d("MainActivity", "Local image file deleted: $path")
+                            meterAdapter.removeMeterImageUri(meter.id) // Update UI
                             Toast.makeText(this, getString(R.string.image_deleted_success), Toast.LENGTH_SHORT).show()
-                            Log.d("MainActivity", "Successfully deleted image file: ${imageUri.path}")
                         } else {
+                            Log.w("MainActivity", "Failed to delete local image file: $path")
                             Toast.makeText(this, getString(R.string.image_deleted_failed), Toast.LENGTH_SHORT).show()
-                            Log.e("MainActivity", "Failed to delete image file: ${imageUri.path}")
                         }
                     } else {
-                        meterAdapter.removeMeterImageUri(meter.id)
+                        Log.w("MainActivity", "Local image file not found for deletion: $path")
                         Toast.makeText(this, getString(R.string.image_file_not_found), Toast.LENGTH_SHORT).show()
-                        Log.w("MainActivity", "Image file not found at path: ${imageUri.path}, removed from adapter state.")
+                        meterAdapter.removeMeterImageUri(meter.id) // Still update UI if file not found
                     }
-                } catch (e: Exception) {
-                    Toast.makeText(this, getString(R.string.image_deleted_error, e.message), Toast.LENGTH_SHORT).show()
-                    Log.e("MainActivity", "Error deleting image: ${e.message}", e)
                 }
                 dialog.dismiss()
             }
@@ -564,6 +576,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // REMOVED: observeFileMetadata() // No longer needed
+
     private fun applyMeterFilter(meters: List<Meter>) {
         val filteredMeters = if ("All" in selectedMeterTypesFilter) {
             meters
@@ -620,14 +634,14 @@ class MainActivity : AppCompatActivity() {
                         val currentTime = timeFormat.format(Date())
                         val fileName = "${s3KeyDateFormat.format(selectedReadingDate.time)}_${currentTime}_${meter.number.replace("/", "_").replace(".", "_")}.jpg"
                         val fullStoragePath = "meter-documents/meter/${meter.id}/${fileName}"
-                        locationViewModel.queueImageUpload(imageUri, fullStoragePath, projectId)
+                        locationViewModel.queueImageUpload(imageUri, fullStoragePath, projectId, meter.id)
                     } else {
                         Log.e("MainActivity", "Meter not found for image with ID: $meterId. Skipping upload.")
                     }
                 }
 
                 meterAdapter.clearEnteredReadings()
-                meterAdapter.clearMeterImages()
+                meterAdapter.clearMeterImages() // This will now only clear locally taken images
 
                 Toast.makeText(this, getString(R.string.data_sent_queued, readingsToSend.size, imagesQueuedCount), Toast.LENGTH_LONG).show()
                 dialog.dismiss()
@@ -704,5 +718,11 @@ class MainActivity : AppCompatActivity() {
             }
             else -> updateToolbarForProjects() // Default to projects view if no state is active (e.g., initial launch)
         }
+    }
+
+    // Enum to represent the current mode of the app (Readings or Editing)
+    enum class AppMode {
+        READINGS,
+        EDITING
     }
 }

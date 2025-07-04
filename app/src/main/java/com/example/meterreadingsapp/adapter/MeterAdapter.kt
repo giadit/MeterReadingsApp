@@ -1,149 +1,140 @@
 package com.example.meterreadingsapp.adapter
 
-import android.text.Editable
-import android.text.TextWatcher
+import android.net.Uri
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
+import android.widget.Toast
+import androidx.core.content.ContextCompat
+import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.example.meterreadingsapp.R
 import com.example.meterreadingsapp.data.Meter
 import com.example.meterreadingsapp.databinding.ItemMeterBinding
-import java.text.SimpleDateFormat
-import java.util.Locale
-import java.util.concurrent.ConcurrentHashMap
-import android.net.Uri // Import Uri
+import com.example.meterreadingsapp.MainActivity.AppMode
 
 /**
- * RecyclerView adapter for displaying a list of Meter objects in the batch reading view.
- * It manages the state of the editable reading fields and uses DiffUtil for efficient updates.
+ * RecyclerView adapter for displaying a list of Meter objects.
+ * Handles user input for readings, displays meter details, and manages image capture/display.
+ * Uses DiffUtil for efficient updates to the list.
  *
- * @param onCameraClicked Lambda invoked when the camera button is clicked for a meter,
- * passing the Meter object and the current local image URI (if any).
- * @param onViewImageClicked Lambda invoked when the view image button is clicked for a meter,
- * passing the Meter object and the local image URI.
- * @param onDeleteImageClicked Lambda invoked when the delete image button is clicked for a meter,
- * passing the Meter object and the local image URI to be deleted.
+ * @param onCameraClicked Lambda invoked when the camera icon is clicked for a meter.
+ * @param onViewImageClicked Lambda invoked when the view image icon is clicked for a meter.
+ * @param onDeleteImageClicked Lambda invoked when the delete image icon is clicked for a meter.
+ * @param onEditMeterClicked Lambda invoked when the edit meter icon is clicked for a meter.
+ * @param onDeleteMeterClicked Lambda invoked when the delete meter icon is clicked for a meter.
+ * @param currentMode Lambda that provides the current [AppMode] (READINGS or EDITING).
  */
 class MeterAdapter(
     private val onCameraClicked: (Meter, Uri?) -> Unit,
     private val onViewImageClicked: (Meter, Uri) -> Unit,
-    private val onDeleteImageClicked: (Meter, Uri) -> Unit // FIX: New lambda for delete image button
+    private val onDeleteImageClicked: (Meter, Uri) -> Unit,
+    private val onEditMeterClicked: (Meter) -> Unit,
+    private val onDeleteMeterClicked: (Meter) -> Unit,
+    private val currentMode: () -> AppMode
 ) : ListAdapter<Meter, MeterAdapter.MeterViewHolder>(DiffCallback) {
 
-    // A map to store the entered reading values, keyed by meter ID.
-    private val enteredReadings: MutableMap<String, String> = ConcurrentHashMap()
+    // Map to store entered readings (meterId to reading value)
+    private val enteredReadings: MutableMap<String, String> = mutableMapOf()
 
-    // A map to store the local image URIs, keyed by meter ID.
-    // This will hold the URI of the picture taken for each meter.
-    private val meterImageUris: MutableMap<String, Uri> = ConcurrentHashMap()
+    // Map to store image URIs for meters (meterId to Uri) - for *newly taken* images, only locally managed
+    private val meterImages: MutableMap<String, Uri> = mutableMapOf()
 
     /**
      * ViewHolder for individual Meter items.
-     * Binds data from a Meter object to the layout views and manages text changes.
+     * Binds data from a Meter object to the layout views.
      *
      * @param binding The ViewBinding object for item_meter.xml.
-     * @param cameraClickListener The lambda for camera button clicks.
-     * @param viewImageClickListener The lambda for view image button clicks.
-     * @param deleteImageClickListener The lambda for delete image button clicks.
      */
-    inner class MeterViewHolder(
-        private val binding: ItemMeterBinding,
-        private val cameraClickListener: (Meter, Uri?) -> Unit,
-        private val viewImageClickListener: (Meter, Uri) -> Unit,
-        private val deleteImageClickListener: (Meter, Uri) -> Unit // FIX: Pass delete image click listener
-    ) : RecyclerView.ViewHolder(binding.root) {
-
-        private var currentTextWatcher: TextWatcher? = null
-        private val uiDisplayDateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.US)
-        private val apiDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+    inner class MeterViewHolder(private val binding: ItemMeterBinding) :
+        RecyclerView.ViewHolder(binding.root) {
 
         /**
          * Binds a Meter object to the views in the ViewHolder.
          * @param meter The Meter object to bind.
          */
         fun bind(meter: Meter) {
-            binding.apply {
-                meterNumberTextView.text = meter.number
-                meterEnergyTypeTextView.text = "Energy Type: ${meter.energy_type}"
-                meterLastReadingTextView.text = meter.last_reading ?: "N/A"
+            binding.meterNumberTextView.text = meter.number
+            binding.meterEnergyTypeTextView.text = meter.energy_type
 
-                meterLastReadingDateTextView.text = meter.last_reading_date?.let { dateString ->
-                    try {
-                        val date = apiDateFormat.parse(dateString)
-                        if (date != null) uiDisplayDateFormat.format(date) else "N/A"
-                    } catch (e: Exception) {
-                        "Invalid Date"
-                    }
-                } ?: "N/A"
+            // Pre-fill reading if available from map
+            binding.newReadingValueEditText.setText(enteredReadings[meter.id])
 
-                newReadingValueEditText.hint = itemView.context.getString(R.string.enter_reading_hint)
-
-                currentTextWatcher?.let { newReadingValueEditText.removeTextChangedListener(it) }
-                newReadingValueEditText.setText(enteredReadings[meter.id])
-
-                currentTextWatcher = object : TextWatcher {
-                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-                    override fun afterTextChanged(s: Editable?) {
-                        if (s != null && s.toString().isNotBlank()) {
-                            enteredReadings[meter.id] = s.toString()
-                        } else {
-                            enteredReadings.remove(meter.id)
-                        }
-                    }
-                }.also { newReadingValueEditText.addTextChangedListener(it) }
-
-                when (meter.energy_type.toLowerCase(Locale.ROOT)) {
-                    "electricity" -> {
-                        energyTypeIcon.setImageResource(R.drawable.ic_bolt)
-                        energyTypeIcon.setColorFilter(itemView.context.getColor(R.color.electric_blue))
-                        energyTypeIcon.visibility = View.VISIBLE
-                    }
-                    "heat" -> {
-                        energyTypeIcon.setImageResource(R.drawable.ic_flame)
-                        energyTypeIcon.setColorFilter(itemView.context.getColor(R.color.heat_orange))
-                        energyTypeIcon.visibility = View.VISIBLE
-                    }
-                    "gas" -> {
-                        energyTypeIcon.setImageResource(R.drawable.ic_gas)
-                        energyTypeIcon.setColorFilter(itemView.context.getColor(R.color.gas_green))
-                        energyTypeIcon.visibility = View.VISIBLE
-                    }
-                    else -> {
-                        energyTypeIcon.setImageResource(0)
-                        energyTypeIcon.visibility = View.GONE
-                    }
-                }
-
-                // Set click listeners for the new buttons
-                cameraButton.setOnClickListener {
-                    cameraClickListener(meter, meterImageUris[meter.id])
-                }
-
-                // Enable/Disable viewImageButton and deleteImageButton based on whether an image exists for this meter
-                val hasImage = meterImageUris.containsKey(meter.id)
-
-                viewImageButton.isEnabled = hasImage
-                viewImageButton.alpha = if (hasImage) 1.0f else 0.5f // Visually indicate enabled/disabled state
-                viewImageButton.setOnClickListener {
-                    // Only allow click if an image exists
-                    meterImageUris[meter.id]?.let { uri ->
-                        viewImageClickListener(meter, uri)
-                    }
-                }
-
-                // FIX: Delete Image Button logic
-                deleteImageButton.isEnabled = hasImage
-                deleteImageButton.alpha = if (hasImage) 1.0f else 0.5f
-                deleteImageButton.setOnClickListener {
-                    meterImageUris[meter.id]?.let { uri ->
-                        deleteImageClickListener(meter, uri)
-                    }
+            // Set up text change listener to update enteredReadings map
+            binding.newReadingValueEditText.onFocusChangeListener = View.OnFocusChangeListener { v, hasFocus ->
+                if (!hasFocus) {
+                    // When focus is lost, save the text
+                    val editText = v as EditText
+                    enteredReadings[meter.id] = editText.text.toString()
                 }
             }
+
+            // Determine if a newly taken image exists for this meter
+            val newlyTakenImageUri = meterImages[meter.id]
+            val hasImage = newlyTakenImageUri != null
+
+            // Set up camera button click listener
+            binding.cameraButton.setOnClickListener {
+                // Pass newly taken image URI if available, otherwise null
+                onCameraClicked(meter, newlyTakenImageUri)
+            }
+
+            // Set up view image button click listener
+            binding.viewImageButton.setOnClickListener {
+                if (newlyTakenImageUri != null) {
+                    onViewImageClicked(meter, newlyTakenImageUri)
+                } else {
+                    Toast.makeText(binding.root.context, R.string.no_image_to_view, Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            // Set up delete image button click listener
+            binding.deleteImageButton.setOnClickListener {
+                if (newlyTakenImageUri != null) {
+                    // If it's a newly taken image, call the delete callback
+                    onDeleteImageClicked(meter, newlyTakenImageUri)
+                } else {
+                    Toast.makeText(binding.root.context, R.string.no_image_to_delete, Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            // Ensure all buttons are always visible
+            binding.cameraButton.visibility = View.VISIBLE
+            binding.viewImageButton.visibility = View.VISIBLE
+            binding.deleteImageButton.visibility = View.VISIBLE
+
+            // Always set the camera icon resource to ensure it's present
+            binding.cameraButton.setImageResource(R.drawable.ic_camera_white_24) // Corrected drawable name
+
+            // Adjust tint and enabled state based on whether an image exists
+            // Camera button is always usable, so its icon should remain white.
+            binding.cameraButton.setColorFilter(ContextCompat.getColor(binding.root.context, android.R.color.white))
+
+            if (hasImage) {
+                // Image exists: View/Delete enabled and tinted white
+                binding.viewImageButton.isEnabled = true
+                binding.viewImageButton.setColorFilter(ContextCompat.getColor(binding.root.context, android.R.color.white))
+                binding.deleteImageButton.isEnabled = true
+                binding.deleteImageButton.setColorFilter(ContextCompat.getColor(binding.root.context, android.R.color.white))
+            } else {
+                // No image: View/Delete disabled and tinted grey
+                binding.viewImageButton.isEnabled = false
+                binding.viewImageButton.setColorFilter(ContextCompat.getColor(binding.root.context, android.R.color.darker_gray)) // Grey tint
+                binding.deleteImageButton.isEnabled = false
+                binding.deleteImageButton.setColorFilter(ContextCompat.getColor(binding.root.context, android.R.color.darker_gray)) // Grey tint
+            }
+
+            // Adjust UI based on current app mode
+            val mode = currentMode()
+            binding.readingValueInputLayout.isEnabled = (mode == AppMode.READINGS)
+            binding.cameraButton.isEnabled = (mode == AppMode.READINGS)
+            // Assuming sendIcon, editMeterButton, deleteMeterButton are handled by MainActivity
+            // and their visibility is controlled there based on AppMode.
+            // If they are directly in item_meter.xml and need to be controlled by adapter,
+            // ensure their IDs are correct and add logic here.
         }
     }
 
@@ -153,8 +144,7 @@ class MeterAdapter(
      */
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MeterViewHolder {
         val binding = ItemMeterBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        // FIX: Pass the new click listeners to the ViewHolder constructor
-        return MeterViewHolder(binding, onCameraClicked, onViewImageClicked, onDeleteImageClicked)
+        return MeterViewHolder(binding)
     }
 
     /**
@@ -166,56 +156,65 @@ class MeterAdapter(
     }
 
     /**
-     * Returns a map of meter IDs to their currently entered reading values.
-     * Only includes entries where a value has been entered (not blank).
+     * Returns the map of entered readings.
+     * @return A map where keys are meter IDs and values are the entered reading strings.
      */
     fun getEnteredReadings(): Map<String, String> {
         return enteredReadings
     }
 
     /**
-     * Clears all entered readings from the internal map.
-     * Call this when the "Send" button is pressed to reset the state.
+     * Returns the map of meter images.
+     * @return A map where keys are meter IDs and values are the image URIs.
+     */
+    fun getMeterImages(): Map<String, Uri> {
+        return meterImages
+    }
+
+    /**
+     * Updates the image URI for a specific meter.
+     * This is for newly taken pictures.
+     * @param meterId The ID of the meter.
+     * @param uri The new image URI.
+     */
+    fun updateMeterImageUri(meterId: String, uri: Uri) {
+        meterImages[meterId] = uri
+        // Notify item changed to rebind and update UI (e.g., show/hide view/delete buttons)
+        val index = currentList.indexOfFirst { it.id == meterId }
+        if (index != -1) {
+            notifyItemChanged(index)
+        }
+    }
+
+    /**
+     * Removes the image URI for a specific meter.
+     * This is for newly taken pictures that are being discarded or after successful upload.
+     * @param meterId The ID of the meter.
+     */
+    fun removeMeterImageUri(meterId: String) {
+        meterImages.remove(meterId)
+        // Notify item changed to rebind and update UI
+        val index = currentList.indexOfFirst { it.id == meterId }
+        if (index != -1) {
+            notifyItemChanged(index)
+        }
+    }
+
+    /**
+     * Clears all entered readings from the map.
      */
     fun clearEnteredReadings() {
         enteredReadings.clear()
-        notifyDataSetChanged()
+        notifyDataSetChanged() // Notify all items to clear their EditTexts
     }
 
     /**
-     * Returns a map of meter IDs to their associated local image URIs.
-     * Only includes meters for which a picture has been saved.
-     */
-    fun getMeterImages(): Map<String, Uri> {
-        return meterImageUris
-    }
-
-    /**
-     * Clears all stored image URIs from the internal map.
-     * Call this when the "Send" button is pressed (after images are uploaded).
+     * Clears all stored meter images from the map.
+     * This should be called after all images are processed (uploaded or discarded).
      */
     fun clearMeterImages() {
-        meterImageUris.clear()
-        notifyDataSetChanged()
-    }
-
-    /**
-     * Updates the local image URI for a specific meter.
-     * @param meterId The ID of the meter.
-     * @param imageUri The local Uri of the captured image.
-     */
-    fun updateMeterImageUri(meterId: String, imageUri: Uri) {
-        meterImageUris[meterId] = imageUri
-        notifyItemChanged(currentList.indexOfFirst { it.id == meterId }) // Notify adapter to rebind this item
-    }
-
-    /**
-     * FIX: Removes the image URI for a specific meter.
-     * @param meterId The ID of the meter whose image URI should be removed.
-     */
-    fun removeMeterImageUri(meterId: String) {
-        meterImageUris.remove(meterId)
-        notifyItemChanged(currentList.indexOfFirst { it.id == meterId }) // Notify adapter to rebind this item
+        meterImages.clear()
+        notifyDataSetChanged() // Notify all items to update image button visibility
     }
 
     companion object {
@@ -228,7 +227,8 @@ class MeterAdapter(
             }
 
             override fun areContentsTheSame(oldItem: Meter, newItem: Meter): Boolean {
-                return oldItem == newItem
+                // Compare all relevant fields to determine if content has changed
+                return oldItem == newItem // Data class equals handles this
             }
         }
     }

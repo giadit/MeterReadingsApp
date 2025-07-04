@@ -1,24 +1,17 @@
 package com.example.meterreadingsapp.workers
 
 import android.content.Context
-import android.net.Uri
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.example.meterreadingsapp.api.ApiService
 import com.example.meterreadingsapp.api.RetrofitClient
 import com.example.meterreadingsapp.data.AppDatabase
-import com.google.gson.Gson
-import com.google.gson.JsonSyntaxException
-import com.example.meterreadingsapp.data.Reading
-import com.example.meterreadingsapp.data.QueuedRequest
 import com.example.meterreadingsapp.repository.MeterRepository
-import kotlinx.coroutines.flow.first
-import java.io.File
+import kotlinx.coroutines.flow.firstOrNull
 
 /**
- * A Worker that attempts to synchronize queued API requests (readings and image uploads) with the backend.
- * It retries failed requests with exponential backoff.
+ * Worker class responsible for synchronizing queued requests (like meter readings and file metadata)
+ * with the backend API when network connectivity is available.
  */
 class SyncWorker(
     appContext: Context,
@@ -26,105 +19,51 @@ class SyncWorker(
 ) : CoroutineWorker(appContext, workerParams) {
 
     private val TAG = "SyncWorker"
-    private val database = AppDatabase.getDatabase(appContext)
-    private val queuedRequestDao = database.queuedRequestDao()
-    private val apiService = RetrofitClient.getService(ApiService::class.java)
-    private val gson = Gson()
-
-    // Initialize MeterRepository with all its dependencies, including the new ProjectDao
-    private val meterRepository: MeterRepository = MeterRepository(
-        apiService,
-        database.meterDao(),
-        database.readingDao(),
-        database.locationDao(),
-        database.queuedRequestDao(),
-        database.projectDao(), // FIX: Added ProjectDao dependency
-        applicationContext
-    )
 
     override suspend fun doWork(): Result {
-        Log.d(TAG, "SyncWorker started. Checking for queued requests...")
+        Log.d(TAG, "SyncWorker started.")
 
-        val requests = queuedRequestDao.getAllQueuedRequests().first()
+        val database = AppDatabase.getDatabase(applicationContext)
+        val queuedRequestDao = database.queuedRequestDao()
+        val meterDao = database.meterDao()
+        val readingDao = database.readingDao()
+        val locationDao = database.locationDao()
+        val projectDao = database.projectDao()
+        val apiService = RetrofitClient.getService(com.example.meterreadingsapp.api.ApiService::class.java)
 
-        if (requests.isNullOrEmpty()) {
-            Log.d(TAG, "No queued requests to sync. Worker finished successfully.")
+        // UPDATED: MeterRepository constructor no longer needs fileMetadataDao
+        val repository = MeterRepository(apiService, meterDao, readingDao, locationDao, queuedRequestDao, projectDao, applicationContext)
+
+        // Fetch all queued requests
+        val queuedRequests = queuedRequestDao.getAllQueuedRequests().firstOrNull() ?: emptyList()
+
+        if (queuedRequests.isEmpty()) {
+            Log.d(TAG, "No queued requests to process. SyncWorker finished.")
             return Result.success()
         }
 
         var allSuccessful = true
-
-        for (request in requests) {
-            try {
-                Log.d(TAG, "Attempting to send queued request (ID: ${request.id}, Type: ${request.type}, Endpoint: ${request.endpoint}, Method: ${request.method})")
-
-                when (request.type) {
-                    "reading" -> {
-                        val reading = gson.fromJson(request.body, Reading::class.java)
-                        val response = apiService.postReading(reading)
-
-                        if (response.isSuccessful) {
-                            Log.d(TAG, "Successfully sent queued reading (ID: ${request.id}). Deleting from queue.")
-                            queuedRequestDao.delete(request.id)
-                        } else {
-                            val errorBody = response.errorBody()?.string()
-                            Log.e(TAG, "Failed to send queued reading (ID: ${request.id}): ${response.code()} - ${response.message()}. Error Body: $errorBody")
-                            request.attemptCount++
-                            queuedRequestDao.update(request)
-                            allSuccessful = false
-                        }
-                    }
-                    "image_upload" -> {
-                        try {
-                            val imageUploadData = gson.fromJson(request.body, ImageUploadData::class.java)
-                            val imageUri = Uri.parse(imageUploadData.imageUriString)
-                            val s3Key = imageUploadData.s3Key
-
-                            meterRepository.uploadFileToS3(imageUri, s3Key)
-
-                            Log.d(TAG, "Successfully uploaded queued image (ID: ${request.id}, S3 Key: $s3Key). Deleting from queue and local file.")
-                            queuedRequestDao.delete(request.id)
-
-                            val file = File(imageUri.path ?: "")
-                            if (file.exists()) {
-                                if (file.delete()) {
-                                    Log.d(TAG, "Deleted local image file: ${file.name}")
-                                } else {
-                                    Log.w(TAG, "Failed to delete local image file: ${file.name}")
-                                }
-                            }
-
-                        } catch (e: JsonSyntaxException) {
-                            Log.e(TAG, "Error parsing image upload data JSON (ID: ${request.id}): ${e.message}. Deleting from queue.", e)
-                            queuedRequestDao.delete(request.id)
-                            allSuccessful = false
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Failed to upload queued image (ID: ${request.id}): ${e.message}", e)
-                            request.attemptCount++
-                            queuedRequestDao.update(request)
-                            allSuccessful = false
-                        }
-                    }
-                    else -> {
-                        Log.w(TAG, "Unsupported queued request type (ID: ${request.id}, Type: ${request.type}). Deleting from queue.")
-                        queuedRequestDao.delete(request.id)
-                        allSuccessful = false
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Uncaught exception while processing queued request (ID: ${request.id}): ${e.message}", e)
+        for (request in queuedRequests) {
+            Log.d(TAG, "Processing queued request: ${request.id} (Type: ${request.type}, Method: ${request.method}, Endpoint: ${request.endpoint})")
+            val success = repository.processQueuedRequest(request)
+            if (success) {
+                queuedRequestDao.delete(request.id)
+                Log.d(TAG, "Successfully processed and deleted queued request: ${request.id}")
+            } else {
+                // If a request fails, increment attempt count and potentially retry
                 request.attemptCount++
-                queuedRequestDao.update(request)
+                queuedRequestDao.update(request) // Update the attempt count in DB
+                Log.e(TAG, "Failed to process queued request: ${request.id}. Attempt count: ${request.attemptCount}. Will retry later.")
                 allSuccessful = false
             }
         }
 
-        return if (allSuccessful) Result.success() else Result.retry()
+        return if (allSuccessful) {
+            Log.d(TAG, "All queued requests processed successfully. SyncWorker finished.")
+            Result.success()
+        } else {
+            Log.d(TAG, "Some queued requests failed. SyncWorker will retry later.")
+            Result.retry()
+        }
     }
-
-    private data class ImageUploadData(
-        val imageUriString: String,
-        val s3Key: String,
-        val projectId: String
-    )
 }

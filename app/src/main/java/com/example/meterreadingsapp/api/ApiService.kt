@@ -2,7 +2,8 @@ package com.example.meterreadingsapp.api
 
 import com.example.meterreadingsapp.data.Meter
 import com.example.meterreadingsapp.data.Reading
-import com.example.meterreadingsapp.data.Project // FIX: Import Project data class
+import com.example.meterreadingsapp.data.Project
+import com.example.meterreadingsapp.data.FileMetadata // NEW: Import FileMetadata
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -68,10 +69,24 @@ interface ApiService {
     ): Response<Unit>
 
     /**
-     * FIX: Fetches a list of all projects from the API.
+     * Fetches a list of all projects from the API.
      * Corresponds to a GET request to the '/projects' endpoint.
      * @return A Retrofit Response object containing a list of Project objects.
      */
     @GET("projects")
     suspend fun getProjects(): Response<List<Project>>
+
+    /**
+     * NEW: Submits metadata for a file to the API.
+     * Corresponds to a POST request to the '/files' endpoint.
+     *
+     * @param fileMetadata The FileMetadata object containing the file details.
+     * @param prefer Header to control server response (e.g., return=minimal for no body).
+     * @return A Retrofit Response object with Unit type, indicating no response body is expected on success (204 No Content).
+     */
+    @POST("files")
+    suspend fun postFileMetadata(
+        @Body fileMetadata: FileMetadata,
+        @Header("Prefer") prefer: String = "return=minimal"
+    ): Response<Unit>
 }

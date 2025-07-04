@@ -65,6 +65,8 @@
     <string name="image_deleted_failed">Bild konnte nicht gelöscht werden.</string>
     <string name="image_file_not_found">Bilddatei lokal nicht gefunden, aus der Liste entfernt.</string>
     <string name="image_deleted_error">Fehler beim Löschen des Bildes: %s</string>
+    <string name="no_image_to_view">Kein Bild zum Ansehen verfügbar.</string> <!-- NEW -->
+    <string name="no_image_to_delete">Kein Bild zum Löschen verfügbar.</string> <!-- NEW -->
 
     <!-- Additional Login-related error messages -->
     <string name="login_error_empty_fields">Bitte Benutzername und Passwort eingeben.</string>
