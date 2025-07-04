@@ -63,8 +63,7 @@
                 android:layout_marginStart="8dp"
                 android:contentDescription="@string/energy_type_icon_description"
                 android:scaleType="fitCenter"
-                tools:src="@drawable/ic_bolt"
-                app:tint="@android:color/holo_red_dark" />
+                tools:src="@drawable/ic_bolt" /> <!-- REMOVED: app:tint attribute here -->
 
         </LinearLayout>
 
