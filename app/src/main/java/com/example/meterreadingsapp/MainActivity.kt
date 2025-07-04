@@ -229,7 +229,8 @@ class MainActivity : AppCompatActivity() {
                     binding.locationsContainer.isVisible = true // Show locations container
                     // FAB visibility handled by observeAppMode now
                     binding.backButton.isVisible = true // Still need back button to go to projects
-                    binding.toolbar.findViewById<View>(R.id.hamburgerButton).isVisible = false // Hide hamburger
+                    // Keep hamburger visible when navigating back from meters to locations
+                    binding.toolbar.findViewById<View>(R.id.hamburgerButton).isVisible = true
 
                     // Reset meter search, keep location search
                     binding.meterSearchView.setQuery("", false)
@@ -270,7 +271,7 @@ class MainActivity : AppCompatActivity() {
             binding.projectsContainer.isVisible = false // Hide projects
             binding.locationsContainer.isVisible = true // Show locations for selected project
             binding.backButton.isVisible = true // Show back button
-            binding.toolbar.findViewById<View>(R.id.hamburgerButton).isVisible = false // Hide hamburger
+            binding.toolbar.findViewById<View>(R.id.hamburgerButton).isVisible = true // Keep hamburger visible
             updateToolbarForLocations(project.id) // Update toolbar title for locations
         }
         binding.projectsRecyclerView.apply {
@@ -285,7 +286,7 @@ class MainActivity : AppCompatActivity() {
             binding.locationsContainer.isVisible = false
             binding.metersContainer.isVisible = true
             binding.backButton.isVisible = true // Still show back button when going to meters
-            binding.toolbar.findViewById<View>(R.id.hamburgerButton).isVisible = false // Hide hamburger
+            binding.toolbar.findViewById<View>(R.id.hamburgerButton).isVisible = true // Keep hamburger visible
             updateToolbarForMeters(location) // Update toolbar for meters
             // Update FAB visibility based on current mode after navigating to meters
             updateFabVisibilityForMode(currentAppMode.value)
@@ -818,7 +819,7 @@ class MainActivity : AppCompatActivity() {
         binding.meterSearchView.isVisible = false
         binding.dateSelectionLayout.isVisible = false
         binding.filterButtonsLayout.isVisible = false
-        binding.toolbar.findViewById<View>(R.id.hamburgerButton).isVisible = false // Hide hamburger
+        binding.toolbar.findViewById<View>(R.id.hamburgerButton).isVisible = true // Show hamburger
     }
 
     private fun updateToolbarForMeters(location: Location) {
@@ -828,7 +829,7 @@ class MainActivity : AppCompatActivity() {
         binding.dateSelectionLayout.isVisible = (currentAppMode.value == AppMode.READINGS) // Only visible in READINGS mode
         binding.filterButtonsLayout.isVisible = (currentAppMode.value == AppMode.READINGS) // Only visible in READINGS mode
         binding.toolbarTitle.isVisible = true
-        binding.toolbar.findViewById<View>(R.id.hamburgerButton).isVisible = false // Hide hamburger
+        binding.toolbar.findViewById<View>(R.id.hamburgerButton).isVisible = true // Show hamburger
     }
 
     override fun onResume() {
