@@ -3,13 +3,16 @@ package com.example.meterreadingsapp.api
 import com.example.meterreadingsapp.data.Meter
 import com.example.meterreadingsapp.data.Reading
 import com.example.meterreadingsapp.data.Project
-import com.example.meterreadingsapp.data.FileMetadata // NEW: Import FileMetadata
+import com.example.meterreadingsapp.data.FileMetadata
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Query
 import retrofit2.http.Header
+import retrofit2.http.PATCH // NEW: Import for PATCH method
+import retrofit2.http.DELETE // NEW: Import for DELETE method
+import retrofit2.http.Path // NEW: Import for @Path if using path parameters
 
 /**
  * Retrofit interface for interacting with your Supabase API.
@@ -77,7 +80,7 @@ interface ApiService {
     suspend fun getProjects(): Response<List<Project>>
 
     /**
-     * NEW: Submits metadata for a file to the API.
+     * Submits metadata for a file to the API.
      * Corresponds to a POST request to the '/files' endpoint.
      *
      * @param fileMetadata The FileMetadata object containing the file details.
@@ -87,6 +90,52 @@ interface ApiService {
     @POST("files")
     suspend fun postFileMetadata(
         @Body fileMetadata: FileMetadata,
+        @Header("Prefer") prefer: String = "return=minimal"
+    ): Response<Unit>
+
+    // NEW: Meter Management Endpoints
+
+    /**
+     * Adds a new meter to the API.
+     * Corresponds to a POST request to the '/meters' endpoint.
+     *
+     * @param meter The Meter object to add.
+     * @param prefer Header to control server response (e.g., return=minimal for no body).
+     * @return A Retrofit Response object with Unit type, indicating no response body is expected on success (201 Created or 204 No Content).
+     */
+    @POST("meters")
+    suspend fun addMeter(
+        @Body meter: Meter,
+        @Header("Prefer") prefer: String = "return=minimal"
+    ): Response<Unit>
+
+    /**
+     * Updates an existing meter on the API using a PATCH request.
+     * This allows for partial updates of a meter record.
+     *
+     * @param meterId The ID of the meter to update. Used in the query parameter for PostgREST.
+     * @param meter The Meter object containing the fields to update.
+     * @param prefer Header to control server response.
+     * @return A Retrofit Response object with Unit type.
+     */
+    @PATCH("meters") // PostgREST uses PATCH to /resource?id=eq.UUID
+    suspend fun patchMeter(
+        @Query("id") meterId: String, // Filter by ID for the specific meter
+        @Body meter: Meter,
+        @Header("Prefer") prefer: String = "return=minimal"
+    ): Response<Unit>
+
+    /**
+     * Deletes a meter from the API.
+     * Corresponds to a DELETE request to the '/meters' endpoint.
+     *
+     * @param meterId The ID of the meter to delete. Used in the query parameter for PostgREST.
+     * @param prefer Header to control server response.
+     * @return A Retrofit Response object with Unit type.
+     */
+    @DELETE("meters") // PostgREST uses DELETE to /resource?id=eq.UUID
+    suspend fun deleteMeter(
+        @Query("id") meterId: String, // Filter by ID for the specific meter
         @Header("Prefer") prefer: String = "return=minimal"
     ): Response<Unit>
 }

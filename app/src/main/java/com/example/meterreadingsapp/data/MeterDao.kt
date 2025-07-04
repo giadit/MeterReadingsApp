@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update // Import for update operations
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -19,6 +20,30 @@ interface MeterDao {
      */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(meters: List<Meter>)
+
+    /**
+     * Inserts a single meter into the database.
+     * On conflict, existing meters with the same primary key will be replaced.
+     * @param meter The Meter object to insert.
+     */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(meter: Meter) // NEW: Insert single meter
+
+    /**
+     * Updates an existing meter in the database.
+     * @param meter The Meter object to update.
+     * @return The number of rows updated.
+     */
+    @Update
+    suspend fun update(meter: Meter): Int // NEW: Update single meter
+
+    /**
+     * Deletes a meter from the database by its ID.
+     * @param meterId The ID of the meter to delete.
+     * @return The number of rows deleted.
+     */
+    @Query("DELETE FROM meters WHERE id = :meterId")
+    suspend fun deleteById(meterId: String): Int // NEW: Delete meter by ID
 
     /**
      * Retrieves all meters from the database.
@@ -50,8 +75,8 @@ interface MeterDao {
         address: String,
         postalCode: String?,
         city: String?,
-        houseNumber: String?, // FIX: New parameter for filtering
-        houseNumberAddition: String? // FIX: New parameter for filtering
+        houseNumber: String?,
+        houseNumberAddition: String?
     ): Flow<List<Meter>>
 
     /**
@@ -82,7 +107,7 @@ interface MeterDao {
         address: String,
         postalCode: String?,
         city: String?,
-        houseNumber: String?, // FIX: New parameter for deletion
-        houseNumberAddition: String? // FIX: New parameter for deletion
+        houseNumber: String?,
+        houseNumberAddition: String?
     )
 }

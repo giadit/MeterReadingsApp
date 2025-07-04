@@ -31,7 +31,6 @@ class SyncWorker(
         val projectDao = database.projectDao()
         val apiService = RetrofitClient.getService(com.example.meterreadingsapp.api.ApiService::class.java)
 
-        // UPDATED: MeterRepository constructor no longer needs fileMetadataDao
         val repository = MeterRepository(apiService, meterDao, readingDao, locationDao, queuedRequestDao, projectDao, applicationContext)
 
         // Fetch all queued requests
@@ -45,6 +44,7 @@ class SyncWorker(
         var allSuccessful = true
         for (request in queuedRequests) {
             Log.d(TAG, "Processing queued request: ${request.id} (Type: ${request.type}, Method: ${request.method}, Endpoint: ${request.endpoint})")
+            // Call the new processQueuedRequest function in the repository
             val success = repository.processQueuedRequest(request)
             if (success) {
                 queuedRequestDao.delete(request.id)

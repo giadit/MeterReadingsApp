@@ -4,8 +4,8 @@
     <string name="login_button_text">Anmelden</string>
     <string name="username_hint">Benutzername</string>
     <string name="password_hint">Passwort</string>
-    <string name="remember_me_checkbox">Angemeldet bleiben</string> <!-- Keep for compatibility if still referenced -->
-    <string name="remember_me">Angemeldet bleiben</string> <!-- FIX: Added this string, as requested by the error -->
+    <string name="remember_me_checkbox">Angemeldet bleiben</string>
+    <string name="remember_me">Angemeldet bleiben</string>
     <string name="login_success">Anmeldung erfolgreich!</string>
     <string name="login_failed">Anmeldung fehlgeschlagen. Bitte überprüfen Sie Ihre Zugangsdaten.</string>
     <string name="back_button_description">Zurück navigieren</string>
@@ -16,7 +16,7 @@
     <string name="search_project_hint">Projekte suchen…</string>
     <string name="no_projects_found">Keine Projekte gefunden.</string>
     <string name="no_matching_projects_found">Keine passenden Projekte für \'%s\' gefunden</string>
-    <string name="log_refreshing_all_data">Alle Projekts- und Zählerdaten aktualisieren.</string>
+    <string name="log_refreshing_all_data">Alle Projekts- und Zählerdaten aktualisieren!</string>
 
     <!-- Location-related strings -->
     <string name="search_location_hint">Standorte suchen…</string>
@@ -55,6 +55,7 @@
     <string name="filter_heat">Heizung</string>
     <string name="filter_gas">Gas</string>
     <string name="reading_date_label">Ablesedatum:</string>
+    <string name="send_readings_button_description">Alle eingegebenen Messwerte senden</string>
 
     <!-- New Strings for Delete Image Feature -->
     <string name="delete_image_button_description">Bild löschen</string>
@@ -65,14 +66,44 @@
     <string name="image_deleted_failed">Bild konnte nicht gelöscht werden.</string>
     <string name="image_file_not_found">Bilddatei lokal nicht gefunden, aus der Liste entfernt.</string>
     <string name="image_deleted_error">Fehler beim Löschen des Bildes: %s</string>
-    <string name="no_image_to_view">Kein Bild zum Ansehen verfügbar.</string> <!-- NEW -->
-    <string name="no_image_to_delete">Kein Bild zum Löschen verfügbar.</string> <!-- NEW -->
+    <string name="no_image_to_view">Kein Bild zum Ansehen verfügbar.</string>
+    <string name="no_image_to_delete">Kein Bild zum Löschen verfügbar.</string>
 
-    <!-- Additional Login-related error messages -->
+    <!-- Additional Login-related error messages from your original file -->
     <string name="login_error_empty_fields">Bitte Benutzername und Passwort eingeben.</string>
     <string name="login_error_credentials">Ungültiger Benutzername oder Passwort.</string>
     <string name="login_error_network">Netzwerkfehler: %1$s. Bitte überprüfen Sie Ihre Verbindung.</string>
     <string name="login_error_generic">Anmeldung fehlgeschlagen mit Code: %1$d</string>
     <string name="pictures_will_be_uploaded">Bilder werden im Hintergrund hochgeladen.</string>
-    <string name="no_readings_or_pictures_entered">Keine Messwerte oder Bilder eingegeben.</string> <!-- FIX: Added missing string -->
+    <string name="no_readings_or_pictures_entered">Keine Messwerte oder Bilder eingegeben.</string>
+
+    <!-- NEW STRINGS FOR EDIT/ADD METER FEATURES & NAVIGATION DRAWER -->
+    <string name="menu_readings_mode">Ablesemodus</string>
+    <string name="menu_editing_mode">Bearbeitungsmodus</string>
+    <string name="add_new_meter_title">Neuen Zähler hinzufügen</string>
+    <string name="edit_meter_title">Zähler bearbeiten</string>
+    <string name="meter_number_hint">Zählernummer</string>
+    <string name="energy_type_hint">Energietyp</string>
+    <string name="select_project_hint">Projekt auswählen</string>
+    <string name="address_hint">Adresse</string>
+    <string name="house_number_hint">Hausnummer</string>
+    <string name="house_number_addition_hint">Hausnummernzusatz</string>
+    <string name="postal_code_hint">Postleitzahl</string>
+    <string name="city_hint">Stadt</string>
+    <string name="save_button_text">Speichern</string>
+    <string name="validation_field_required">Dieses Feld ist erforderlich.</string>
+    <string name="validation_invalid_number">Bitte geben Sie eine gültige Zahl ein.</string>
+    <string name="validation_invalid_energy_type">Bitte wählen Sie einen gültigen Energietyp aus.</string>
+    <string name="edit_meter_button_description">Zähler bearbeiten</string>
+    <string name="delete_meter_button_description">Zähler löschen</string>
+    <string name="confirm_delete_meter_title">Zählerlöschung bestätigen</string>
+    <string name="confirm_delete_meter_message">Möchten Sie Zähler %s wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.</string>
+    <string name="meter_deleted_success">Zähler %s erfolgreich gelöscht.</string>
+    <string name="meter_deleted_failed">Fehler beim Löschen von Zähler %s.</string>
+    <string name="add_new_meter_button_description">Neuen Zähler hinzufügen</string>
+    <string name="navigation_drawer_open">Navigationsleiste öffnen</string>
+    <string name="navigation_drawer_close">Navigationsleiste schließen</string>
+    <string name="menu_button_description">Menü öffnen</string>
+    <string name="switched_to_readings_mode">In den Ablesemodus gewechselt</string>
+    <string name="switched_to_editing_mode">In den Bearbeitungsmodus gewechselt</string>
 </resources>

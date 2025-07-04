@@ -70,6 +70,7 @@
 
         <!-- Last Reading Information -->
         <LinearLayout
+            android:id="@+id/lastReadingInfoLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
@@ -116,12 +117,12 @@
         <!-- Editable Reading Value (at the bottom, spans width) -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/readingValueInputLayout"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             app:hintEnabled="false"
             app:boxBackgroundMode="outline"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
             app:boxStrokeColor="@drawable/text_input_stroke_color_selector">
 
             <com.google.android.material.textfield.TextInputEditText
@@ -135,7 +136,7 @@
                 tools:text="1234.5" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Camera, View Image, and NEW Delete Image Buttons -->
+        <!-- Buttons Row -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -143,10 +144,39 @@
             android:layout_marginTop="16dp"
             android:gravity="end"> <!-- Align buttons to the end (right) -->
 
+            <!-- NEW: Edit Meter Button -->
+            <ImageButton
+                android:id="@+id/editMeterButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="@drawable/button_orange_background"
+                android:src="@drawable/ic_edit_white_24"
+                android:contentDescription="@string/edit_meter_button_description"
+                app:tint="@android:color/white"
+                android:padding="12dp"
+                android:scaleType="fitCenter"
+                android:visibility="gone" /> <!-- Initially hidden, shown in EDITING mode -->
+
+            <!-- NEW: Delete Meter Button -->
+            <ImageButton
+                android:id="@+id/deleteMeterButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="16dp"
+                android:background="@drawable/button_red_background"
+                android:src="@drawable/ic_delete_white_24"
+                android:contentDescription="@string/delete_meter_button_description"
+                app:tint="@android:color/white"
+                android:padding="12dp"
+                android:scaleType="fitCenter"
+                android:visibility="gone" /> <!-- Initially hidden, shown in EDITING mode -->
+
+            <!-- Camera Button -->
             <ImageButton
                 android:id="@+id/cameraButton"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
+                android:layout_marginStart="16dp"
                 android:background="@drawable/button_orange_background"
                 android:src="@drawable/ic_camera_white_24"
                 android:contentDescription="@string/camera_button_description"
@@ -154,6 +184,7 @@
                 android:padding="12dp"
                 android:scaleType="fitCenter" />
 
+            <!-- View Image Button -->
             <ImageButton
                 android:id="@+id/viewImageButton"
                 android:layout_width="48dp"
@@ -166,7 +197,7 @@
                 android:padding="12dp"
                 android:scaleType="fitCenter" />
 
-            <!-- NEW: Delete Image Button -->
+            <!-- Delete Image Button -->
             <ImageButton
                 android:id="@+id/deleteImageButton"
                 android:layout_width="48dp"

@@ -50,4 +50,9 @@ data class Project(
     @SerializedName("launch_date") val launchDate: String?,
     @SerializedName("energy_generators") val energyGenerators: String?,
     @SerializedName("user_id") val userId: String?
-)
+) {
+    // Override toString() to display the project name in AutoCompleteTextView
+    override fun toString(): String {
+        return name ?: "Unknown Project"
+    }
+}

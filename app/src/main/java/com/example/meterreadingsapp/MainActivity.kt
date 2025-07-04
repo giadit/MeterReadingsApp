@@ -37,7 +37,6 @@ import com.example.meterreadingsapp.data.Location
 import com.example.meterreadingsapp.data.Meter
 import com.example.meterreadingsapp.data.Project
 import com.example.meterreadingsapp.data.Reading
-// REMOVED: import com.example.meterreadingsapp.data.FileMetadata // No longer directly used in MainActivity
 import com.example.meterreadingsapp.databinding.ActivityMainBinding
 import com.example.meterreadingsapp.repository.MeterRepository
 import com.example.meterreadingsapp.viewmodel.LocationViewModel
@@ -55,6 +54,10 @@ import android.content.pm.PackageManager
 import android.widget.EditText
 import androidx.core.content.edit
 import androidx.core.view.isVisible
+import androidx.lifecycle.MutableLiveData
+import com.example.meterreadingsapp.ui.dialog.MeterEditAddDialog
+import androidx.appcompat.app.ActionBarDrawerToggle
+import androidx.core.view.GravityCompat
 
 class MainActivity : AppCompatActivity() {
 
@@ -63,6 +66,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var projectAdapter: ProjectAdapter
     private lateinit var locationAdapter: LocationAdapter
     private lateinit var meterAdapter: MeterAdapter
+    private lateinit var toggle: ActionBarDrawerToggle
 
     private val uiDateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.US)
     private val apiDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
@@ -81,6 +85,10 @@ class MainActivity : AppCompatActivity() {
 
     private var currentPhotoUri: Uri? = null
     private var currentMeterForPhoto: Meter? = null
+
+    // LiveData to hold the current application mode
+    private val _currentAppMode = MutableLiveData(AppMode.READINGS)
+    val currentAppMode: MutableLiveData<AppMode> get() = _currentAppMode
 
     private val requestCameraPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
@@ -134,6 +142,38 @@ class MainActivity : AppCompatActivity() {
         setSupportActionBar(binding.toolbar)
         // No title initially, will be set by navigation state
 
+        // Setup for Navigation Drawer
+        toggle = ActionBarDrawerToggle(this, binding.drawerLayout, binding.toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close)
+        binding.drawerLayout.addDrawerListener(toggle)
+        toggle.syncState()
+
+        // Disable the default drawer indicator from ActionBarDrawerToggle
+        // This allows your custom hamburgerButton to be the primary control.
+        toggle.isDrawerIndicatorEnabled = false
+
+        // Handle hamburger button click to open drawer
+        binding.toolbar.findViewById<View>(R.id.hamburgerButton).setOnClickListener {
+            binding.drawerLayout.openDrawer(GravityCompat.START)
+        }
+
+
+        // Navigation View item selection listener
+        binding.navView.setNavigationItemSelectedListener { menuItem ->
+            when (menuItem.itemId) {
+                R.id.nav_readings_mode -> {
+                    _currentAppMode.value = AppMode.READINGS
+                    Toast.makeText(this, getString(R.string.switched_to_readings_mode), Toast.LENGTH_SHORT).show()
+                }
+                R.id.nav_editing_mode -> {
+                    _currentAppMode.value = AppMode.EDITING
+                    Toast.makeText(this, getString(R.string.switched_to_editing_mode), Toast.LENGTH_SHORT).show()
+                }
+            }
+            binding.drawerLayout.closeDrawer(GravityCompat.START)
+            true
+        }
+
+
         val apiService = RetrofitClient.getService(ApiService::class.java)
         val database = AppDatabase.getDatabase(applicationContext)
         val locationDao = database.locationDao()
@@ -141,9 +181,7 @@ class MainActivity : AppCompatActivity() {
         val readingDao = database.readingDao()
         val queuedRequestDao = database.queuedRequestDao()
         val projectDao = database.projectDao()
-        // REMOVED: val fileMetadataDao = database.fileMetadataDao() // No longer needed for this simplified flow
 
-        // UPDATED: Pass MeterRepository constructor without fileMetadataDao
         val repository = MeterRepository(apiService, meterDao, readingDao, locationDao, queuedRequestDao, projectDao, applicationContext)
 
         locationViewModel = ViewModelProvider(this, LocationViewModelFactory(repository))
@@ -157,19 +195,25 @@ class MainActivity : AppCompatActivity() {
         setupTypeFilter()
         setupSendButton()
         setupMeterSearchView() // This will now be specific to meters
+        setupAddMeterFab() // Setup for the Add Meter FAB
 
         observeProjects()
         observeLocations()
         observeMeters()
         observeUiMessages()
-        // REMOVED: observeFileMetadata() // No longer observing file metadata from server
+        observeAppMode() // Observe changes in app mode
 
         // Initial visibility states: Start with projects visible
         binding.projectsContainer.isVisible = true
         binding.locationsContainer.isVisible = false
         binding.metersContainer.isVisible = false
         binding.sendReadingsFab.isVisible = false
+        binding.addMeterFab.isVisible = false // Hide add meter FAB initially
         binding.backButton.isVisible = false // Hidden initially as we start at the top level (projects)
+
+        // Ensure hamburger is visible on initial project screen
+        binding.toolbar.findViewById<View>(R.id.hamburgerButton).isVisible = true
+
 
         binding.refreshButton.setOnClickListener {
             locationViewModel.refreshAllProjectsAndMeters()
@@ -183,13 +227,15 @@ class MainActivity : AppCompatActivity() {
                     locationViewModel.selectLocation(null) // Deselect location to show all locations for current project
                     binding.metersContainer.isVisible = false
                     binding.locationsContainer.isVisible = true // Show locations container
-                    binding.sendReadingsFab.isVisible = false // FAB visible only for meters
+                    // FAB visibility handled by observeAppMode now
                     binding.backButton.isVisible = true // Still need back button to go to projects
+                    binding.toolbar.findViewById<View>(R.id.hamburgerButton).isVisible = false // Hide hamburger
 
                     // Reset meter search, keep location search
                     binding.meterSearchView.setQuery("", false)
                     locationViewModel.setMeterSearchQuery("")
                     updateToolbarForLocations(locationViewModel.selectedProjectId.value) // Update toolbar title for locations
+                    updateFabVisibilityForMode(currentAppMode.value) // Update FABs after navigation
                 }
                 // If currently viewing locations, go back to projects
                 binding.locationsContainer.isVisible -> {
@@ -197,7 +243,8 @@ class MainActivity : AppCompatActivity() {
                     binding.locationsContainer.isVisible = false
                     binding.projectsContainer.isVisible = true // Show projects container
                     binding.backButton.isVisible = false // No back button needed on project list (top level)
-                    binding.sendReadingsFab.isVisible = false // FAB visible only for meters
+                    binding.toolbar.findViewById<View>(R.id.hamburgerButton).isVisible = true // Show hamburger
+                    // FAB visibility handled by observeAppMode now
 
                     // Reset all search views
                     binding.searchView.setQuery("", false)
@@ -206,6 +253,7 @@ class MainActivity : AppCompatActivity() {
                     binding.meterSearchView.setQuery("", false)
                     locationViewModel.setMeterSearchQuery("")
                     updateToolbarForProjects() // Update toolbar title for projects
+                    updateFabVisibilityForMode(currentAppMode.value) // Update FABs after navigation
                 }
             }
             binding.noDataTextView.isVisible = false // Hide no data message on back navigation
@@ -222,6 +270,7 @@ class MainActivity : AppCompatActivity() {
             binding.projectsContainer.isVisible = false // Hide projects
             binding.locationsContainer.isVisible = true // Show locations for selected project
             binding.backButton.isVisible = true // Show back button
+            binding.toolbar.findViewById<View>(R.id.hamburgerButton).isVisible = false // Hide hamburger
             updateToolbarForLocations(project.id) // Update toolbar title for locations
         }
         binding.projectsRecyclerView.apply {
@@ -235,9 +284,11 @@ class MainActivity : AppCompatActivity() {
             locationViewModel.selectLocation(location)
             binding.locationsContainer.isVisible = false
             binding.metersContainer.isVisible = true
-            binding.sendReadingsFab.isVisible = true
             binding.backButton.isVisible = true // Still show back button when going to meters
+            binding.toolbar.findViewById<View>(R.id.hamburgerButton).isVisible = false // Hide hamburger
             updateToolbarForMeters(location) // Update toolbar for meters
+            // Update FAB visibility based on current mode after navigating to meters
+            updateFabVisibilityForMode(currentAppMode.value)
         }
         binding.locationsRecyclerView.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
@@ -258,18 +309,16 @@ class MainActivity : AppCompatActivity() {
             onViewImageClicked = { meter, imageUri ->
                 viewImage(imageUri)
             },
-            onDeleteImageClicked = { meter, imageUri -> // UPDATED: Removed FileMetadata parameter
-                confirmAndDeleteImage(meter, imageUri) // UPDATED: Removed FileMetadata parameter
+            onDeleteImageClicked = { meter, imageUri ->
+                confirmAndDeleteImage(meter, imageUri)
             },
             onEditMeterClicked = { meter ->
-                // TODO: Implement edit meter dialog
-                Toast.makeText(this, "Edit meter: ${meter.number}", Toast.LENGTH_SHORT).show()
+                showMeterEditAddDialog(meter) // Call dialog for editing
             },
             onDeleteMeterClicked = { meter ->
-                // TODO: Implement delete meter confirmation
-                Toast.makeText(this, "Delete meter: ${meter.number}", Toast.LENGTH_SHORT).show()
+                confirmDeleteMeter(meter) // Call confirmation for deleting
             },
-            currentMode = { AppMode.READINGS } // Default to READINGS mode for now
+            currentMode = { currentAppMode.value ?: AppMode.READINGS } // Pass the LiveData value
         )
         binding.metersRecyclerView.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
@@ -363,7 +412,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // UPDATED: Simplified confirmAndDeleteImage to only handle local image deletion
+    // Simplified confirmAndDeleteImage to only handle local image deletion
     private fun confirmAndDeleteImage(meter: Meter, imageUri: Uri) {
         MaterialAlertDialogBuilder(this)
             .setTitle(getString(R.string.confirm_delete_image_title))
@@ -378,7 +427,7 @@ class MainActivity : AppCompatActivity() {
                             meterAdapter.removeMeterImageUri(meter.id) // Update UI
                             Toast.makeText(this, getString(R.string.image_deleted_success), Toast.LENGTH_SHORT).show()
                         } else {
-                            Log.w("MainActivity", "Failed to delete local image file: $path")
+                            Log.w("MainActivity", "Failed to delete local image file: ${file.name}")
                             Toast.makeText(this, getString(R.string.image_deleted_failed), Toast.LENGTH_SHORT).show()
                         }
                     } else {
@@ -394,6 +443,34 @@ class MainActivity : AppCompatActivity() {
             }
             .show()
     }
+
+    // Function to show the MeterEditAddDialog
+    private fun showMeterEditAddDialog(meter: Meter? = null) {
+        val dialog = MeterEditAddDialog(locationViewModel, meter) {
+            // Callback for when the dialog is dismissed (e.g., after save or cancel)
+            Log.d("MainActivity", "MeterEditAddDialog dismissed.")
+        }
+        dialog.show(supportFragmentManager, "MeterEditAddDialog")
+    }
+
+    // Function to confirm and delete a meter
+    private fun confirmDeleteMeter(meter: Meter) {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(getString(R.string.confirm_delete_meter_title))
+            .setMessage(getString(R.string.confirm_delete_meter_message, meter.number))
+            .setPositiveButton(getString(R.string.delete_button_text)) { dialog, _ ->
+                lifecycleScope.launch {
+                    locationViewModel.deleteMeter(meter.id)
+                    Toast.makeText(this@MainActivity, getString(R.string.meter_deleted_success, meter.number), Toast.LENGTH_SHORT).show()
+                }
+                dialog.dismiss()
+            }
+            .setNegativeButton(getString(R.string.cancel_button_text)) { dialog, _ ->
+                dialog.cancel()
+            }
+            .show()
+    }
+
 
     private fun setupDateSelection() {
         updateSelectedDateText()
@@ -509,6 +586,52 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // Setup for the Add Meter FAB
+    private fun setupAddMeterFab() {
+        binding.addMeterFab.setOnClickListener {
+            showMeterEditAddDialog(null) // Open dialog to add a new meter
+        }
+    }
+
+    // Observe AppMode changes and update UI accordingly
+    private fun observeAppMode() {
+        currentAppMode.observe(this) { mode ->
+            Log.d("MainActivity", "App mode changed to: $mode")
+            updateFabVisibilityForMode(mode)
+            // Re-submit list to meterAdapter to trigger re-binding and UI updates based on mode
+            meterAdapter.submitList(meterAdapter.currentList)
+            // Adjust visibility of date/filter/search for meters screen
+            if (binding.metersContainer.isVisible) {
+                binding.dateSelectionLayout.isVisible = (mode == AppMode.READINGS)
+                binding.filterButtonsLayout.isVisible = (mode == AppMode.READINGS)
+                binding.meterSearchView.isVisible = true // Meter search is visible in both modes
+            }
+        }
+    }
+
+    // Helper to update FAB visibility based on mode and current screen
+    private fun updateFabVisibilityForMode(mode: AppMode?) {
+        if (binding.metersContainer.isVisible) { // Only show FABs on the meters screen
+            when (mode) {
+                AppMode.READINGS -> {
+                    binding.sendReadingsFab.isVisible = true
+                    binding.addMeterFab.isVisible = false
+                }
+                AppMode.EDITING -> {
+                    binding.sendReadingsFab.isVisible = false
+                    binding.addMeterFab.isVisible = true
+                }
+                else -> {
+                    binding.sendReadingsFab.isVisible = false
+                    binding.addMeterFab.isVisible = false
+                }
+            }
+        } else { // Hide FABs on other screens
+            binding.sendReadingsFab.isVisible = false
+            binding.addMeterFab.isVisible = false
+        }
+    }
+
     private fun observeProjects() {
         locationViewModel.projects.observe(this) { projects ->
             projects?.let {
@@ -576,8 +699,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // REMOVED: observeFileMetadata() // No longer needed
-
     private fun applyMeterFilter(meters: List<Meter>) {
         val filteredMeters = if ("All" in selectedMeterTypesFilter) {
             meters
@@ -632,8 +753,9 @@ class MainActivity : AppCompatActivity() {
                     if (meter != null) {
                         val projectId = meter.project_id ?: "unknown_project"
                         val currentTime = timeFormat.format(Date())
+                        val bucketNameForStorage = "project-documents" // Directly use the correct bucket name
                         val fileName = "${s3KeyDateFormat.format(selectedReadingDate.time)}_${currentTime}_${meter.number.replace("/", "_").replace(".", "_")}.jpg"
-                        val fullStoragePath = "meter-documents/meter/${meter.id}/${fileName}"
+                        val fullStoragePath = "$bucketNameForStorage/meter/${meter.id}/${fileName}" // Corrected path
                         locationViewModel.queueImageUpload(imageUri, fullStoragePath, projectId, meter.id)
                     } else {
                         Log.e("MainActivity", "Meter not found for image with ID: $meterId. Skipping upload.")
@@ -653,11 +775,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun observeUiMessages() {
-        lifecycleScope.launch {
-            locationViewModel.uiMessage.collectLatest { message ->
-                if (!message.isNullOrBlank()) {
-                    Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
-                }
+        // Corrected: Use LiveData.observe for observing uiMessage (LiveData)
+        locationViewModel.uiMessage.observe(this) { message ->
+            if (!message.isNullOrBlank()) {
+                // Ensure Toast.makeText is called with a CharSequence
+                Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -681,6 +803,7 @@ class MainActivity : AppCompatActivity() {
         binding.meterSearchView.isVisible = false
         binding.dateSelectionLayout.isVisible = false
         binding.filterButtonsLayout.isVisible = false
+        binding.toolbar.findViewById<View>(R.id.hamburgerButton).isVisible = true // Show hamburger
     }
 
     private fun updateToolbarForLocations(projectId: String?) {
@@ -694,15 +817,17 @@ class MainActivity : AppCompatActivity() {
         binding.meterSearchView.isVisible = false
         binding.dateSelectionLayout.isVisible = false
         binding.filterButtonsLayout.isVisible = false
+        binding.toolbar.findViewById<View>(R.id.hamburgerButton).isVisible = false // Hide hamburger
     }
 
     private fun updateToolbarForMeters(location: Location) {
         binding.toolbarTitle.text = location.name ?: location.address ?: getString(R.string.app_name)
         binding.searchView.isVisible = false
         binding.meterSearchView.isVisible = true
-        binding.dateSelectionLayout.isVisible = true
-        binding.filterButtonsLayout.isVisible = true
+        binding.dateSelectionLayout.isVisible = (currentAppMode.value == AppMode.READINGS) // Only visible in READINGS mode
+        binding.filterButtonsLayout.isVisible = (currentAppMode.value == AppMode.READINGS) // Only visible in READINGS mode
         binding.toolbarTitle.isVisible = true
+        binding.toolbar.findViewById<View>(R.id.hamburgerButton).isVisible = false // Hide hamburger
     }
 
     override fun onResume() {
@@ -718,6 +843,8 @@ class MainActivity : AppCompatActivity() {
             }
             else -> updateToolbarForProjects() // Default to projects view if no state is active (e.g., initial launch)
         }
+        // Ensure FAB visibility is correct on resume
+        updateFabVisibilityForMode(currentAppMode.value)
     }
 
     // Enum to represent the current mode of the app (Readings or Editing)

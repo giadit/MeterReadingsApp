@@ -84,6 +84,7 @@ object RetrofitClient {
      * Provides an instance of the specified API service.
      * Selects the appropriate Retrofit instance based on the service class requested.
      */
+    @Suppress("UNCHECKED_CAST") // Suppress unchecked cast warning as we know the types are correct
     fun <T> getService(serviceClass: Class<T>): T {
         return when (serviceClass) {
             ApiService::class.java -> retrofitApi.create(serviceClass) as T

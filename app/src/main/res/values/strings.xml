@@ -16,7 +16,7 @@
     <string name="search_project_hint">Search projects…</string>
     <string name="no_projects_found">No projects found.</string>
     <string name="no_matching_projects_found">No matching projects found for \'%s\'</string>
-    <string name="log_refreshing_all_data">Refreshing all project and meter data.</string>
+    <string name="log_refreshing_all_data">Refreshing all project and meter data!</string>
 
     <!-- Location-related strings -->
     <string name="search_location_hint">Search locations…</string>
@@ -66,8 +66,8 @@
     <string name="image_deleted_failed">Failed to delete image.</string>
     <string name="image_file_not_found">Image file not found locally, removed from list.</string>
     <string name="image_deleted_error">Error deleting image: %s</string>
-    <string name="no_image_to_view">No image available to view.</string> <!-- NEW -->
-    <string name="no_image_to_delete">No image available to delete.</string> <!-- NEW -->
+    <string name="no_image_to_view">No image available to view.</string>
+    <string name="no_image_to_delete">No image available to delete.</string>
 
     <!-- Additional Login-related error messages from your original file -->
     <string name="login_error_empty_fields">Please enter username and password.</string>
@@ -76,4 +76,34 @@
     <string name="login_error_generic">Login failed with code: %1$d</string>
     <string name="pictures_will_be_uploaded">Pictures will be uploaded in the background.</string>
     <string name="no_readings_or_pictures_entered">No readings or pictures entered.</string>
+
+    <!-- NEW STRINGS FOR EDIT/ADD METER FEATURES & NAVIGATION DRAWER -->
+    <string name="menu_readings_mode">Readings Mode</string>
+    <string name="menu_editing_mode">Editing Mode</string>
+    <string name="add_new_meter_title">Add New Meter</string>
+    <string name="edit_meter_title">Edit Meter</string>
+    <string name="meter_number_hint">Meter Number</string>
+    <string name="energy_type_hint">Energy Type</string>
+    <string name="select_project_hint">Select Project</string>
+    <string name="address_hint">Address</string>
+    <string name="house_number_hint">House Number</string>
+    <string name="house_number_addition_hint">House Number Addition</string>
+    <string name="postal_code_hint">Postal Code</string>
+    <string name="city_hint">City</string>
+    <string name="save_button_text">Save</string>
+    <string name="validation_field_required">This field is required.</string>
+    <string name="validation_invalid_number">Please enter a valid number.</string>
+    <string name="validation_invalid_energy_type">Please select a valid energy type.</string>
+    <string name="edit_meter_button_description">Edit meter</string>
+    <string name="delete_meter_button_description">Delete meter</string>
+    <string name="confirm_delete_meter_title">Confirm Delete Meter</string>
+    <string name="confirm_delete_meter_message">Are you sure you want to delete meter %s? This action cannot be undone.</string>
+    <string name="meter_deleted_success">Meter %s deleted successfully.</string>
+    <string name="meter_deleted_failed">Failed to delete meter %s.</string>
+    <string name="add_new_meter_button_description">Add new meter</string>
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
+    <string name="menu_button_description">Open menu</string>
+    <string name="switched_to_readings_mode">Switched to Readings Mode</string>
+    <string name="switched_to_editing_mode">Switched to Editing Mode</string>
 </resources>

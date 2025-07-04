@@ -5,43 +5,38 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
-import com.example.meterreadingsapp.converters.MapConverter
 import com.example.meterreadingsapp.converters.ListConverter
+import com.example.meterreadingsapp.converters.MapConverter
 
 /**
- * The Room database class for the application.
- * Defines the database configuration and provides access to the DAOs.
- * @param entities Specifies the entities (tables) included in this database.
- * @param version The version number of the database. **REVERTED TO 17** (removed FileMetadata entity).
- * @param exportSchema Set to false to prevent exporting schema to a folder.
+ * Room Database class for the Meter Readings App.
+ * Defines the database configuration, including entities, DAOs, and type converters.
+ *
+ * Version 5: Added FileMetadata entity and FileMetadataDao.
  */
 @Database(
-    entities = [Location::class, Meter::class, Reading::class, QueuedRequest::class, Project::class], // REVERTED: Removed FileMetadata::class
-    version = 17, // REVERTED: Version back to 17
-    exportSchema = false
+    entities = [
+        Project::class,
+        Location::class,
+        Meter::class,
+        Reading::class,
+        QueuedRequest::class,
+        FileMetadata::class // NEW: Added FileMetadata entity
+    ],
+    version = 5, // INCREMENTED VERSION: From 4 to 5 due to adding FileMetadata entity
+    exportSchema = false // Set to false for simplicity, but consider true for real apps with schema export
 )
-@TypeConverters(MapConverter::class, ListConverter::class)
+@TypeConverters(ListConverter::class, MapConverter::class) // Apply type converters for lists and maps
 abstract class AppDatabase : RoomDatabase() {
 
-    // Abstract function to get the DAO for Location entities.
-    abstract fun locationDao(): LocationDao
-
-    // Abstract function to get the DAO for Meter entities.
-    abstract fun meterDao(): MeterDao
-
-    // Abstract function to get the DAO for Reading entities.
-    abstract fun readingDao(): ReadingDao
-
-    // Abstract function to get the DAO for QueuedRequest entities.
-    abstract fun queuedRequestDao(): QueuedRequestDao
-
-    // Abstract function to get the DAO for Project entities.
+    // Abstract methods to provide DAOs
     abstract fun projectDao(): ProjectDao
+    abstract fun locationDao(): LocationDao
+    abstract fun meterDao(): MeterDao
+    abstract fun readingDao(): ReadingDao
+    abstract fun queuedRequestDao(): QueuedRequestDao
+    abstract fun fileMetadataDao(): FileMetadataDao // NEW: Abstract method for FileMetadataDao
 
-    // REMOVED: Abstract function to get the DAO for FileMetadata entities.
-    // abstract fun fileMetadataDao(): FileMetadataDao
-
-    // Companion object to provide a singleton instance of the database.
     companion object {
         @Volatile
         private var INSTANCE: AppDatabase? = null
@@ -53,7 +48,9 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "meter_readings_database"
                 )
-                    .fallbackToDestructiveMigration() // Critical for schema changes without migrations
+                    // For simplicity, we are allowing destructive migrations.
+                    // In a production app, you would implement proper migration strategies.
+                    .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
                 instance
