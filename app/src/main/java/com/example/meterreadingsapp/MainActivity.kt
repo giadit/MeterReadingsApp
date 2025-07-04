@@ -598,8 +598,9 @@ class MainActivity : AppCompatActivity() {
         currentAppMode.observe(this) { mode ->
             Log.d("MainActivity", "App mode changed to: $mode")
             updateFabVisibilityForMode(mode)
-            // Re-submit list to meterAdapter to trigger re-binding and UI updates based on mode
-            meterAdapter.submitList(meterAdapter.currentList)
+            // OPTIMIZED: Use notifyDataSetChanged() to force re-binding of visible items
+            // when only the presentation (based on mode) changes, not the underlying data.
+            meterAdapter.notifyDataSetChanged()
             // Adjust visibility of date/filter/search for meters screen
             if (binding.metersContainer.isVisible) {
                 binding.dateSelectionLayout.isVisible = (mode == AppMode.READINGS)
