@@ -38,6 +38,14 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
     private val _selectedLocationId = MutableStateFlow<String?>(null)
     val selectedLocationId: StateFlow<String?> = _selectedLocationId.asStateFlow()
 
+    // NEW: LiveData to hold the currently selected Project object
+    private val _selectedProject = MutableLiveData<Project?>(null)
+    val selectedProject: LiveData<Project?> get() = _selectedProject
+
+    // NEW: LiveData to hold the currently selected Location object
+    private val _selectedLocation = MutableLiveData<Location?>(null)
+    val selectedLocation: LiveData<Location?> get() = _selectedLocation
+
     private val _projectSearchQuery = MutableStateFlow("")
     val projectSearchQuery: StateFlow<String> = _projectSearchQuery.asStateFlow()
 
@@ -145,13 +153,16 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
 
     fun selectProject(project: Project?) {
         _selectedProjectId.value = project?.id
+        _selectedProject.value = project // NEW: Set the selected Project object
         _selectedLocationId.value = null // Reset selected location when project changes
+        _selectedLocation.value = null // NEW: Reset selected Location object
         _locationSearchQuery.value = "" // Clear location search when project changes
         _meterSearchQuery.value = "" // Clear meter search when project changes
     }
 
     fun selectLocation(location: Location?) {
         _selectedLocationId.value = location?.id
+        _selectedLocation.value = location // NEW: Set the selected Location object
         _meterSearchQuery.value = "" // Clear meter search when location changes
     }
 

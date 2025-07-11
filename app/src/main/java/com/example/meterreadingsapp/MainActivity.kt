@@ -447,7 +447,10 @@ class MainActivity : AppCompatActivity() {
 
     // Function to show the MeterEditAddDialog
     private fun showMeterEditAddDialog(meter: Meter? = null) {
-        val dialog = MeterEditAddDialog(locationViewModel, meter) {
+        // Pass the currently selected project and location to the dialog for pre-filling
+        val currentProject = locationViewModel.selectedProject.value
+        val currentLocation = locationViewModel.selectedLocation.value
+        val dialog = MeterEditAddDialog(locationViewModel, meter, currentProject, currentLocation) {
             // Callback for when the dialog is dismissed (e.g., after save or cancel)
             Log.d("MainActivity", "MeterEditAddDialog dismissed.")
         }
@@ -819,7 +822,7 @@ class MainActivity : AppCompatActivity() {
         binding.meterSearchView.isVisible = false
         binding.dateSelectionLayout.isVisible = false
         binding.filterButtonsLayout.isVisible = false
-        binding.toolbar.findViewById<View>(R.id.hamburgerButton).isVisible = true // Show hamburger
+        binding.toolbar.findViewById<View>(R.id.hamburgerButton).isVisible = true // Keep hamburger visible
     }
 
     private fun updateToolbarForMeters(location: Location) {

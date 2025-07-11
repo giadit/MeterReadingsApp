@@ -22,7 +22,7 @@
             android:layout_marginBottom="16dp"
             android:gravity="center_horizontal"/>
 
-        <!-- Project Selection (Spinner) -->
+        <!-- Project Selection (Spinner) - Will be pre-filled -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/projectInputLayout"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
@@ -76,7 +76,7 @@
                 tools:text="Electricity"/>
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Address -->
+        <!-- Address - Will be pre-filled -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/addressInputLayout"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
@@ -93,7 +93,7 @@
                 android:maxLines="1" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- House Number and Addition -->
+        <!-- House Number and Addition - Will be pre-filled -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -134,7 +134,7 @@
             </com.google.android.material.textfield.TextInputLayout>
         </LinearLayout>
 
-        <!-- Postal Code -->
+        <!-- Postal Code - Will be pre-filled -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/postalCodeInputLayout"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
@@ -151,7 +151,7 @@
                 android:maxLines="1" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- City -->
+        <!-- City - Will be pre-filled -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/cityInputLayout"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"

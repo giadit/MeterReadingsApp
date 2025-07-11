@@ -9,6 +9,7 @@ import android.widget.Toast
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.lifecycleScope
 import com.example.meterreadingsapp.R
+import com.example.meterreadingsapp.data.Location
 import com.example.meterreadingsapp.data.Meter
 import com.example.meterreadingsapp.data.Project
 import com.example.meterreadingsapp.databinding.DialogEditAddMeterBinding // Ensure this import is present and correct
@@ -20,14 +21,19 @@ import java.util.UUID
 /**
  * DialogFragment for adding a new meter or editing an existing one.
  * It provides input fields for meter details and handles validation and submission.
+ * Pre-fills project and location details if provided (for adding new meters).
  *
  * @param viewModel The LocationViewModel to interact with for data operations.
  * @param meter The Meter object to edit (null for adding a new meter).
+ * @param currentProject The Project object currently selected in MainActivity, used for pre-filling when adding a new meter.
+ * @param currentLocation The Location object currently selected in MainActivity, used for pre-filling when adding a new meter.
  * @param onDismiss Callback invoked when the dialog is dismissed.
  */
 class MeterEditAddDialog(
     private val viewModel: LocationViewModel,
     private val meter: Meter?,
+    private val currentProject: Project?, // NEW: Pass selected project for pre-filling
+    private val currentLocation: Location?, // NEW: Pass selected location for pre-filling
     private val onDismiss: () -> Unit
 ) : DialogFragment() {
 
@@ -56,9 +62,17 @@ class MeterEditAddDialog(
             getString(R.string.edit_meter_title)
         }
 
-        setupProjectSpinner()
         setupEnergyTypeSpinner()
-        populateFieldsForEdit()
+        setupProjectSpinner()
+
+        if (meter == null) {
+            // Adding new meter: Pre-fill from selected location/project
+            prefillFieldsForNewMeter()
+        } else {
+            // Editing existing meter: Populate fields with meter's data
+            populateFieldsForEdit()
+        }
+
         setupButtons()
     }
 
@@ -81,14 +95,15 @@ class MeterEditAddDialog(
                 projectAdapter.addAll(it)
                 projectAdapter.notifyDataSetChanged()
 
-                // If editing, try to pre-select the project
+                // If editing, try to pre-select the project based on the meter's project_id
                 if (meter != null && selectedProject == null) {
-                    val currentProject = it.find { p -> p.id == meter.project_id }
-                    currentProject?.let {
+                    val projectForEdit = it.find { p -> p.id == meter.project_id }
+                    projectForEdit?.let {
                         selectedProject = it
                         binding.projectAutoCompleteTextView.setText(it.name, false)
                     }
                 }
+                // If adding a new meter, and currentProject is provided, it's handled by prefillFieldsForNewMeter
             }
         }
 
@@ -117,6 +132,45 @@ class MeterEditAddDialog(
             if (selectedEnergyTypeIndex != -1) {
                 binding.energyTypeAutoCompleteTextView.setText(energyTypes[selectedEnergyTypeIndex], false)
             }
+        }
+    }
+
+    /**
+     * Pre-fills fields based on the `currentProject` and `currentLocation` passed to the dialog.
+     * This is called when adding a NEW meter.
+     */
+    private fun prefillFieldsForNewMeter() {
+        // Prefill Project if available from current context
+        currentProject?.let { project ->
+            binding.projectAutoCompleteTextView.setText(project.name, false)
+            selectedProject = project // Set the internal selectedProject
+            // Disable project input if pre-filled for a new meter (assuming it's fixed for the context)
+            binding.projectInputLayout.isEnabled = false
+        } ?: run {
+            binding.projectInputLayout.isEnabled = true // Ensure it's enabled if no pre-fill
+        }
+
+        // Prefill Location details if available from current context
+        currentLocation?.let { location ->
+            binding.addressEditText.setText(location.address)
+            binding.houseNumberEditText.setText(location.house_number)
+            binding.houseNumberAdditionEditText.setText(location.house_number_addition)
+            binding.postalCodeEditText.setText(location.postal_code)
+            binding.cityEditText.setText(location.city)
+
+            // Disable location-related inputs if pre-filled (assuming they are fixed for this location)
+            binding.addressInputLayout.isEnabled = false
+            binding.houseNumberInputLayout.isEnabled = false
+            binding.houseNumberAdditionInputLayout.isEnabled = false
+            binding.postalCodeInputLayout.isEnabled = false
+            binding.cityInputLayout.isEnabled = false
+        } ?: run {
+            // Ensure they are enabled if no pre-fill
+            binding.addressInputLayout.isEnabled = true
+            binding.houseNumberInputLayout.isEnabled = true
+            binding.houseNumberAdditionInputLayout.isEnabled = true
+            binding.postalCodeInputLayout.isEnabled = true
+            binding.cityInputLayout.isEnabled = true
         }
     }
 
@@ -234,8 +288,10 @@ class MeterEditAddDialog(
         lifecycleScope.launch {
             if (meter == null) {
                 viewModel.addMeter(newOrUpdatedMeter)
+                Toast.makeText(requireContext(), getString(R.string.add_new_meter_title), Toast.LENGTH_SHORT).show()
             } else {
                 viewModel.patchMeter(newOrUpdatedMeter)
+                Toast.makeText(requireContext(), getString(R.string.edit_meter_title), Toast.LENGTH_SHORT).show()
             }
             dismiss() // Dismiss the dialog after saving/updating
         }
