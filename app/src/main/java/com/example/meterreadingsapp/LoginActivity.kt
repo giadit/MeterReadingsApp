@@ -10,16 +10,22 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
+import com.example.meterreadingsapp.api.ApiService
+import com.example.meterreadingsapp.api.RetrofitClient
+import com.example.meterreadingsapp.api.SessionManager // CORRECT IMPORT
+import com.example.meterreadingsapp.data.LoginRequest
 import com.example.meterreadingsapp.databinding.ActivityLoginBinding
-import io.github.jan.supabase.createSupabaseClient
-import io.github.jan.supabase.gotrue.Auth // CORRECTED IMPORT
-import io.github.jan.supabase.gotrue.auth  // CORRECTED IMPORT
-import io.github.jan.supabase.gotrue.providers.builtin.Email // CORRECTED IMPORT
 import kotlinx.coroutines.launch
+import java.io.IOException
 
 class LoginActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityLoginBinding
+    private lateinit var sessionManager: SessionManager
+    private val apiService: ApiService by lazy {
+        // Pass the application context to initialize RetrofitClient correctly
+        RetrofitClient.getService(ApiService::class.java, applicationContext)
+    }
 
     // SharedPreferences for "Remember Me" functionality
     private val PREFS_NAME = "LoginPrefs"
@@ -27,27 +33,14 @@ class LoginActivity : AppCompatActivity() {
     private val KEY_PASSWORD = "password"
     private val KEY_REMEMBER_ME = "rememberMe"
 
-    // --- Supabase Client Initialization ---
-    companion object {
-        private const val SUPABASE_URL = "https://database.berliner-e-agentur.de"
-        private const val SUPABASE_ANON_KEY = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc1NjQ1ODY2MCwiZXhwIjo0OTEyMTMyMjYwLCJyb2xlIjoiYW5vbiJ9.yIY7ONDFIdlRFwa2Q-ksaGbTkB7z2iIPi7F-_FHKJKQ"
-
-        // CORRECTED INITIALIZATION
-        val supabase = createSupabaseClient(
-            supabaseUrl = SUPABASE_URL,
-            supabaseKey = SUPABASE_ANON_KEY
-        ) {
-            install(Auth) // Use Auth, not GoTrue
-        }
-    }
-    // --- End of Supabase Client ---
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Hide system UI (unchanged)
+        sessionManager = SessionManager(this)
+
+        // Hide system UI (status bar and navigation bar)
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
             window.insetsController?.apply {
                 hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
@@ -62,6 +55,7 @@ class LoginActivity : AppCompatActivity() {
                     )
         }
 
+        // Load saved credentials if "Remember Me" was checked
         loadCredentials()
 
         binding.loginButton.setOnClickListener {
@@ -101,33 +95,42 @@ class LoginActivity : AppCompatActivity() {
         val rememberMe = binding.rememberMeCheckBox.isChecked
 
         if (email.isEmpty() || password.isEmpty()) {
-            Toast.makeText(this, getString(R.string.login_error_empty_fields), Toast.LENGTH_SHORT).show()
+            // Using a string resource is better practice, but this works for now
+            Toast.makeText(this, "Please enter both email and password.", Toast.LENGTH_SHORT).show()
             return
         }
 
+        binding.loginProgressBar.isVisible = true
+        binding.loginButton.isEnabled = false
+
         lifecycleScope.launch {
             try {
-                binding.loginButton.isEnabled = false
-                binding.loginProgressBar.isVisible = true
+                val response = apiService.login(LoginRequest(email, password))
+                if (response.isSuccessful && response.body() != null) {
+                    // This will now work because AuthResponse is corrected
+                    val authToken = response.body()!!.access_token
+                    sessionManager.saveAuthToken(authToken)
+                    saveCredentials(email, password, rememberMe)
 
-                // CORRECTED API CALL
-                supabase.auth.signInWith(Email) {
-                    this.email = email
-                    this.password = password
+                    Toast.makeText(this@LoginActivity, "Login Successful!", Toast.LENGTH_SHORT).show()
+
+                    val intent = Intent(this@LoginActivity, MainActivity::class.java)
+                    startActivity(intent)
+                    finish()
+                } else {
+                    val errorMsg = response.errorBody()?.string() ?: "Login failed"
+                    Toast.makeText(this@LoginActivity, "Login failed: $errorMsg", Toast.LENGTH_LONG).show()
+                    sessionManager.clearAuthToken()
                 }
-
-                saveCredentials(email, password, rememberMe)
-                Toast.makeText(this@LoginActivity, getString(R.string.login_success), Toast.LENGTH_SHORT).show()
-
-                val intent = Intent(this@LoginActivity, MainActivity::class.java)
-                startActivity(intent)
-                finish()
-
+            } catch (e: IOException) {
+                Toast.makeText(this@LoginActivity, "Network error. Please check connection.", Toast.LENGTH_LONG).show()
+                sessionManager.clearAuthToken()
             } catch (e: Exception) {
-                Toast.makeText(this@LoginActivity, "Login failed: ${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(this@LoginActivity, "An unexpected error occurred: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                sessionManager.clearAuthToken()
             } finally {
-                binding.loginButton.isEnabled = true
                 binding.loginProgressBar.isVisible = false
+                binding.loginButton.isEnabled = true
             }
         }
     }

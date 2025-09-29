@@ -134,7 +134,8 @@ class MainActivity : AppCompatActivity() {
         setSupportActionBar(binding.toolbar)
         // No title initially, will be set by navigation state
 
-        val apiService = RetrofitClient.getService(ApiService::class.java)
+        // CORRECTED: Pass the applicationContext to getService
+        val apiService = RetrofitClient.getService(ApiService::class.java, applicationContext)
         val database = AppDatabase.getDatabase(applicationContext)
         val locationDao = database.locationDao()
         val meterDao = database.meterDao()
@@ -726,3 +727,5 @@ class MainActivity : AppCompatActivity() {
         EDITING
     }
 }
+
+

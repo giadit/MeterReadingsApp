@@ -1,21 +1,35 @@
 package com.example.meterreadingsapp.api
 
+import com.example.meterreadingsapp.data.AuthResponse
+import com.example.meterreadingsapp.data.FileMetadata
+import com.example.meterreadingsapp.data.LoginRequest
 import com.example.meterreadingsapp.data.Meter
-import com.example.meterreadingsapp.data.Reading
 import com.example.meterreadingsapp.data.Project
-import com.example.meterreadingsapp.data.FileMetadata // NEW: Import FileMetadata
+import com.example.meterreadingsapp.data.Reading
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.Query
-import retrofit2.http.Header
 
 /**
  * Retrofit interface for interacting with your Supabase API.
  * Defines the HTTP methods and endpoints for fetching and submitting data.
  */
 interface ApiService {
+
+    /**
+     * NEW: Performs a login request to the Supabase authentication endpoint.
+     * @param loginRequest The request body containing the user's email and password.
+     * @param grantType The grant type, required by the Supabase token endpoint.
+     * @return A Retrofit Response object containing an AuthResponse with the access token.
+     */
+    @POST("/auth/v1/token")
+    suspend fun login(
+        @Body loginRequest: LoginRequest,
+        @Query("grant_type") grantType: String = "password"
+    ): Response<AuthResponse>
 
     /**
      * Fetches a list of all meters from the API.
@@ -90,3 +104,4 @@ interface ApiService {
         @Header("Prefer") prefer: String = "return=minimal"
     ): Response<Unit>
 }
+

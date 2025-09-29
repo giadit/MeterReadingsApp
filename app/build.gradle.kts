@@ -31,7 +31,7 @@ android {
             // RE-ADD: AWS Access Key ID for authentication (will be used in headers via Retrofit)
             buildConfigField("String", "AWS_ACCESS_KEY_ID", "\"186ae8da1a085f58821956c34a50357c\"") // Replace with actual Access Key ID
             // RE-ADD: AWS Secret Access Key (might be needed for some manual signing, though typically not put directly in header)
-            buildConfigField("String", "AWS_SECRET_ACCESS_KEY", "\"57131e3b6293a82c21814191b6d69ff515193c79d95d8d95c8b919c188ceea96\"") // Replace with actual Secret Access Key
+            buildConfigField("String", "AWS_SECRET_ACCESS_KEY", "\"57131e3b6293a82c21814191b6d69ff515193c79d95d8d95c8b919c188ceea96\"") // Replace with actual Secret Key
             // RE-ADD: AWS Region (might be needed for some manual signing)
             buildConfigField("String", "AWS_REGION", "\"eu-central-1\"") // Replace with your S3 bucket region
             // FIX: Add AWS Service Name
@@ -44,7 +44,7 @@ android {
             // RE-ADD: AWS Access Key ID for authentication (will be used in headers via Retrofit)
             buildConfigField("String", "AWS_ACCESS_KEY_ID", "\"186ae8da1a085f58821956c34a50357c\"") // Replace with actual Access Key ID
             // RE-ADD: AWS Secret Access Key
-            buildConfigField("String", "AWS_SECRET_ACCESS_KEY", "\"57131e3b6293a82c21814191b6d69ff515193c79d95d8d95c8b919c188ceea96\"") // Replace with actual Secret Access Key
+            buildConfigField("String", "AWS_SECRET_ACCESS_KEY", "\"57131e3b6293a82c21814191b6d69ff515193c79d95d8d95c8b919c188ceea96\"") // Replace with actual Secret Key
             // RE-ADD: AWS Region
             buildConfigField("String", "AWS_REGION", "\"eu-central-1\"") // Replace with your S3 bucket region
             // FIX: Add AWS Service Name
@@ -113,9 +113,8 @@ dependencies {
     // WorkManager for background processing
     implementation("androidx.work:work-runtime-ktx:2.9.0")
 
-    implementation("io.github.jan-tennert.supabase:gotrue-kt:2.5.1")
 
-    // REMOVED: AWS Mobile SDK for S3
-    // implementation("com.amazonaws:aws-android-sdk-s3:2.62.0")
-    // implementation("com.amazonaws:aws-android-sdk-core:2.62.0")
 }
+
+// REMOVED the tasks.withType block as it's no longer needed
+

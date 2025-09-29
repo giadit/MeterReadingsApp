@@ -68,7 +68,8 @@ class MeterRepository(
     private val gson = Gson()
     private val workManager = WorkManager.getInstance(appContext)
 
-    private val storageApiService: StorageApiService = RetrofitClient.getService(StorageApiService::class.java)
+    // CORRECTED: Pass the appContext to getService
+    private val storageApiService: StorageApiService = RetrofitClient.getService(StorageApiService::class.java, appContext)
 
     private val SUPABASE_BUCKET_NAME = "project-documents"
 
@@ -498,3 +499,4 @@ class MeterRepository(
         Log.d(TAG, "SyncWorker scheduled.")
     }
 }
+

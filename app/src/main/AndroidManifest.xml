@@ -22,9 +22,9 @@
         android:theme="@style/Theme.MyPostsApp"
         tools:targetApi="31">
 
-        <!-- MainActivity is now the main entry point (launcher activity) -->
+        <!-- LoginActivity is now the main entry point (launcher activity) -->
         <activity
-            android:name=".MainActivity"
+            android:name=".LoginActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -32,9 +32,9 @@
             </intent-filter>
         </activity>
 
-        <!-- LoginActivity is no longer the launcher. It can still be started explicitly if needed. -->
+        <!-- MainActivity is no longer the launcher. It can still be started explicitly if needed. -->
         <activity
-            android:name=".LoginActivity"
+            android:name=".MainActivity"
             android:exported="false">
             <!-- The intent-filter for MAIN and LAUNCHER is removed from here -->
         </activity>
@@ -87,3 +87,4 @@
     </application>
 
 </manifest>
+

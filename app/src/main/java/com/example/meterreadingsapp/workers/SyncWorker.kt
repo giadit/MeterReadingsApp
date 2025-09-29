@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.example.meterreadingsapp.api.ApiService
 import com.example.meterreadingsapp.api.RetrofitClient
 import com.example.meterreadingsapp.data.AppDatabase
 import com.example.meterreadingsapp.repository.MeterRepository
@@ -29,7 +30,8 @@ class SyncWorker(
         val readingDao = database.readingDao()
         val locationDao = database.locationDao()
         val projectDao = database.projectDao()
-        val apiService = RetrofitClient.getService(com.example.meterreadingsapp.api.ApiService::class.java)
+        // CORRECTED: Pass the applicationContext to getService
+        val apiService = RetrofitClient.getService(ApiService::class.java, applicationContext)
 
         // UPDATED: MeterRepository constructor no longer needs fileMetadataDao
         val repository = MeterRepository(apiService, meterDao, readingDao, locationDao, queuedRequestDao, projectDao, applicationContext)
@@ -67,3 +69,4 @@ class SyncWorker(
         }
     }
 }
+

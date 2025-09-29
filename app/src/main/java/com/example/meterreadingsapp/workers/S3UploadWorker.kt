@@ -5,6 +5,7 @@ import android.net.Uri
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.example.meterreadingsapp.api.ApiService
 import com.example.meterreadingsapp.api.RetrofitClient
 import com.example.meterreadingsapp.data.AppDatabase
 import com.example.meterreadingsapp.repository.MeterRepository
@@ -52,7 +53,8 @@ class S3UploadWorker(
             val locationDao = database.locationDao()
             val queuedRequestDao = database.queuedRequestDao()
             val projectDao = database.projectDao()
-            val apiService = RetrofitClient.getService(com.example.meterreadingsapp.api.ApiService::class.java)
+            // CORRECTED: Pass the applicationContext to getService
+            val apiService = RetrofitClient.getService(ApiService::class.java, applicationContext)
 
             val repository = MeterRepository(apiService, meterDao, readingDao, locationDao, queuedRequestDao, projectDao, applicationContext)
 
@@ -103,3 +105,4 @@ class S3UploadWorker(
         }
     }
 }
+
