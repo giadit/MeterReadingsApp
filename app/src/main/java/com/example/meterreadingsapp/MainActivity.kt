@@ -54,7 +54,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var locationViewModel: LocationViewModel
     private lateinit var projectAdapter: ProjectAdapter
-    private lateinit var buildingAdapter: BuildingAdapter // REPLACED: LocationAdapter with BuildingAdapter
+    private lateinit var buildingAdapter: BuildingAdapter
     private lateinit var meterAdapter: MeterAdapter
 
     private val uiDateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.US)
@@ -144,7 +144,7 @@ class MainActivity : AppCompatActivity() {
             .get(LocationViewModel::class.java)
 
         setupProjectRecyclerView()
-        setupBuildingRecyclerView() // CHANGED: from setupLocationRecyclerView
+        setupBuildingRecyclerView()
         setupMeterRecyclerView()
         setupSearchView()
         setupDateSelection()
@@ -153,7 +153,7 @@ class MainActivity : AppCompatActivity() {
         setupMeterSearchView()
 
         observeProjects()
-        observeBuildings() // CHANGED: from observeLocations
+        observeBuildings()
         observeMeters()
         observeUiMessages()
 
@@ -164,7 +164,7 @@ class MainActivity : AppCompatActivity() {
         binding.backButton.isVisible = false
 
         binding.refreshButton.setOnClickListener {
-            locationViewModel.refreshAllData() // CHANGED: to new refresh function
+            locationViewModel.refreshAllData()
             Log.d("MainActivity", "Refreshing all data...")
         }
 
@@ -218,7 +218,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // RENAMED and UPDATED for Buildings
     private fun setupBuildingRecyclerView() {
         buildingAdapter = BuildingAdapter { building ->
             locationViewModel.selectBuilding(building)
@@ -228,7 +227,7 @@ class MainActivity : AppCompatActivity() {
             binding.backButton.isVisible = true
             updateToolbarForMeters(building)
         }
-        binding.locationsRecyclerView.apply { // Still uses the same RecyclerView ID
+        binding.locationsRecyclerView.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
             adapter = buildingAdapter
         }
@@ -492,7 +491,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // RENAMED and UPDATED for Buildings
     private fun observeBuildings() {
         locationViewModel.buildings.observe(this) { buildings ->
             binding.loadingProgressBar.isVisible = false
@@ -524,7 +522,7 @@ class MainActivity : AppCompatActivity() {
             meters
         } else {
             meters.filter { meter ->
-                selectedMeterTypesFilter.any { it.equals(meter.energy_type, ignoreCase = true) }
+                selectedMeterTypesFilter.any { it.equals(meter.energyType, ignoreCase = true) } // CORRECTED
             }
         }
         meterAdapter.submitList(filteredMeters)
@@ -564,7 +562,7 @@ class MainActivity : AppCompatActivity() {
                 imagesToUpload.forEach { (meterId, imageUri) ->
                     val meter = meterAdapter.currentList.find { it.id == meterId }
                     if (meter != null) {
-                        val projectId = meter.project_id ?: "unknown_project"
+                        val projectId = meter.projectId ?: "unknown_project" // CORRECTED
                         val currentTime = timeFormat.format(Date())
                         val fileName = "${s3KeyDateFormat.format(selectedReadingDate.time)}_${currentTime}_${meter.number.replace("/", "_").replace(".", "_")}.jpg"
                         val fullStoragePath = "meter-documents/meter/${meter.id}/$fileName"
@@ -575,7 +573,6 @@ class MainActivity : AppCompatActivity() {
                 meterAdapter.clearEnteredReadings()
                 meterAdapter.clearMeterImages()
 
-                // CORRECTED: The typo is here. It should be Toast.LENGTH_LONG
                 Toast.makeText(this, "${readingsToSend.size} readings and ${imagesToUpload.size} pictures have been queued for sending.", Toast.LENGTH_LONG).show()
                 dialog.dismiss()
             }
@@ -600,7 +597,6 @@ class MainActivity : AppCompatActivity() {
             remove(KEY_USERNAME)
             remove(KEY_PASSWORD)
         }
-        // Also clear the auth token
         val sessionManager = com.example.meterreadingsapp.api.SessionManager(this)
         sessionManager.clearAuthToken()
 
