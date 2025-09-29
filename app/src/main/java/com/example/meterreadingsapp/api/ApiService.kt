@@ -1,17 +1,18 @@
 package com.example.meterreadingsapp.api
 
 import com.example.meterreadingsapp.data.AuthResponse
-import com.example.meterreadingsapp.data.FileMetadata
+import com.example.meterreadingsapp.data.Building
 import com.example.meterreadingsapp.data.LoginRequest
 import com.example.meterreadingsapp.data.Meter
-import com.example.meterreadingsapp.data.Project
 import com.example.meterreadingsapp.data.Reading
+import com.example.meterreadingsapp.data.Project
+import com.example.meterreadingsapp.data.FileMetadata // NEW: Import FileMetadata
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
-import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.Query
+import retrofit2.http.Header
 
 /**
  * Retrofit interface for interacting with your Supabase API.
@@ -20,16 +21,11 @@ import retrofit2.http.Query
 interface ApiService {
 
     /**
-     * NEW: Performs a login request to the Supabase authentication endpoint.
-     * @param loginRequest The request body containing the user's email and password.
-     * @param grantType The grant type, required by the Supabase token endpoint.
-     * @return A Retrofit Response object containing an AuthResponse with the access token.
+     * Authenticates a user and retrieves an access token.
+     * Corresponds to a POST request to the authentication endpoint.
      */
-    @POST("/auth/v1/token")
-    suspend fun login(
-        @Body loginRequest: LoginRequest,
-        @Query("grant_type") grantType: String = "password"
-    ): Response<AuthResponse>
+    @POST("/auth/v1/token?grant_type=password")
+    suspend fun login(@Body request: LoginRequest): Response<AuthResponse>
 
     /**
      * Fetches a list of all meters from the API.
@@ -89,6 +85,24 @@ interface ApiService {
      */
     @GET("projects")
     suspend fun getProjects(): Response<List<Project>>
+
+    /**
+     * ADDED: Fetches a list of buildings, filtered by project_id.
+     * Corresponds to a GET request to the '/buildings' endpoint.
+     * @param projectId The UUID of the project to filter buildings by.
+     * @return A Retrofit Response object containing a list of Building objects.
+     */
+    @GET("buildings")
+    suspend fun getBuildings(@Query("project_id") projectId: String): Response<List<Building>>
+
+    /**
+     * ADDED: Fetches a list of meters, filtered by building_id.
+     * Corresponds to a GET request to the '/meters' endpoint.
+     * @param buildingId The UUID of the building to filter meters by.
+     * @return A Retrofit Response object containing a list of Meter objects.
+     */
+    @GET("meters")
+    suspend fun getMetersByBuildingId(@Query("building_id") buildingId: String): Response<List<Meter>>
 
     /**
      * NEW: Submits metadata for a file to the API.

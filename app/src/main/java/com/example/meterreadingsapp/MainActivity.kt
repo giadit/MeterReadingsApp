@@ -27,17 +27,12 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.example.meterreadingsapp.adapter.LocationAdapter
+import com.example.meterreadingsapp.adapter.BuildingAdapter
 import com.example.meterreadingsapp.adapter.MeterAdapter
 import com.example.meterreadingsapp.adapter.ProjectAdapter
 import com.example.meterreadingsapp.api.ApiService
 import com.example.meterreadingsapp.api.RetrofitClient
-import com.example.meterreadingsapp.data.AppDatabase
-import com.example.meterreadingsapp.data.Location
-import com.example.meterreadingsapp.data.Meter
-import com.example.meterreadingsapp.data.Project
-import com.example.meterreadingsapp.data.Reading
-// REMOVED: import com.example.meterreadingsapp.data.FileMetadata // No longer directly used in MainActivity
+import com.example.meterreadingsapp.data.*
 import com.example.meterreadingsapp.databinding.ActivityMainBinding
 import com.example.meterreadingsapp.repository.MeterRepository
 import com.example.meterreadingsapp.viewmodel.LocationViewModel
@@ -48,9 +43,7 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.io.IOException
 import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Date
-import java.util.Locale
+import java.util.*
 import android.content.pm.PackageManager
 import android.widget.EditText
 import androidx.core.content.edit
@@ -61,7 +54,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var locationViewModel: LocationViewModel
     private lateinit var projectAdapter: ProjectAdapter
-    private lateinit var locationAdapter: LocationAdapter
+    private lateinit var buildingAdapter: BuildingAdapter // REPLACED: LocationAdapter with BuildingAdapter
     private lateinit var meterAdapter: MeterAdapter
 
     private val uiDateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.US)
@@ -89,7 +82,7 @@ class MainActivity : AppCompatActivity() {
                     launchCamera(meter)
                 }
             } else {
-                Toast.makeText(this, getString(R.string.camera_permission_denied), Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Camera permission denied", Toast.LENGTH_LONG).show()
                 currentMeterForPhoto = null
                 currentPhotoUri = null
             }
@@ -101,11 +94,11 @@ class MainActivity : AppCompatActivity() {
                 currentPhotoUri?.let { uri ->
                     currentMeterForPhoto?.let { meter ->
                         meterAdapter.updateMeterImageUri(meter.id, uri)
-                        Toast.makeText(this, getString(R.string.picture_saved_success, uri.lastPathSegment), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this, "Picture saved: ${uri.lastPathSegment}", Toast.LENGTH_SHORT).show()
                     }
                 }
             } else {
-                Toast.makeText(this, getString(R.string.picture_capture_failed), Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Picture capture failed", Toast.LENGTH_SHORT).show()
                 currentPhotoUri = null
                 currentMeterForPhoto = null
             }
@@ -132,84 +125,78 @@ class MainActivity : AppCompatActivity() {
         }
 
         setSupportActionBar(binding.toolbar)
-        // No title initially, will be set by navigation state
 
-        // CORRECTED: Pass the applicationContext to getService
         val apiService = RetrofitClient.getService(ApiService::class.java, applicationContext)
         val database = AppDatabase.getDatabase(applicationContext)
-        val locationDao = database.locationDao()
+        val projectDao = database.projectDao()
+        val buildingDao = database.buildingDao()
         val meterDao = database.meterDao()
         val readingDao = database.readingDao()
         val queuedRequestDao = database.queuedRequestDao()
-        val projectDao = database.projectDao()
-        // REMOVED: val fileMetadataDao = database.fileMetadataDao() // No longer needed for this simplified flow
+        val locationDao = database.locationDao()
 
-        // UPDATED: Pass MeterRepository constructor without fileMetadataDao
-        val repository = MeterRepository(apiService, meterDao, readingDao, locationDao, queuedRequestDao, projectDao, applicationContext)
+        val repository = MeterRepository(
+            apiService, meterDao, readingDao, projectDao, buildingDao,
+            queuedRequestDao, locationDao, applicationContext
+        )
 
         locationViewModel = ViewModelProvider(this, LocationViewModelFactory(repository))
             .get(LocationViewModel::class.java)
 
         setupProjectRecyclerView()
-        setupLocationRecyclerView()
+        setupBuildingRecyclerView() // CHANGED: from setupLocationRecyclerView
         setupMeterRecyclerView()
-        setupSearchView() // This search view will dynamically control project or location search
+        setupSearchView()
         setupDateSelection()
         setupTypeFilter()
         setupSendButton()
-        setupMeterSearchView() // This will now be specific to meters
+        setupMeterSearchView()
 
         observeProjects()
-        observeLocations()
+        observeBuildings() // CHANGED: from observeLocations
         observeMeters()
         observeUiMessages()
-        // REMOVED: observeFileMetadata() // No longer observing file metadata from server
 
-        // Initial visibility states: Start with projects visible
         binding.projectsContainer.isVisible = true
         binding.locationsContainer.isVisible = false
         binding.metersContainer.isVisible = false
         binding.sendReadingsFab.isVisible = false
-        binding.backButton.isVisible = false // Hidden initially as we start at the top level (projects)
+        binding.backButton.isVisible = false
 
         binding.refreshButton.setOnClickListener {
-            locationViewModel.refreshAllProjectsAndMeters()
-            Log.d("MainActivity", getString(R.string.log_refreshing_all_data))
+            locationViewModel.refreshAllData() // CHANGED: to new refresh function
+            Log.d("MainActivity", "Refreshing all data...")
         }
 
         binding.backButton.setOnClickListener {
             when {
-                // If currently viewing meters, go back to locations
                 binding.metersContainer.isVisible -> {
-                    locationViewModel.selectLocation(null) // Deselect location to show all locations for current project
+                    locationViewModel.selectBuilding(null)
                     binding.metersContainer.isVisible = false
-                    binding.locationsContainer.isVisible = true // Show locations container
-                    binding.sendReadingsFab.isVisible = false // FAB visible only for meters
-                    binding.backButton.isVisible = true // Still need back button to go to projects
+                    binding.locationsContainer.isVisible = true
+                    binding.sendReadingsFab.isVisible = false
+                    binding.backButton.isVisible = true
 
-                    // Reset meter search, keep location search
                     binding.meterSearchView.setQuery("", false)
                     locationViewModel.setMeterSearchQuery("")
-                    updateToolbarForLocations(locationViewModel.selectedProjectId.value) // Update toolbar title for locations
+                    updateToolbarForBuildings(locationViewModel.selectedProjectId.value)
                 }
-                // If currently viewing locations, go back to projects
                 binding.locationsContainer.isVisible -> {
-                    locationViewModel.selectProject(null) // Deselect project to show all projects
+                    locationViewModel.selectProject(null)
                     binding.locationsContainer.isVisible = false
-                    binding.projectsContainer.isVisible = true // Show projects container
-                    binding.backButton.isVisible = false // No back button needed on project list (top level)
-                    binding.sendReadingsFab.isVisible = false // FAB visible only for meters
+                    binding.projectsContainer.isVisible = true
+                    binding.backButton.isVisible = false
+                    binding.sendReadingsFab.isVisible = false
 
-                    // Reset all search views
                     binding.searchView.setQuery("", false)
                     binding.searchView.isIconified = true
-                    locationViewModel.setProjectSearchQuery("") // Reset project search query
+                    locationViewModel.setProjectSearchQuery("")
                     binding.meterSearchView.setQuery("", false)
                     locationViewModel.setMeterSearchQuery("")
-                    updateToolbarForProjects() // Update toolbar title for projects
+                    updateToolbarForProjects()
                 }
             }
-            binding.noDataTextView.isVisible = false // Hide no data message on back navigation
+            binding.noDataTextView.isVisible = false
         }
 
         binding.logoutButton.setOnClickListener {
@@ -220,10 +207,10 @@ class MainActivity : AppCompatActivity() {
     private fun setupProjectRecyclerView() {
         projectAdapter = ProjectAdapter { project ->
             locationViewModel.selectProject(project)
-            binding.projectsContainer.isVisible = false // Hide projects
-            binding.locationsContainer.isVisible = true // Show locations for selected project
-            binding.backButton.isVisible = true // Show back button
-            updateToolbarForLocations(project.id) // Update toolbar title for locations
+            binding.projectsContainer.isVisible = false
+            binding.locationsContainer.isVisible = true
+            binding.backButton.isVisible = true
+            updateToolbarForBuildings(project.id)
         }
         binding.projectsRecyclerView.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
@@ -231,24 +218,25 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupLocationRecyclerView() {
-        locationAdapter = LocationAdapter { location ->
-            locationViewModel.selectLocation(location)
+    // RENAMED and UPDATED for Buildings
+    private fun setupBuildingRecyclerView() {
+        buildingAdapter = BuildingAdapter { building ->
+            locationViewModel.selectBuilding(building)
             binding.locationsContainer.isVisible = false
             binding.metersContainer.isVisible = true
             binding.sendReadingsFab.isVisible = true
-            binding.backButton.isVisible = true // Still show back button when going to meters
-            updateToolbarForMeters(location) // Update toolbar for meters
+            binding.backButton.isVisible = true
+            updateToolbarForMeters(building)
         }
-        binding.locationsRecyclerView.apply {
+        binding.locationsRecyclerView.apply { // Still uses the same RecyclerView ID
             layoutManager = LinearLayoutManager(this@MainActivity)
-            adapter = locationAdapter
+            adapter = buildingAdapter
         }
     }
 
     private fun setupMeterRecyclerView() {
         meterAdapter = MeterAdapter(
-            onCameraClicked = { meter, currentUri ->
+            onCameraClicked = { meter, _ ->
                 currentMeterForPhoto = meter
                 if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
                     launchCamera(meter)
@@ -256,21 +244,19 @@ class MainActivity : AppCompatActivity() {
                     requestCameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
                 }
             },
-            onViewImageClicked = { meter, imageUri ->
+            onViewImageClicked = { _, imageUri ->
                 viewImage(imageUri)
             },
-            onDeleteImageClicked = { meter, imageUri -> // UPDATED: Removed FileMetadata parameter
-                confirmAndDeleteImage(meter, imageUri) // UPDATED: Removed FileMetadata parameter
+            onDeleteImageClicked = { meter, imageUri ->
+                confirmAndDeleteImage(meter, imageUri)
             },
             onEditMeterClicked = { meter ->
-                // TODO: Implement edit meter dialog
                 Toast.makeText(this, "Edit meter: ${meter.number}", Toast.LENGTH_SHORT).show()
             },
             onDeleteMeterClicked = { meter ->
-                // TODO: Implement delete meter confirmation
                 Toast.makeText(this, "Delete meter: ${meter.number}", Toast.LENGTH_SHORT).show()
             },
-            currentMode = { AppMode.READINGS } // Default to READINGS mode for now
+            currentMode = { AppMode.READINGS }
         )
         binding.metersRecyclerView.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
@@ -285,13 +271,12 @@ class MainActivity : AppCompatActivity() {
                 if (binding.projectsContainer.isVisible) {
                     locationViewModel.setProjectSearchQuery(newText ?: "")
                 } else if (binding.locationsContainer.isVisible) {
-                    locationViewModel.setLocationSearchQuery(newText ?: "")
+                    locationViewModel.setBuildingSearchQuery(newText ?: "")
                 }
                 return true
             }
         })
 
-        // Adjust toolbar title visibility based on current active container
         binding.searchView.setOnQueryTextFocusChangeListener { _, hasFocus ->
             binding.toolbarTitle.isVisible = !hasFocus && binding.searchView.query.isNullOrEmpty()
         }
@@ -329,7 +314,7 @@ class MainActivity : AppCompatActivity() {
             }
             takePictureLauncher.launch(cameraIntent)
         } ?: run {
-            Toast.makeText(this, getString(R.string.error_creating_image_file), Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Error creating image file.", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -360,37 +345,32 @@ class MainActivity : AppCompatActivity() {
             startActivity(intent)
         } catch (e: Exception) {
             Log.e("MainActivity", "Error viewing image: ${e.message}", e)
-            Toast.makeText(this, getString(R.string.error_viewing_image), Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Error viewing image.", Toast.LENGTH_SHORT).show()
         }
     }
 
-    // UPDATED: Simplified confirmAndDeleteImage to only handle local image deletion
     private fun confirmAndDeleteImage(meter: Meter, imageUri: Uri) {
         MaterialAlertDialogBuilder(this)
-            .setTitle(getString(R.string.confirm_delete_image_title))
-            .setMessage(getString(R.string.confirm_delete_image_message, meter.number))
-            .setPositiveButton(getString(R.string.delete_button_text)) { dialog, _ ->
-                // Only delete the local image file and update adapter
+            .setTitle("Delete Image?")
+            .setMessage("Are you sure you want to delete the image for meter ${meter.number}?")
+            .setPositiveButton("Delete") { dialog, _ ->
                 imageUri.path?.let { path ->
                     val file = File(path)
                     if (file.exists()) {
                         if (file.delete()) {
-                            Log.d("MainActivity", "Local image file deleted: $path")
-                            meterAdapter.removeMeterImageUri(meter.id) // Update UI
-                            Toast.makeText(this, getString(R.string.image_deleted_success), Toast.LENGTH_SHORT).show()
+                            meterAdapter.removeMeterImageUri(meter.id)
+                            Toast.makeText(this, "Image deleted.", Toast.LENGTH_SHORT).show()
                         } else {
-                            Log.w("MainActivity", "Failed to delete local image file: $path")
-                            Toast.makeText(this, getString(R.string.image_deleted_failed), Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this, "Failed to delete image file.", Toast.LENGTH_SHORT).show()
                         }
                     } else {
-                        Log.w("MainActivity", "Local image file not found for deletion: $path")
-                        Toast.makeText(this, getString(R.string.image_file_not_found), Toast.LENGTH_SHORT).show()
-                        meterAdapter.removeMeterImageUri(meter.id) // Still update UI if file not found
+                        Toast.makeText(this, "Image file not found.", Toast.LENGTH_SHORT).show()
+                        meterAdapter.removeMeterImageUri(meter.id)
                     }
                 }
                 dialog.dismiss()
             }
-            .setNegativeButton(getString(R.string.cancel_button_text)) { dialog, _ ->
+            .setNegativeButton("Cancel") { dialog, _ ->
                 dialog.cancel()
             }
             .show()
@@ -398,7 +378,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupDateSelection() {
         updateSelectedDateText()
-
         binding.selectedDateTextView.setOnClickListener { showDatePicker() }
         binding.selectDateButton.setOnClickListener { showDatePicker() }
     }
@@ -415,7 +394,7 @@ class MainActivity : AppCompatActivity() {
         val datePickerDialog = DatePickerDialog(
             this,
             R.style.AppDatePickerDialogTheme,
-            { _: DatePicker, selectedYear: Int, selectedMonth: Int, selectedDayOfMonth: Int ->
+            { _, selectedYear, selectedMonth, selectedDayOfMonth ->
                 selectedReadingDate.set(selectedYear, selectedMonth, selectedDayOfMonth)
                 updateSelectedDateText()
             },
@@ -425,7 +404,6 @@ class MainActivity : AppCompatActivity() {
 
         datePickerDialog.getButton(DatePickerDialog.BUTTON_POSITIVE)?.setBackgroundResource(R.drawable.button_orange_background)
         datePickerDialog.getButton(DatePickerDialog.BUTTON_POSITIVE)?.setTextColor(Color.WHITE)
-
         datePickerDialog.getButton(DatePickerDialog.BUTTON_NEGATIVE)?.setTextColor(ContextCompat.getColor(this, R.color.bright_orange))
     }
 
@@ -436,7 +414,6 @@ class MainActivity : AppCompatActivity() {
             "Heat" to binding.filterHeat,
             "Gas" to binding.filterGas
         )
-
         filterTextViews.forEach { (type, textView) ->
             textView.setOnClickListener {
                 toggleFilter(type)
@@ -450,27 +427,20 @@ class MainActivity : AppCompatActivity() {
             if ("All" !in selectedMeterTypesFilter) {
                 selectedMeterTypesFilter.clear()
                 selectedMeterTypesFilter.add("All")
-            } else if (selectedMeterTypesFilter.size == 1 && "All" in selectedMeterTypesFilter) {
-                return
-            } else {
-                selectedMeterTypesFilter.remove("All")
             }
         } else {
+            selectedMeterTypesFilter.remove("All")
             if (type in selectedMeterTypesFilter) {
-                selectedMeterTypesFilter.remove("All")
-                selectedMeterTypesFilter.remove(type) // Remove the specific type if already selected
-                if (selectedMeterTypesFilter.isEmpty()) { // If no types selected, default to All
-                    selectedMeterTypesFilter.add("All")
-                }
+                selectedMeterTypesFilter.remove(type)
             } else {
-                selectedMeterTypesFilter.remove("All") // If selecting a specific type, remove "All"
                 selectedMeterTypesFilter.add(type)
+            }
+            if (selectedMeterTypesFilter.isEmpty()) {
+                selectedMeterTypesFilter.add("All")
             }
         }
         updateFilterUI()
-        locationViewModel.meters.value?.let { currentMeters ->
-            applyMeterFilter(currentMeters)
-        }
+        locationViewModel.meters.value?.let { applyMeterFilter(it) }
     }
 
     private fun updateFilterUI() {
@@ -490,10 +460,10 @@ class MainActivity : AppCompatActivity() {
 
             if (isSelected) {
                 textView.setBackgroundResource(R.drawable.filter_button_selected_background)
-                val drawable = textView.background as GradientDrawable
-                drawable.setColor(accentColor)
-                drawable.setStroke(2, accentColor)
-
+                (textView.background as GradientDrawable).apply {
+                    setColor(accentColor)
+                    setStroke(2, accentColor)
+                }
                 textView.setTextColor(ContextCompat.getColor(this, R.color.white))
                 textView.setTypeface(null, Typeface.BOLD)
             } else {
@@ -512,81 +482,49 @@ class MainActivity : AppCompatActivity() {
 
     private fun observeProjects() {
         locationViewModel.projects.observe(this) { projects ->
-            projects?.let {
-                binding.loadingProgressBar.isVisible = false
-                if (it.isEmpty()) {
-                    if (locationViewModel.projectSearchQuery.value.isEmpty()) {
-                        binding.noDataTextView.text = getString(R.string.no_projects_found)
-                        binding.noDataTextView.isVisible = true
-                    } else {
-                        binding.noDataTextView.text = getString(R.string.no_matching_projects_found, locationViewModel.projectSearchQuery.value)
-                        binding.noDataTextView.isVisible = true
-                    }
-                } else {
-                    binding.noDataTextView.isVisible = false
-                    projectAdapter.submitList(it)
-                }
-            } ?: run {
-                binding.loadingProgressBar.isVisible = false
-                binding.noDataTextView.text = getString(R.string.no_projects_found) // Default error
-                binding.noDataTextView.isVisible = true
+            binding.loadingProgressBar.isVisible = false
+            binding.noDataTextView.isVisible = projects.isNullOrEmpty()
+            if (projects.isNullOrEmpty()) {
+                binding.noDataTextView.text = "No projects found."
+            } else {
+                projectAdapter.submitList(projects)
             }
         }
     }
 
-
-    private fun observeLocations() {
-        locationViewModel.locations.observe(this) { locations ->
-            locations?.let {
-                binding.loadingProgressBar.isVisible = false
-                if (it.isEmpty() && locationViewModel.selectedProjectId.value != null) {
-                    binding.noDataTextView.text = getString(R.string.no_locations_for_project)
-                    binding.noDataTextView.isVisible = true
-                    locationAdapter.submitList(emptyList()) // Clear list if no locations
-                } else if (it.isNotEmpty()) {
-                    binding.noDataTextView.isVisible = false
-                    locationAdapter.submitList(it)
-                }
-            } ?: run {
-                binding.loadingProgressBar.isVisible = false
-                binding.noDataTextView.text = getString(R.string.failed_to_load_locations)
-                binding.noDataTextView.isVisible = true
-                locationAdapter.submitList(emptyList())
+    // RENAMED and UPDATED for Buildings
+    private fun observeBuildings() {
+        locationViewModel.buildings.observe(this) { buildings ->
+            binding.loadingProgressBar.isVisible = false
+            binding.noDataTextView.isVisible = buildings.isNullOrEmpty()
+            if (buildings.isNullOrEmpty()) {
+                binding.noDataTextView.text = "No buildings found for this project."
+                buildingAdapter.submitList(emptyList())
+            } else {
+                buildingAdapter.submitList(buildings)
             }
         }
     }
 
     private fun observeMeters() {
         locationViewModel.meters.observe(this) { meters ->
-            meters?.let {
-                binding.loadingProgressBar.isVisible = false
-                if (it.isEmpty() && locationViewModel.selectedLocationId.value != null) {
-                    binding.noDataTextView.text = getString(R.string.no_meters_for_location)
-                    binding.noDataTextView.isVisible = true
-                    meterAdapter.submitList(emptyList())
-                } else if (it.isNotEmpty()) {
-                    binding.noDataTextView.isVisible = false
-                    applyMeterFilter(it)
-                }
-            } ?: run {
-                binding.loadingProgressBar.isVisible = false
-                binding.noDataTextView.text = getString(R.string.failed_to_load_meters)
-                binding.noDataTextView.isVisible = true
+            binding.loadingProgressBar.isVisible = false
+            binding.noDataTextView.isVisible = meters.isNullOrEmpty()
+            if (meters.isNullOrEmpty()) {
+                binding.noDataTextView.text = "No meters found for this building."
                 meterAdapter.submitList(emptyList())
+            } else {
+                applyMeterFilter(meters)
             }
         }
     }
-
-    // REMOVED: observeFileMetadata() // No longer needed
 
     private fun applyMeterFilter(meters: List<Meter>) {
         val filteredMeters = if ("All" in selectedMeterTypesFilter) {
             meters
         } else {
             meters.filter { meter ->
-                selectedMeterTypesFilter.any { selectedType ->
-                    meter.energy_type.equals(selectedType, ignoreCase = true)
-                }
+                selectedMeterTypesFilter.any { it.equals(meter.energy_type, ignoreCase = true) }
             }
         }
         meterAdapter.submitList(filteredMeters)
@@ -597,36 +535,31 @@ class MainActivity : AppCompatActivity() {
         val enteredValues = meterAdapter.getEnteredReadings()
         val readingDateString = apiDateFormat.format(selectedReadingDate.time)
 
-        for (meter in meterAdapter.currentList) {
-            val readingValue = enteredValues[meter.id]
-            if (!readingValue.isNullOrBlank()) {
-                val newReading = Reading(
-                    id = java.util.UUID.randomUUID().toString(),
-                    meter_id = meter.id,
-                    value = readingValue,
-                    date = readingDateString,
-                    created_by = null,
-                    read_by = "App User"
+        meterAdapter.currentList.forEach { meter ->
+            enteredValues[meter.id]?.takeIf { it.isNotBlank() }?.let { readingValue ->
+                readingsToSend.add(
+                    Reading(
+                        id = UUID.randomUUID().toString(),
+                        meter_id = meter.id,
+                        value = readingValue,
+                        date = readingDateString,
+                        read_by = "App User"
+                    )
                 )
-                readingsToSend.add(newReading)
             }
         }
 
         val imagesToUpload = meterAdapter.getMeterImages()
-        val imagesQueuedCount = imagesToUpload.size
-
         if (readingsToSend.isEmpty() && imagesToUpload.isEmpty()) {
-            Toast.makeText(this, getString(R.string.no_readings_or_pictures_entered), Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "No readings or pictures entered.", Toast.LENGTH_SHORT).show()
             return
         }
 
         MaterialAlertDialogBuilder(this)
-            .setTitle(getString(R.string.confirm_send_data_title))
-            .setMessage(getString(R.string.confirm_send_data_message, readingsToSend.size, imagesToUpload.size, uiDateFormat.format(selectedReadingDate.time)))
-            .setPositiveButton(getString(R.string.send_button_text)) { dialog, _ ->
-                readingsToSend.forEach { reading ->
-                    locationViewModel.postMeterReading(reading)
-                }
+            .setTitle("Confirm Send Data")
+            .setMessage("Send ${readingsToSend.size} readings and ${imagesToUpload.size} pictures for date ${uiDateFormat.format(selectedReadingDate.time)}?")
+            .setPositiveButton("Send") { dialog, _ ->
+                readingsToSend.forEach { locationViewModel.postMeterReading(it) }
 
                 imagesToUpload.forEach { (meterId, imageUri) ->
                     val meter = meterAdapter.currentList.find { it.id == meterId }
@@ -634,30 +567,27 @@ class MainActivity : AppCompatActivity() {
                         val projectId = meter.project_id ?: "unknown_project"
                         val currentTime = timeFormat.format(Date())
                         val fileName = "${s3KeyDateFormat.format(selectedReadingDate.time)}_${currentTime}_${meter.number.replace("/", "_").replace(".", "_")}.jpg"
-                        val fullStoragePath = "meter-documents/meter/${meter.id}/${fileName}"
+                        val fullStoragePath = "meter-documents/meter/${meter.id}/$fileName"
                         locationViewModel.queueImageUpload(imageUri, fullStoragePath, projectId, meter.id)
-                    } else {
-                        Log.e("MainActivity", "Meter not found for image with ID: $meterId. Skipping upload.")
                     }
                 }
 
                 meterAdapter.clearEnteredReadings()
-                meterAdapter.clearMeterImages() // This will now only clear locally taken images
+                meterAdapter.clearMeterImages()
 
-                Toast.makeText(this, getString(R.string.data_sent_queued, readingsToSend.size, imagesQueuedCount), Toast.LENGTH_LONG).show()
+                // CORRECTED: The typo is here. It should be Toast.LENGTH_LONG
+                Toast.makeText(this, "${readingsToSend.size} readings and ${imagesToUpload.size} pictures have been queued for sending.", Toast.LENGTH_LONG).show()
                 dialog.dismiss()
             }
-            .setNegativeButton(getString(R.string.cancel_button_text)) { dialog, _ ->
-                dialog.cancel()
-            }
+            .setNegativeButton("Cancel", null)
             .show()
     }
 
     private fun observeUiMessages() {
         lifecycleScope.launch {
             locationViewModel.uiMessage.collectLatest { message ->
-                if (!message.isNullOrBlank()) {
-                    Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
+                message?.let {
+                    Toast.makeText(this@MainActivity, it, Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -670,13 +600,18 @@ class MainActivity : AppCompatActivity() {
             remove(KEY_USERNAME)
             remove(KEY_PASSWORD)
         }
+        // Also clear the auth token
+        val sessionManager = com.example.meterreadingsapp.api.SessionManager(this)
+        sessionManager.clearAuthToken()
 
+        val intent = Intent(this, LoginActivity::class.java)
+        startActivity(intent)
         finish()
     }
 
     private fun updateToolbarForProjects() {
-        binding.toolbarTitle.text = getString(R.string.app_name)
-        binding.searchView.queryHint = getString(R.string.search_project_hint)
+        binding.toolbarTitle.text = "Projects"
+        binding.searchView.queryHint = "Search Projects..."
         binding.toolbarTitle.isVisible = true
         binding.searchView.isVisible = true
         binding.meterSearchView.isVisible = false
@@ -684,12 +619,10 @@ class MainActivity : AppCompatActivity() {
         binding.filterButtonsLayout.isVisible = false
     }
 
-    private fun updateToolbarForLocations(projectId: String?) {
-        val projectName = projectId?.let {
-            locationViewModel.projects.value?.find { p -> p.id == it }?.name
-        } ?: getString(R.string.app_name)
+    private fun updateToolbarForBuildings(projectId: String?) {
+        val projectName = locationViewModel.projects.value?.find { it.id == projectId }?.name ?: "Buildings"
         binding.toolbarTitle.text = projectName
-        binding.searchView.queryHint = getString(R.string.search_location_hint)
+        binding.searchView.queryHint = "Search Buildings..."
         binding.toolbarTitle.isVisible = true
         binding.searchView.isVisible = true
         binding.meterSearchView.isVisible = false
@@ -697,8 +630,8 @@ class MainActivity : AppCompatActivity() {
         binding.filterButtonsLayout.isVisible = false
     }
 
-    private fun updateToolbarForMeters(location: Location) {
-        binding.toolbarTitle.text = location.name ?: location.address ?: getString(R.string.app_name)
+    private fun updateToolbarForMeters(building: Building) {
+        binding.toolbarTitle.text = building.name
         binding.searchView.isVisible = false
         binding.meterSearchView.isVisible = true
         binding.dateSelectionLayout.isVisible = true
@@ -708,24 +641,21 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Determine current view and set toolbar/search hints accordingly
         when {
             binding.projectsContainer.isVisible -> updateToolbarForProjects()
-            binding.locationsContainer.isVisible -> updateToolbarForLocations(locationViewModel.selectedProjectId.value)
-            binding.metersContainer.isVisible -> locationViewModel.selectedLocationId.value?.let { locationId ->
-                locationViewModel.locations.value?.find { it.id == locationId }?.let { location ->
-                    updateToolbarForMeters(location)
+            binding.locationsContainer.isVisible -> updateToolbarForBuildings(locationViewModel.selectedProjectId.value)
+            binding.metersContainer.isVisible -> locationViewModel.selectedBuildingId.value?.let { buildingId ->
+                locationViewModel.buildings.value?.find { it.id == buildingId }?.let { building ->
+                    updateToolbarForMeters(building)
                 }
             }
-            else -> updateToolbarForProjects() // Default to projects view if no state is active (e.g., initial launch)
+            else -> updateToolbarForProjects()
         }
     }
 
-    // Enum to represent the current mode of the app (Readings or Editing)
     enum class AppMode {
         READINGS,
         EDITING
     }
 }
-
 
