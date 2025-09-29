@@ -9,15 +9,7 @@ import com.example.meterreadingsapp.api.ApiService
 import com.example.meterreadingsapp.api.RetrofitClient
 import com.example.meterreadingsapp.data.AppDatabase
 import com.example.meterreadingsapp.repository.MeterRepository
-import com.google.gson.Gson
-import com.google.gson.JsonSyntaxException
-import java.io.File
 
-/**
- * Worker class responsible for uploading images to Storage (now Supabase Storage via Retrofit)
- * in the background. It receives the image URI, the full storage path (s3Key),
- * and project ID as input.
- */
 class S3UploadWorker(
     appContext: Context,
     workerParams: WorkerParameters
@@ -27,20 +19,19 @@ class S3UploadWorker(
 
     companion object {
         const val KEY_IMAGE_URI = "image_uri"
-        // KEY_S3_KEY now represents the full path within Supabase Storage bucket, e.g., "project-documents/meter/meterId/fileName.jpg"
         const val KEY_S3_KEY = "s3_key"
         const val KEY_PROJECT_ID = "project_id"
-        const val KEY_METER_ID = "meter_id" // Added for passing meter ID
+        const val KEY_METER_ID = "meter_id"
     }
 
     override suspend fun doWork(): Result {
         val imageUriString = inputData.getString(KEY_IMAGE_URI)
-        val s3Key = inputData.getString(KEY_S3_KEY) // This key contains the bucket name + path for Supabase
+        val s3Key = inputData.getString(KEY_S3_KEY)
         val projectId = inputData.getString(KEY_PROJECT_ID)
-        val meterId = inputData.getString(KEY_METER_ID) // Retrieve meter ID
+        val meterId = inputData.getString(KEY_METER_ID)
 
         if (imageUriString == null || s3Key == null || projectId == null || meterId == null) {
-            Log.e(TAG, "Missing required data for S3UploadWorker (image URI, S3 key, project ID, or meter ID).")
+            Log.e(TAG, "Missing required data for S3UploadWorker.")
             return Result.failure()
         }
 
@@ -48,47 +39,43 @@ class S3UploadWorker(
 
         return try {
             val database = AppDatabase.getDatabase(applicationContext)
-            val meterDao = database.meterDao()
-            val readingDao = database.readingDao()
-            val locationDao = database.locationDao()
-            val queuedRequestDao = database.queuedRequestDao()
-            val projectDao = database.projectDao()
-            // CORRECTED: Pass the applicationContext to getService
             val apiService = RetrofitClient.getService(ApiService::class.java, applicationContext)
 
-            val repository = MeterRepository(apiService, meterDao, readingDao, locationDao, queuedRequestDao, projectDao, applicationContext)
+            // CORRECTED: The constructor arguments are now in the correct order
+            val repository = MeterRepository(
+                apiService = apiService,
+                meterDao = database.meterDao(),
+                readingDao = database.readingDao(),
+                projectDao = database.projectDao(),
+                buildingDao = database.buildingDao(),
+                queuedRequestDao = database.queuedRequestDao(),
+                locationDao = database.locationDao(),
+                appContext = applicationContext
+            )
 
-            // Perform the Supabase Storage upload via MeterRepository
             val uploadSuccess = repository.uploadFileToS3(imageUri, s3Key)
 
             if (uploadSuccess) {
-                Log.d(TAG, "Successfully processed upload request for image: $s3Key (Project: $projectId, Meter: $meterId)")
+                Log.d(TAG, "Successfully uploaded image: $s3Key")
 
-                // Extract bucket name and file name from the s3Key
-                val bucketName = s3Key.substringBefore("/") // e.g., "meter-documents"
-                val pathWithinBucket = s3Key.substringAfter("/") // FIX: This is the path *within* the bucket, e.g., "meter/meterId/fileName.jpg"
-                val fileName = pathWithinBucket.substringAfterLast("/") // e.g., "fileName.jpg"
-
-                // Get file size and MIME type from the local URI
-                val fileSize = applicationContext.contentResolver.openAssetFileDescriptor(imageUri, "r")?.use {
-                    it.length
-                } ?: 0L
+                val bucketName = s3Key.substringBefore("/")
+                val pathWithinBucket = s3Key.substringAfter("/")
+                val fileName = pathWithinBucket.substringAfterLast("/")
+                val fileSize = applicationContext.contentResolver.openAssetFileDescriptor(imageUri, "r")?.use { it.length } ?: 0L
                 val fileMimeType = applicationContext.contentResolver.getType(imageUri) ?: "application/octet-stream"
 
-
-                // Post file metadata to the regular API (will be queued by repository if network is down)
                 val metadataHandled = repository.postFileMetadata(
-                    fileName = fileName, // Use the actual file name extracted from pathWithinBucket
-                    bucketName = bucketName, // Use the extracted bucket name
-                    storagePath = pathWithinBucket, // FIX: Send only the path *within* the bucket
+                    fileName = fileName,
+                    bucketName = bucketName,
+                    storagePath = pathWithinBucket,
                     fileSize = fileSize,
                     fileMimeType = fileMimeType,
-                    entityId = meterId, // Use meterId as entity_id
-                    entityType = "meter", // Assuming it's always 'meter' for now
-                    documentType = "other" // Default to 'other' for now, as discussed
+                    entityId = meterId,
+                    entityType = "meter",
+                    documentType = "other"
                 )
 
-                if (metadataHandled) { // If metadata was successfully sent OR queued
+                if (metadataHandled) {
                     Log.d(TAG, "File metadata sent or queued successfully for $s3Key.")
                     Result.success()
                 } else {
@@ -101,7 +88,7 @@ class S3UploadWorker(
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error during S3UploadWorker execution for $s3Key: ${e.message}", e)
-            Result.retry() // Retry on uncaught exceptions
+            Result.retry()
         }
     }
 }

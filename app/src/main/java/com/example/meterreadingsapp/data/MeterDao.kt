@@ -28,31 +28,13 @@ interface MeterDao {
     fun getAllMeters(): Flow<List<Meter>>
 
     /**
-     * Retrieves meters associated with a specific address, including house number and addition.
-     * Parameters are nullable to allow flexible filtering (e.g., get all meters on a street regardless of house number).
-     * The query now explicitly handles both NULL and empty string values for nullable parameters.
-     * @param address The street address to filter meters by.
-     * @param postalCode The postal code to filter meters by (can be null).
-     * @param city The city to filter meters by (can be null).
-     * @param houseNumber The house number to filter meters by (NEW, can be null).
-     * @param houseNumberAddition The house number addition to filter meters by (NEW, can be null).
-     * @return A Flow emitting a list of Meter objects matching the given address details.
+     * ADDED: Retrieves meters for a specific building ID.
+     * This is the key function for our new navigation hierarchy.
+     * @param buildingId The ID of the building to filter meters by.
+     * @return A Flow emitting a list of Meter objects for the given building ID.
      */
-    @Query("""
-        SELECT * FROM meters
-        WHERE address = :address
-        AND (postal_code = :postalCode OR :postalCode IS NULL OR :postalCode = '')
-        AND (city = :city OR :city IS NULL OR :city = '')
-        AND (house_number = :houseNumber OR :houseNumber IS NULL OR :houseNumber = '')
-        AND (house_number_addition = :houseNumberAddition OR :houseNumberAddition IS NULL OR :houseNumberAddition = '')
-    """)
-    fun getMetersByAddress(
-        address: String,
-        postalCode: String?,
-        city: String?,
-        houseNumber: String?, // FIX: New parameter for filtering
-        houseNumberAddition: String? // FIX: New parameter for filtering
-    ): Flow<List<Meter>>
+    @Query("SELECT * FROM meters WHERE building_id = :buildingId")
+    fun getMetersByBuildingId(buildingId: String): Flow<List<Meter>>
 
     /**
      * Deletes all meters from the database.
@@ -60,29 +42,8 @@ interface MeterDao {
     @Query("DELETE FROM meters")
     suspend fun deleteAllMeters()
 
-    /**
-     * Deletes meters associated with a specific address, including house number and addition, from the database.
-     * Parameters are nullable to allow flexible deletion based on available detail.
-     * The query now explicitly handles both NULL and empty string values for nullable parameters.
-     * @param address The street address of meters to delete.
-     * @param postalCode The postal code of meters to delete (can be null).
-     * @param city The city of meters to delete (can be null).
-     * @param houseNumber The house number of meters to delete (NEW, can be null).
-     * @param houseNumberAddition The house number addition of meters to delete (NEW, can be null).
-     */
-    @Query("""
-        DELETE FROM meters
-        WHERE address = :address
-        AND (postal_code = :postalCode OR :postalCode IS NULL OR :postalCode = '')
-        AND (city = :city OR :city IS NULL OR :city = '')
-        AND (house_number = :houseNumber OR :houseNumber IS NULL OR :houseNumber = '')
-        AND (house_number_addition = :houseNumberAddition OR :houseNumberAddition IS NULL OR :houseNumberAddition = '')
-    """)
-    suspend fun deleteMetersByAddress(
-        address: String,
-        postalCode: String?,
-        city: String?,
-        houseNumber: String?, // FIX: New parameter for deletion
-        houseNumberAddition: String? // FIX: New parameter for deletion
-    )
+    // The old getMetersByAddress and deleteMetersByAddress functions are now obsolete
+    // for the main navigation flow, but we can leave them for now to avoid breaking
+    // any other potential usages. They can be cleaned up in a later refactor.
 }
+

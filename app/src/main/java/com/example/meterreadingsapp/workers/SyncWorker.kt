@@ -10,10 +10,6 @@ import com.example.meterreadingsapp.data.AppDatabase
 import com.example.meterreadingsapp.repository.MeterRepository
 import kotlinx.coroutines.flow.firstOrNull
 
-/**
- * Worker class responsible for synchronizing queued requests (like meter readings and file metadata)
- * with the backend API when network connectivity is available.
- */
 class SyncWorker(
     appContext: Context,
     workerParams: WorkerParameters
@@ -25,19 +21,21 @@ class SyncWorker(
         Log.d(TAG, "SyncWorker started.")
 
         val database = AppDatabase.getDatabase(applicationContext)
-        val queuedRequestDao = database.queuedRequestDao()
-        val meterDao = database.meterDao()
-        val readingDao = database.readingDao()
-        val locationDao = database.locationDao()
-        val projectDao = database.projectDao()
-        // CORRECTED: Pass the applicationContext to getService
         val apiService = RetrofitClient.getService(ApiService::class.java, applicationContext)
 
-        // UPDATED: MeterRepository constructor no longer needs fileMetadataDao
-        val repository = MeterRepository(apiService, meterDao, readingDao, locationDao, queuedRequestDao, projectDao, applicationContext)
+        // CORRECTED: The constructor arguments are now in the correct order
+        val repository = MeterRepository(
+            apiService = apiService,
+            meterDao = database.meterDao(),
+            readingDao = database.readingDao(),
+            projectDao = database.projectDao(),
+            buildingDao = database.buildingDao(),
+            queuedRequestDao = database.queuedRequestDao(),
+            locationDao = database.locationDao(),
+            appContext = applicationContext
+        )
 
-        // Fetch all queued requests
-        val queuedRequests = queuedRequestDao.getAllQueuedRequests().firstOrNull() ?: emptyList()
+        val queuedRequests = database.queuedRequestDao().getAllQueuedRequests().firstOrNull() ?: emptyList()
 
         if (queuedRequests.isEmpty()) {
             Log.d(TAG, "No queued requests to process. SyncWorker finished.")
@@ -46,25 +44,24 @@ class SyncWorker(
 
         var allSuccessful = true
         for (request in queuedRequests) {
-            Log.d(TAG, "Processing queued request: ${request.id} (Type: ${request.type}, Method: ${request.method}, Endpoint: ${request.endpoint})")
+            Log.d(TAG, "Processing queued request: ${request.id}")
             val success = repository.processQueuedRequest(request)
             if (success) {
-                queuedRequestDao.delete(request.id)
+                database.queuedRequestDao().delete(request.id)
                 Log.d(TAG, "Successfully processed and deleted queued request: ${request.id}")
             } else {
-                // If a request fails, increment attempt count and potentially retry
                 request.attemptCount++
-                queuedRequestDao.update(request) // Update the attempt count in DB
-                Log.e(TAG, "Failed to process queued request: ${request.id}. Attempt count: ${request.attemptCount}. Will retry later.")
+                database.queuedRequestDao().update(request)
+                Log.e(TAG, "Failed to process queued request: ${request.id}. Attempt count: ${request.attemptCount}.")
                 allSuccessful = false
             }
         }
 
         return if (allSuccessful) {
-            Log.d(TAG, "All queued requests processed successfully. SyncWorker finished.")
+            Log.d(TAG, "All queued requests processed successfully.")
             Result.success()
         } else {
-            Log.d(TAG, "Some queued requests failed. SyncWorker will retry later.")
+            Log.d(TAG, "Some queued requests failed. Will retry later.")
             Result.retry()
         }
     }
