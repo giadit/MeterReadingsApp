@@ -27,7 +27,7 @@ android {
                 "proguard-rules.pro"
             )
             // Define your API key for release builds (still keeping this for main API calls)
-            buildConfigField("String", "SUPABASE_API_KEY", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0Ymtka29mcGhxemlmbm96dnFlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MzE2NzI4MSwiZXhwIjoyMDU4NzQzMjgxfQ.TkCB6yierJw-SY-Qbbanjgq1xJmwdirbxO-Vs_FRkm0\"")
+            buildConfigField("String", "SUPABASE_API_KEY", "\"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc1NjQ1ODY2MCwiZXhwIjo0OTEyMTMyMjYwLCJyb2xlIjoiYW5vbiJ9.yIY7ONDFIdlRFwa2Q-ksaGbTkB7z2iIPi7F-_FHKJKQ\"")
             // RE-ADD: AWS Access Key ID for authentication (will be used in headers via Retrofit)
             buildConfigField("String", "AWS_ACCESS_KEY_ID", "\"186ae8da1a085f58821956c34a50357c\"") // Replace with actual Access Key ID
             // RE-ADD: AWS Secret Access Key (might be needed for some manual signing, though typically not put directly in header)
@@ -40,7 +40,7 @@ android {
         debug {
             isMinifyEnabled = false
             // Define your API key for debug builds (still keeping this for main API calls)
-            buildConfigField("String", "SUPABASE_API_KEY", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ0Ymtka29mcGhxemlmbm96dnFlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MzE2NzI4MSwiZXhwIjoyMDU4NzQzMjgxfQ.TkCB6yierJw-SY-Qbbanjgq1xJmwdirbxO-Vs_FRkm0\"")
+            buildConfigField("String", "SUPABASE_API_KEY", "\"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc1NjQ1ODY2MCwiZXhwIjo0OTEyMTMyMjYwLCJyb2xlIjoiYW5vbiJ9.yIY7ONDFIdlRFwa2Q-ksaGbTkB7z2iIPi7F-_FHKJKQ\"")
             // RE-ADD: AWS Access Key ID for authentication (will be used in headers via Retrofit)
             buildConfigField("String", "AWS_ACCESS_KEY_ID", "\"186ae8da1a085f58821956c34a50357c\"") // Replace with actual Access Key ID
             // RE-ADD: AWS Secret Access Key
@@ -112,6 +112,8 @@ dependencies {
 
     // WorkManager for background processing
     implementation("androidx.work:work-runtime-ktx:2.9.0")
+
+    implementation("io.github.jan-tennert.supabase:gotrue-kt:2.5.1")
 
     // REMOVED: AWS Mobile SDK for S3
     // implementation("com.amazonaws:aws-android-sdk-s3:2.62.0")

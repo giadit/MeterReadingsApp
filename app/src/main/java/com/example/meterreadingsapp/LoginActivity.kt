@@ -8,7 +8,14 @@ import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.example.meterreadingsapp.databinding.ActivityLoginBinding // Updated package for binding
+import androidx.core.view.isVisible
+import androidx.lifecycle.lifecycleScope
+import com.example.meterreadingsapp.databinding.ActivityLoginBinding
+import io.github.jan.supabase.createSupabaseClient
+import io.github.jan.supabase.gotrue.Auth // CORRECTED IMPORT
+import io.github.jan.supabase.gotrue.auth  // CORRECTED IMPORT
+import io.github.jan.supabase.gotrue.providers.builtin.Email // CORRECTED IMPORT
+import kotlinx.coroutines.launch
 
 class LoginActivity : AppCompatActivity() {
 
@@ -20,12 +27,27 @@ class LoginActivity : AppCompatActivity() {
     private val KEY_PASSWORD = "password"
     private val KEY_REMEMBER_ME = "rememberMe"
 
+    // --- Supabase Client Initialization ---
+    companion object {
+        private const val SUPABASE_URL = "https://database.berliner-e-agentur.de"
+        private const val SUPABASE_ANON_KEY = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc1NjQ1ODY2MCwiZXhwIjo0OTEyMTMyMjYwLCJyb2xlIjoiYW5vbiJ9.yIY7ONDFIdlRFwa2Q-ksaGbTkB7z2iIPi7F-_FHKJKQ"
+
+        // CORRECTED INITIALIZATION
+        val supabase = createSupabaseClient(
+            supabaseUrl = SUPABASE_URL,
+            supabaseKey = SUPABASE_ANON_KEY
+        ) {
+            install(Auth) // Use Auth, not GoTrue
+        }
+    }
+    // --- End of Supabase Client ---
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Hide system UI (status bar and navigation bar)
+        // Hide system UI (unchanged)
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
             window.insetsController?.apply {
                 hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
@@ -40,7 +62,6 @@ class LoginActivity : AppCompatActivity() {
                     )
         }
 
-        // Load saved credentials if "Remember Me" was checked
         loadCredentials()
 
         binding.loginButton.setOnClickListener {
@@ -67,7 +88,6 @@ class LoginActivity : AppCompatActivity() {
                 putString(KEY_USERNAME, username)
                 putString(KEY_PASSWORD, password)
             } else {
-                // Clear saved credentials if remember me is unchecked
                 remove(KEY_USERNAME)
                 remove(KEY_PASSWORD)
             }
@@ -76,29 +96,40 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun performLogin() {
-        val username = binding.usernameEditText.text.toString().trim()
+        val email = binding.usernameEditText.text.toString().trim()
         val password = binding.passwordEditText.text.toString().trim()
         val rememberMe = binding.rememberMeCheckBox.isChecked
 
-        // --- Dummy Login Logic (Replace with actual authentication later) ---
-        // For now, let's just check if fields are not empty
-        if (username.isNotEmpty() && password.isNotEmpty()) {
-            saveCredentials(username, password, rememberMe)
-            Toast.makeText(this, getString(R.string.login_success), Toast.LENGTH_SHORT).show()
-
-            // Navigate to MainActivity
-            val intent = Intent(this, MainActivity::class.java)
-            startActivity(intent)
-            finish() // Finish LoginActivity so user can't go back to it with back button
-        } else {
+        if (email.isEmpty() || password.isEmpty()) {
             Toast.makeText(this, getString(R.string.login_error_empty_fields), Toast.LENGTH_SHORT).show()
+            return
         }
 
-        // Suggestions for later:
-        // - Integrate with an authentication service (e.g., Firebase Auth, Supabase Auth, your backend API)
-        // - Hash passwords before storing (even locally, for "remember me")
-        // - Implement password complexity rules
-        // - Handle network errors during authentication
-        // - Show loading spinner during login
+        lifecycleScope.launch {
+            try {
+                binding.loginButton.isEnabled = false
+                binding.loginProgressBar.isVisible = true
+
+                // CORRECTED API CALL
+                supabase.auth.signInWith(Email) {
+                    this.email = email
+                    this.password = password
+                }
+
+                saveCredentials(email, password, rememberMe)
+                Toast.makeText(this@LoginActivity, getString(R.string.login_success), Toast.LENGTH_SHORT).show()
+
+                val intent = Intent(this@LoginActivity, MainActivity::class.java)
+                startActivity(intent)
+                finish()
+
+            } catch (e: Exception) {
+                Toast.makeText(this@LoginActivity, "Login failed: ${e.message}", Toast.LENGTH_LONG).show()
+            } finally {
+                binding.loginButton.isEnabled = true
+                binding.loginProgressBar.isVisible = false
+            }
+        }
     }
 }
+

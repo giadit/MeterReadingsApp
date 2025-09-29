@@ -21,7 +21,7 @@ object RetrofitClient {
     private val API_KEY = BuildConfig.SUPABASE_API_KEY
 
     // Base URL for your main Supabase API.
-    private const val BASE_URL_API = "https://rtbkdkofphqzifnozvqe.supabase.co/rest/v1/"
+    private const val BASE_URL_API = "https://database.berliner-e-agentur.de"
 
     // Base URL for Supabase Storage API
     private const val BASE_URL_STORAGE = "https://rtbkdkofphqzifnozvqe.supabase.co/storage/v1/"
