@@ -661,16 +661,19 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // UPDATED: This function is now corrected
     private fun sendAllMeterReadingsAndPictures() {
         val readingsToSend = mutableListOf<Reading>()
+        // CORRECTED: Iterate over the adapter's internal map, not the displayed list
         val enteredValues = meterAdapter.getEnteredReadings()
         val readingDateString = apiDateFormat.format(selectedReadingDate.time)
-        meterAdapter.currentList.forEach { meter ->
-            enteredValues[meter.id]?.takeIf { it.isNotBlank() }?.let { readingValue ->
+
+        enteredValues.forEach { (meterId, readingValue) ->
+            if (readingValue.isNotBlank()) {
                 readingsToSend.add(
                     Reading(
                         id = UUID.randomUUID().toString(),
-                        meter_id = meter.id,
+                        meter_id = meterId,
                         value = readingValue,
                         date = readingDateString,
                         read_by = "App User"
@@ -678,6 +681,7 @@ class MainActivity : AppCompatActivity() {
                 )
             }
         }
+
         val imagesToUpload = meterAdapter.getMeterImages()
         if (readingsToSend.isEmpty() && imagesToUpload.isEmpty()) {
             Toast.makeText(this, "No readings or pictures entered.", Toast.LENGTH_SHORT).show()
@@ -688,8 +692,12 @@ class MainActivity : AppCompatActivity() {
             .setMessage("Send ${readingsToSend.size} readings and ${imagesToUpload.size} pictures for date ${uiDateFormat.format(selectedReadingDate.time)}?")
             .setPositiveButton("Send") { dialog, _ ->
                 readingsToSend.forEach { locationViewModel.postMeterReading(it) }
+
+                // This logic needs the full meter list, so we get it from the ViewModel
+                val allMeters = locationViewModel.meters.value ?: emptyList()
+
                 imagesToUpload.forEach { (meterId, imageUri) ->
-                    val meter = meterAdapter.currentList.find { it.id == meterId }
+                    val meter = allMeters.find { it.id == meterId }
                     if (meter != null) {
                         val projectId = meter.projectId
                         val currentTime = timeFormat.format(Date())
@@ -698,6 +706,7 @@ class MainActivity : AppCompatActivity() {
                         locationViewModel.queueImageUpload(imageUri, fullStoragePath, projectId, meter.id)
                     }
                 }
+
                 meterAdapter.clearEnteredReadings()
                 meterAdapter.clearMeterImages()
                 Toast.makeText(this, "${readingsToSend.size} readings and ${imagesToUpload.size} pictures have been queued for sending.", Toast.LENGTH_LONG).show()
