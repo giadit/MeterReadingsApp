@@ -55,19 +55,19 @@ class MeterAdapter(
             binding.meterLastReadingTextView.text = if (meter.lastReading.isNullOrBlank()) "N/A" else meter.lastReading
             binding.meterLastReadingDateTextView.text = meter.lastReadingDate?.let { try { apiDateFormat.parse(it)?.let { date -> uiDateFormat.format(date) } ?: "N/A" } catch (e: Exception) { "N/A" } } ?: "N/A"
 
-            // --- NEW LOGIC TO SET ICON ---
+            // --- ADDED BACK: Logic to set icon based on energy type ---
             val context = binding.root.context
             when (meter.energyType?.lowercase(Locale.ROOT)) {
-                "electricity" -> {
+                "strom" -> {
                     binding.energyTypeIcon.setImageResource(R.drawable.ic_bolt)
                     binding.energyTypeIcon.imageTintList = ColorStateList.valueOf(ContextCompat.getColor(context, R.color.electric_blue))
                 }
-                "heat" -> {
+                "wärme" -> {
                     binding.energyTypeIcon.setImageResource(R.drawable.ic_fire)
                     binding.energyTypeIcon.imageTintList = ColorStateList.valueOf(ContextCompat.getColor(context, R.color.heat_orange))
                 }
                 "gas" -> {
-                    binding.energyTypeIcon.setImageResource(R.drawable.ic_gas)
+                    binding.energyTypeIcon.setImageResource(R.drawable.ic_gas_meter)
                     binding.energyTypeIcon.imageTintList = ColorStateList.valueOf(ContextCompat.getColor(context, R.color.gas_green))
                 }
                 else -> {

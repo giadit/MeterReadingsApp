@@ -274,7 +274,6 @@ class MainActivity : AppCompatActivity() {
 
         dialog.setOnShowListener {
             val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-            // ADDED: Styling for the positive button
             positiveButton.setBackgroundColor(ContextCompat.getColor(this, R.color.bright_orange))
             positiveButton.setTextColor(Color.WHITE)
 
@@ -336,7 +335,7 @@ class MainActivity : AppCompatActivity() {
             .setNegativeButton("Abbrechen", null)
             .create()
 
-        val energyTypes = listOf("Electricity", "Heat", "Gas")
+        val energyTypes = listOf("Strom", "Wärme", "Gas")
         val meterTypes = listOf("Summenzähler","Wohnung","Gewerbe", "Hausstrom", "Unterzähler",
             "Erzeugungszähler PV", "Eigenbedarf PV", "Eigenbedarf KWK", "Erzeugungszähler KWK",
             "BEA Eigenbedarf", "Elektromobilität", "Zwischenzähler","Abgrenzungszähler","Baustrom",
@@ -353,7 +352,6 @@ class MainActivity : AppCompatActivity() {
 
         dialog.setOnShowListener {
             val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-            // ADDED: Styling for the positive button
             positiveButton.setBackgroundColor(ContextCompat.getColor(this, R.color.bright_orange))
             positiveButton.setTextColor(Color.WHITE)
 
@@ -530,8 +528,8 @@ class MainActivity : AppCompatActivity() {
     private fun setupTypeFilter() {
         filterTextViews = mapOf(
             "All" to binding.filterAll,
-            "Electricity" to binding.filterElectricity,
-            "Heat" to binding.filterHeat,
+            "Strom" to binding.filterElectricity,
+            "Wärme" to binding.filterHeat,
             "Gas" to binding.filterGas,
             "getauscht" to binding.filterGetauscht
         )
@@ -576,8 +574,8 @@ class MainActivity : AppCompatActivity() {
                 type in selectedMeterTypesFilter
             }
             val colorResId = when (type) {
-                "Electricity" -> R.color.electric_blue
-                "Heat" -> R.color.heat_orange
+                "Strom" -> R.color.electric_blue
+                "Wärme" -> R.color.heat_orange
                 "Gas" -> R.color.gas_green
                 "getauscht" -> android.R.color.holo_red_dark
                 else -> R.color.black
