@@ -16,8 +16,9 @@ import com.example.meterreadingsapp.R
 import com.example.meterreadingsapp.data.Meter
 import com.example.meterreadingsapp.databinding.ItemMeterBinding
 import com.example.meterreadingsapp.MainActivity.AppMode
+import com.google.android.material.card.MaterialCardView
 import java.text.SimpleDateFormat
-import java.util.Locale
+import java.util.*
 
 class MeterAdapter(
     private val onCameraClicked: (Meter, Uri?) -> Unit,
@@ -34,6 +35,7 @@ class MeterAdapter(
 
     private val apiDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
     private val uiDateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.GERMANY)
+    private val todayDateString = apiDateFormat.format(Date())
 
     inner class MeterViewHolder(private val binding: ItemMeterBinding) :
         RecyclerView.ViewHolder(binding.root) {
@@ -45,6 +47,7 @@ class MeterAdapter(
                 if (adapterPosition != RecyclerView.NO_POSITION) {
                     val meter = getItem(adapterPosition)
                     enteredReadings[meter.id] = s.toString()
+                    updateVisualState(meter)
                 }
             }
         }
@@ -55,8 +58,41 @@ class MeterAdapter(
             binding.meterLastReadingTextView.text = if (meter.lastReading.isNullOrBlank()) "N/A" else meter.lastReading
             binding.meterLastReadingDateTextView.text = meter.lastReadingDate?.let { try { apiDateFormat.parse(it)?.let { date -> uiDateFormat.format(date) } ?: "N/A" } catch (e: Exception) { "N/A" } } ?: "N/A"
 
-            // --- ADDED BACK: Logic to set icon based on energy type ---
+            updateVisualState(meter)
+
+            binding.newReadingValueEditText.removeTextChangedListener(textWatcher)
+            binding.newReadingValueEditText.setText(enteredReadings[meter.id])
+            binding.newReadingValueEditText.addTextChangedListener(textWatcher)
+
+            val newlyTakenImageUri = meterImages[meter.id]
+            val hasImage = newlyTakenImageUri != null
+
+            binding.changeMeterButton.setOnClickListener { onExchangeMeterClicked(meter) }
+            binding.cameraButton.setOnClickListener { onCameraClicked(meter, newlyTakenImageUri) }
+            binding.viewImageButton.setOnClickListener { newlyTakenImageUri?.let { uri -> onViewImageClicked(meter, uri) } ?: Toast.makeText(binding.root.context, R.string.no_image_to_view, Toast.LENGTH_SHORT).show() }
+            binding.deleteImageButton.setOnClickListener { newlyTakenImageUri?.let { uri -> onDeleteImageClicked(meter, uri) } ?: Toast.makeText(binding.root.context, R.string.no_image_to_delete, Toast.LENGTH_SHORT).show() }
+
+            updateButtonStates(hasImage)
+            val mode = currentMode()
+            binding.readingValueInputLayout.isEnabled = (mode == AppMode.READINGS)
+            binding.cameraButton.isEnabled = (mode == AppMode.READINGS)
+        }
+
+        private fun updateVisualState(meter: Meter) {
             val context = binding.root.context
+            val isReadToday = meter.lastReadingDate == todayDateString
+            val hasNewReading = !enteredReadings[meter.id].isNullOrBlank()
+
+            binding.checkmarkIcon.visibility = if (isReadToday) View.VISIBLE else View.GONE
+
+            // CORRECTED: Cast to MaterialCardView
+            val cardView = binding.root as MaterialCardView
+            if (isReadToday || hasNewReading) {
+                cardView.strokeColor = ContextCompat.getColor(context, R.color.bright_orange)
+            } else {
+                cardView.strokeColor = ContextCompat.getColor(context, android.R.color.transparent)
+            }
+
             when (meter.energyType?.lowercase(Locale.ROOT)) {
                 "strom" -> {
                     binding.energyTypeIcon.setImageResource(R.drawable.ic_bolt)
@@ -71,42 +107,19 @@ class MeterAdapter(
                     binding.energyTypeIcon.imageTintList = ColorStateList.valueOf(ContextCompat.getColor(context, R.color.gas_green))
                 }
                 else -> {
-                    binding.energyTypeIcon.setImageDrawable(null) // Hide icon if type is unknown
+                    binding.energyTypeIcon.setImageDrawable(null)
                 }
             }
-            // --- END OF NEW LOGIC ---
+        }
 
-            binding.newReadingValueEditText.removeTextChangedListener(textWatcher)
-            binding.newReadingValueEditText.setText(enteredReadings[meter.id])
-            binding.newReadingValueEditText.addTextChangedListener(textWatcher)
-
-            val newlyTakenImageUri = meterImages[meter.id]
-            val hasImage = newlyTakenImageUri != null
-
-            binding.changeMeterButton.setOnClickListener { onExchangeMeterClicked(meter) }
-            binding.cameraButton.setOnClickListener { onCameraClicked(meter, newlyTakenImageUri) }
-            binding.viewImageButton.setOnClickListener { newlyTakenImageUri?.let { uri -> onViewImageClicked(meter, uri) } ?: Toast.makeText(binding.root.context, R.string.no_image_to_view, Toast.LENGTH_SHORT).show() }
-            binding.deleteImageButton.setOnClickListener { newlyTakenImageUri?.let { uri -> onDeleteImageClicked(meter, uri) } ?: Toast.makeText(binding.root.context, R.string.no_image_to_delete, Toast.LENGTH_SHORT).show() }
-
-            binding.cameraButton.visibility = View.VISIBLE
-            binding.viewImageButton.visibility = View.VISIBLE
-            binding.deleteImageButton.visibility = View.VISIBLE
-            binding.cameraButton.setImageResource(R.drawable.ic_camera_white_24)
-            binding.cameraButton.setColorFilter(ContextCompat.getColor(binding.root.context, android.R.color.white))
-            if (hasImage) {
-                binding.viewImageButton.isEnabled = true
-                binding.viewImageButton.setColorFilter(ContextCompat.getColor(binding.root.context, android.R.color.white))
-                binding.deleteImageButton.isEnabled = true
-                binding.deleteImageButton.setColorFilter(ContextCompat.getColor(binding.root.context, android.R.color.white))
-            } else {
-                binding.viewImageButton.isEnabled = false
-                binding.viewImageButton.setColorFilter(ContextCompat.getColor(binding.root.context, android.R.color.darker_gray))
-                binding.deleteImageButton.isEnabled = false
-                binding.deleteImageButton.setColorFilter(ContextCompat.getColor(binding.root.context, android.R.color.darker_gray))
-            }
-            val mode = currentMode()
-            binding.readingValueInputLayout.isEnabled = (mode == AppMode.READINGS)
-            binding.cameraButton.isEnabled = (mode == AppMode.READINGS)
+        private fun updateButtonStates(hasImage: Boolean) {
+            val context = binding.root.context
+            binding.viewImageButton.isEnabled = hasImage
+            binding.deleteImageButton.isEnabled = hasImage
+            val activeColor = ContextCompat.getColor(context, android.R.color.white)
+            val inactiveColor = ContextCompat.getColor(context, android.R.color.darker_gray)
+            binding.viewImageButton.setColorFilter(if (hasImage) activeColor else inactiveColor)
+            binding.deleteImageButton.setColorFilter(if (hasImage) activeColor else inactiveColor)
         }
     }
 
