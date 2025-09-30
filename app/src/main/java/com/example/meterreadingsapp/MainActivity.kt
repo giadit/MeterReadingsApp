@@ -13,6 +13,7 @@ import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
+import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
@@ -22,6 +23,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
 import androidx.core.content.ContextCompat
@@ -38,6 +40,7 @@ import com.example.meterreadingsapp.api.ApiService
 import com.example.meterreadingsapp.api.RetrofitClient
 import com.example.meterreadingsapp.data.*
 import com.example.meterreadingsapp.databinding.ActivityMainBinding
+import com.example.meterreadingsapp.databinding.DialogChangeMeterBinding
 import com.example.meterreadingsapp.repository.MeterRepository
 import com.example.meterreadingsapp.viewmodel.LocationViewModel
 import com.example.meterreadingsapp.viewmodel.LocationViewModelFactory
@@ -68,7 +71,6 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var filterTextViews: Map<String, TextView>
 
-    // ... (rest of properties and camera launchers remain the same)
     private val PREFS_NAME = "LoginPrefs"
     private val KEY_USERNAME = "username"
     private val KEY_PASSWORD = "password"
@@ -111,7 +113,6 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // ... (window insets, toolbar, DI setup remains the same)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             window.insetsController?.apply {
                 hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
@@ -143,7 +144,6 @@ class MainActivity : AppCompatActivity() {
 
         locationViewModel = ViewModelProvider(this, LocationViewModelFactory(repository))
             .get(LocationViewModel::class.java)
-
 
         setupProjectRecyclerView()
         setupBuildingRecyclerView()
@@ -180,7 +180,6 @@ class MainActivity : AppCompatActivity() {
                     binding.locationsContainer.isVisible = true
                     binding.bottomBar.isVisible = false
                     binding.backButton.isVisible = true
-
                     binding.meterSearchView.setQuery("", false)
                     locationViewModel.setMeterSearchQuery("")
                     updateToolbarForBuildings(locationViewModel.selectedProjectId.value)
@@ -191,7 +190,6 @@ class MainActivity : AppCompatActivity() {
                     binding.projectsContainer.isVisible = true
                     binding.backButton.isVisible = false
                     binding.bottomBar.isVisible = false
-
                     binding.searchView.setQuery("", false)
                     binding.searchView.isIconified = true
                     locationViewModel.setProjectSearchQuery("")
@@ -208,7 +206,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ... (RecyclerView and other setup methods remain unchanged unless specified)
     private fun setupProjectRecyclerView() {
         projectAdapter = ProjectAdapter { project ->
             locationViewModel.selectProject(project)
@@ -238,6 +235,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // UPDATED: Added the onExchangeMeterClicked lambda
     private fun setupMeterRecyclerView() {
         meterAdapter = MeterAdapter(
             onCameraClicked = { meter, _ ->
@@ -248,24 +246,70 @@ class MainActivity : AppCompatActivity() {
                     requestCameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
                 }
             },
-            onViewImageClicked = { _, imageUri ->
-                viewImage(imageUri)
-            },
-            onDeleteImageClicked = { meter, imageUri ->
-                confirmAndDeleteImage(meter, imageUri)
-            },
-            onEditMeterClicked = { meter ->
-                Toast.makeText(this, "Edit meter: ${meter.number}", Toast.LENGTH_SHORT).show()
-            },
-            onDeleteMeterClicked = { meter ->
-                Toast.makeText(this, "Delete meter: ${meter.number}", Toast.LENGTH_SHORT).show()
-            },
+            onViewImageClicked = { _, imageUri -> viewImage(imageUri) },
+            onDeleteImageClicked = { meter, imageUri -> confirmAndDeleteImage(meter, imageUri) },
+            onEditMeterClicked = { meter -> Toast.makeText(this, "Edit meter: ${meter.number}", Toast.LENGTH_SHORT).show() },
+            onDeleteMeterClicked = { meter -> Toast.makeText(this, "Delete meter: ${meter.number}", Toast.LENGTH_SHORT).show() },
+            onExchangeMeterClicked = { meter -> showChangeMeterDialog(meter) },
             currentMode = { AppMode.READINGS }
         )
         binding.metersRecyclerView.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
             adapter = meterAdapter
         }
+    }
+
+    // ADDED: New function to show and handle the change meter dialog
+    private fun showChangeMeterDialog(oldMeter: Meter) {
+        val dialogBinding = DialogChangeMeterBinding.inflate(LayoutInflater.from(this))
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setView(dialogBinding.root)
+            .setPositiveButton("Bestätigen", null)
+            .setNegativeButton("Abbrechen", null)
+            .create()
+
+        dialog.setOnShowListener {
+            val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            positiveButton.setOnClickListener {
+                val oldReadingValue = dialogBinding.oldMeterLastReading.text.toString()
+                val newMeterNumber = dialogBinding.newMeterNumber.text.toString()
+                val newReadingValue = dialogBinding.newMeterInitialReading.text.toString()
+                val datePicker = dialogBinding.oldMeterLastReadingDate
+                val calendar = Calendar.getInstance().apply {
+                    set(datePicker.year, datePicker.month, datePicker.dayOfMonth)
+                }
+                val oldReadingDate = apiDateFormat.format(calendar.time)
+
+                if (oldReadingValue.isBlank() || newMeterNumber.isBlank() || newReadingValue.isBlank()) {
+                    Toast.makeText(this, "Bitte alle Felder ausfüllen.", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+
+                val oldMeterLastReading = Reading(
+                    id = UUID.randomUUID().toString(),
+                    meter_id = oldMeter.id,
+                    value = oldReadingValue,
+                    date = oldReadingDate,
+                    read_by = "App User"
+                )
+                val newMeterInitialReading = Reading(
+                    id = UUID.randomUUID().toString(),
+                    meter_id = "",
+                    value = newReadingValue,
+                    date = oldReadingDate,
+                    read_by = "App User"
+                )
+
+                locationViewModel.exchangeMeter(
+                    oldMeter,
+                    oldMeterLastReading,
+                    newMeterNumber,
+                    newMeterInitialReading
+                )
+                dialog.dismiss()
+            }
+        }
+        dialog.show()
     }
 
     private fun setupSearchView() {
@@ -280,7 +324,6 @@ class MainActivity : AppCompatActivity() {
                 return true
             }
         })
-
         binding.searchView.setOnQueryTextFocusChangeListener { _, hasFocus ->
             binding.toolbarTitle.isVisible = !hasFocus && binding.searchView.query.isNullOrEmpty()
         }
@@ -288,16 +331,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupMeterSearchView() {
         binding.meterSearchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
-            override fun onQueryTextSubmit(query: String?): Boolean {
-                return false
-            }
-
+            override fun onQueryTextSubmit(query: String?): Boolean { return false }
             override fun onQueryTextChange(newText: String?): Boolean {
                 locationViewModel.setMeterSearchQuery(newText ?: "")
                 return true
             }
         })
-
         val searchEditText: EditText? = binding.meterSearchView.findViewById(androidx.appcompat.R.id.search_src_text)
         searchEditText?.let {
             it.background = null
@@ -327,16 +366,8 @@ class MainActivity : AppCompatActivity() {
         val timeStamp: String = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
         val imageFileName = "${timeStamp}_${meter.number.replace("/", "_").replace(".", "_")}"
         val storageDir: File? = getExternalFilesDir(Environment.DIRECTORY_PICTURES)
-        val imageFile = File.createTempFile(
-            imageFileName,
-            ".jpg",
-            storageDir
-        )
-        return FileProvider.getUriForFile(
-            this,
-            "${applicationContext.packageName}.fileprovider",
-            imageFile
-        )
+        val imageFile = File.createTempFile(imageFileName, ".jpg", storageDir)
+        return FileProvider.getUriForFile(this, "${applicationContext.packageName}.fileprovider", imageFile)
     }
 
     private fun viewImage(imageUri: Uri) {
@@ -393,25 +424,19 @@ class MainActivity : AppCompatActivity() {
         val year = selectedReadingDate.get(Calendar.YEAR)
         val month = selectedReadingDate.get(Calendar.MONTH)
         val day = selectedReadingDate.get(Calendar.DAY_OF_MONTH)
-
         val datePickerDialog = DatePickerDialog(
-            this,
-            R.style.AppDatePickerDialogTheme,
+            this, R.style.AppDatePickerDialogTheme,
             { _, selectedYear, selectedMonth, selectedDayOfMonth ->
                 selectedReadingDate.set(selectedYear, selectedMonth, selectedDayOfMonth)
                 updateSelectedDateText()
-            },
-            year, month, day
+            }, year, month, day
         )
         datePickerDialog.show()
-
         datePickerDialog.getButton(DatePickerDialog.BUTTON_POSITIVE)?.setBackgroundResource(R.drawable.button_orange_background)
         datePickerDialog.getButton(DatePickerDialog.BUTTON_POSITIVE)?.setTextColor(Color.WHITE)
         datePickerDialog.getButton(DatePickerDialog.BUTTON_NEGATIVE)?.setTextColor(ContextCompat.getColor(this, R.color.bright_orange))
     }
 
-
-    // UPDATED: All filter logic now resides here
     private fun setupTypeFilter() {
         filterTextViews = mapOf(
             "All" to binding.filterAll,
@@ -420,7 +445,6 @@ class MainActivity : AppCompatActivity() {
             "Gas" to binding.filterGas,
             "getauscht" to binding.filterGetauscht
         )
-
         filterTextViews.forEach { (type, textView) ->
             textView.setOnClickListener {
                 toggleFilter(type)
@@ -461,17 +485,14 @@ class MainActivity : AppCompatActivity() {
             } else {
                 type in selectedMeterTypesFilter
             }
-
-            // UPDATED: Logic to handle dark red color
             val colorResId = when (type) {
                 "Electricity" -> R.color.electric_blue
                 "Heat" -> R.color.heat_orange
                 "Gas" -> R.color.gas_green
-                "getauscht" -> android.R.color.holo_red_dark // Using a standard dark red color
+                "getauscht" -> android.R.color.holo_red_dark
                 else -> R.color.black
             }
             val accentColor = ContextCompat.getColor(this, colorResId)
-
             if (isSelected) {
                 textView.setBackgroundResource(R.drawable.filter_button_selected_background)
                 (textView.background as GradientDrawable).apply {
@@ -494,7 +515,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ... (Observe methods, send logic, etc. remain the same)
     private fun observeProjects() {
         locationViewModel.projects.observe(this) { projects ->
             binding.loadingProgressBar.isVisible = false
@@ -533,14 +553,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-
     private fun applyMeterFilter(meters: List<Meter>) {
         val statusFilteredMeters = if (showExchangedMeters) {
             meters.filter { it.status.equals("Exchanged", ignoreCase = true) }
         } else {
             meters.filter { it.status.equals("Valid", ignoreCase = true) }
         }
-
         val finalFilteredMeters = if ("All" in selectedMeterTypesFilter) {
             statusFilteredMeters
         } else {
@@ -548,9 +566,7 @@ class MainActivity : AppCompatActivity() {
                 selectedMeterTypesFilter.any { it.equals(meter.energyType, ignoreCase = true) }
             }
         }
-
         meterAdapter.submitList(finalFilteredMeters)
-
         binding.noDataTextView.isVisible = finalFilteredMeters.isEmpty()
         if (finalFilteredMeters.isEmpty()) {
             binding.noDataTextView.text = "No meters match the current filters."
@@ -561,7 +577,6 @@ class MainActivity : AppCompatActivity() {
         val readingsToSend = mutableListOf<Reading>()
         val enteredValues = meterAdapter.getEnteredReadings()
         val readingDateString = apiDateFormat.format(selectedReadingDate.time)
-
         meterAdapter.currentList.forEach { meter ->
             enteredValues[meter.id]?.takeIf { it.isNotBlank() }?.let { readingValue ->
                 readingsToSend.add(
@@ -575,19 +590,16 @@ class MainActivity : AppCompatActivity() {
                 )
             }
         }
-
         val imagesToUpload = meterAdapter.getMeterImages()
         if (readingsToSend.isEmpty() && imagesToUpload.isEmpty()) {
             Toast.makeText(this, "No readings or pictures entered.", Toast.LENGTH_SHORT).show()
             return
         }
-
         MaterialAlertDialogBuilder(this)
             .setTitle("Confirm Send Data")
             .setMessage("Send ${readingsToSend.size} readings and ${imagesToUpload.size} pictures for date ${uiDateFormat.format(selectedReadingDate.time)}?")
             .setPositiveButton("Send") { dialog, _ ->
                 readingsToSend.forEach { locationViewModel.postMeterReading(it) }
-
                 imagesToUpload.forEach { (meterId, imageUri) ->
                     val meter = meterAdapter.currentList.find { it.id == meterId }
                     if (meter != null) {
@@ -598,10 +610,8 @@ class MainActivity : AppCompatActivity() {
                         locationViewModel.queueImageUpload(imageUri, fullStoragePath, projectId, meter.id)
                     }
                 }
-
                 meterAdapter.clearEnteredReadings()
                 meterAdapter.clearMeterImages()
-
                 Toast.makeText(this, "${readingsToSend.size} readings and ${imagesToUpload.size} pictures have been queued for sending.", Toast.LENGTH_LONG).show()
                 dialog.dismiss()
             }
@@ -628,12 +638,10 @@ class MainActivity : AppCompatActivity() {
         }
         val sessionManager = com.example.meterreadingsapp.api.SessionManager(this)
         sessionManager.clearAuthToken()
-
         val intent = Intent(this, LoginActivity::class.java)
         startActivity(intent)
         finish()
     }
-
 
     private fun updateToolbarForProjects() {
         binding.toolbarTitle.text = "Projects"

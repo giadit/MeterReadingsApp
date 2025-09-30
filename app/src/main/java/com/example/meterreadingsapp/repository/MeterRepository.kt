@@ -4,18 +4,14 @@ import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
-import androidx.work.Constraints
-import androidx.work.NetworkType
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
-import androidx.work.workDataOf
+import androidx.work.*
 import com.amazonaws.services.s3.model.ObjectMetadata
 import com.amazonaws.services.s3.model.PutObjectRequest
 import com.example.meterreadingsapp.api.ApiService
 import com.example.meterreadingsapp.api.S3Client
 import com.example.meterreadingsapp.data.*
 import com.example.meterreadingsapp.workers.S3UploadWorker
-import com.example.meterreadingsapp.workers.SyncWorker // ADDED: This line fixes the build error
+import com.example.meterreadingsapp.workers.SyncWorker
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -37,25 +33,19 @@ class MeterRepository(
     private val gson = Gson()
     private val workManager = WorkManager.getInstance(appContext)
 
-    // --- Data Fetching from Database ---
+    // ... (Data fetching and refresh methods remain the same)
     fun getAllProjectsFromDb(): Flow<List<Project>> = projectDao.getAllProjects()
     fun getBuildingsByProjectIdFromDb(projectId: String): Flow<List<Building>> = buildingDao.getBuildingsByProjectId(projectId)
     fun getMetersByBuildingIdFromDb(buildingId: String): Flow<List<Meter>> = meterDao.getMetersByBuildingId(buildingId)
-
-    // --- Full Data Refresh Logic ---
     suspend fun refreshAllData() {
         withContext(Dispatchers.IO) {
             try {
-                // Refresh Projects
                 Log.d(TAG, "Fetching projects...")
                 val projectsResponse = apiService.getProjects()
                 if (projectsResponse.isSuccessful) {
                     val projects = projectsResponse.body() ?: emptyList()
                     projectDao.deleteAllProjects()
                     projectDao.insertAll(projects)
-                    Log.d(TAG, "Refreshed ${projects.size} projects.")
-
-                    // Refresh Buildings for each project
                     buildingDao.deleteAllBuildings()
                     for (project in projects) {
                         val buildingsResponse = apiService.getBuildings("eq.${project.id}")
@@ -66,17 +56,13 @@ class MeterRepository(
                             }
                         }
                     }
-                    Log.d(TAG, "Refreshed all buildings.")
                 }
-
-                // Refresh All Meters
                 Log.d(TAG, "Fetching all meters...")
                 val metersResponse = apiService.getAllMeters()
                 if (metersResponse.isSuccessful) {
                     val meters = metersResponse.body() ?: emptyList()
                     meterDao.deleteAllMeters()
                     meterDao.insertAll(meters)
-                    Log.d(TAG, "Refreshed ${meters.size} meters.")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error during full data refresh: ${e.message}", e)
@@ -84,48 +70,66 @@ class MeterRepository(
         }
     }
 
-    // --- REWRITTEN: uploadFileToS3 using the new S3Client for Minio ---
-    suspend fun uploadFileToS3(imageUri: Uri, fullStoragePath: String): Boolean {
+    suspend fun performMeterExchange(
+        oldMeter: Meter,
+        oldMeterLastReading: Reading,
+        newMeterNumber: String,
+        newMeterInitialReading: Reading
+    ): Boolean {
         return withContext(Dispatchers.IO) {
             try {
-                val s3Client = S3Client.getInstance()
-                val inputStream = appContext.contentResolver.openInputStream(imageUri)
-                    ?: throw IOException("Could not open input stream for URI: $imageUri")
+                // Step 1: POST Last reading for selected meter
+                Log.d(TAG, "Step 1: Posting final reading for old meter ${oldMeter.id}")
+                val postOldReadingResponse = apiService.postReading(oldMeterLastReading)
+                if (!postOldReadingResponse.isSuccessful) throw Exception("Failed to post final reading for old meter. Error: ${postOldReadingResponse.errorBody()?.string()}")
 
-                // Get file metadata (size and type) from the Uri
-                val metadata = ObjectMetadata()
-                appContext.contentResolver.query(imageUri, null, null, null, null)?.use { cursor ->
-                    if (cursor.moveToFirst()) {
-                        val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
-                        if (!cursor.isNull(sizeIndex)) {
-                            metadata.contentLength = cursor.getLong(sizeIndex)
-                        }
-                    }
-                }
-                metadata.contentType = appContext.contentResolver.getType(imageUri)
+                // Step 2: Change status of old meter to "Exchanged"
+                Log.d(TAG, "Step 2: Updating status for old meter ${oldMeter.id}")
+                val updateStatusRequest = UpdateMeterRequest(status = "Exchanged")
+                val updateStatusResponse = apiService.updateMeter("eq.${oldMeter.id}", updateStatusRequest)
+                if (!updateStatusResponse.isSuccessful) throw Exception("Failed to update old meter status. Error: ${updateStatusResponse.errorBody()?.string()}")
 
-                // The fullStoragePath from the worker is "bucketName/path/to/file.jpg"
-                val bucketName = fullStoragePath.substringBefore('/')
-                val key = fullStoragePath.substringAfter('/')
+                // Step 3: Create a new meter
+                Log.d(TAG, "Step 3: Creating new meter with number $newMeterNumber")
+                val newMeterRequest = NewMeterRequest(
+                    number = newMeterNumber,
+                    projectId = oldMeter.projectId,
+                    buildingId = oldMeter.buildingId,
+                    energyType = oldMeter.energyType,
+                    type = oldMeter.type,
+                    replacedOldMeterId = oldMeter.id,
+                    // CORRECTED: Pass the address information from the old meter
+                    street = oldMeter.street,
+                    postalCode = oldMeter.postalCode,
+                    city = oldMeter.city,
+                    houseNumber = oldMeter.houseNumber,
+                    houseNumberAddition = oldMeter.houseNumberAddition
+                )
+                val createMeterResponse = apiService.createMeter(newMeterRequest)
+                val newMeter = createMeterResponse.body()?.firstOrNull() ?: throw Exception("Failed to create new meter or parse response. Error: ${createMeterResponse.errorBody()?.string()}")
+                Log.d(TAG, "New meter created with ID: ${newMeter.id}")
 
-                Log.d(TAG, "Uploading to Minio. Bucket: $bucketName, Key: $key")
+                // Step 4: Add the new meter's id to the old meter's "exchanged_with_meter_id"
+                Log.d(TAG, "Step 4: Linking old meter ${oldMeter.id} to new meter ${newMeter.id}")
+                val linkMetersRequest = UpdateMeterRequest(exchangedWithNewMeterId = newMeter.id)
+                val linkMetersResponse = apiService.updateMeter("eq.${oldMeter.id}", linkMetersRequest)
+                if (!linkMetersResponse.isSuccessful) throw Exception("Failed to link old meter to new meter. Error: ${linkMetersResponse.errorBody()?.string()}")
 
-                // Create the request and upload the file
-                val putObjectRequest = PutObjectRequest(bucketName, key, inputStream, metadata)
-                s3Client.putObject(putObjectRequest)
+                // Step 5: POST initial reading for new meter
+                Log.d(TAG, "Step 5: Posting initial reading for new meter ${newMeter.id}")
+                val finalNewMeterReading = newMeterInitialReading.copy(meter_id = newMeter.id)
+                val postNewReadingResponse = apiService.postReading(finalNewMeterReading)
+                if (!postNewReadingResponse.isSuccessful) throw Exception("Failed to post initial reading for new meter. Error: ${postNewReadingResponse.errorBody()?.string()}")
 
-                Log.d(TAG, "Minio upload successful for key: $key")
-                true // Indicate success
+                Log.d(TAG, "Meter exchange sequence completed successfully.")
+                true
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to upload file to Minio S3: ${e.message}", e)
-                false // Indicate failure
+                Log.e(TAG, "Meter exchange failed: ${e.message}", e)
+                false
             }
         }
     }
-
-
-    // --- Other methods (unchanged) ---
-
+    // ... (rest of the file is unchanged)
     suspend fun postMeterReading(reading: Reading): Response<Unit> {
         return withContext(Dispatchers.IO) {
             try {
@@ -142,62 +146,51 @@ class MeterRepository(
             }
         }
     }
-
+    suspend fun uploadFileToS3(imageUri: Uri, fullStoragePath: String): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                val s3Client = S3Client.getInstance()
+                val inputStream = appContext.contentResolver.openInputStream(imageUri) ?: throw IOException("Could not open input stream for URI: $imageUri")
+                val metadata = ObjectMetadata()
+                appContext.contentResolver.query(imageUri, null, null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+                        if (!cursor.isNull(sizeIndex)) {
+                            metadata.contentLength = cursor.getLong(sizeIndex)
+                        }
+                    }
+                }
+                metadata.contentType = appContext.contentResolver.getType(imageUri)
+                val bucketName = fullStoragePath.substringBefore('/')
+                val key = fullStoragePath.substringAfter('/')
+                Log.d(TAG, "Uploading to Minio. Bucket: $bucketName, Key: $key")
+                val putObjectRequest = PutObjectRequest(bucketName, key, inputStream, metadata)
+                s3Client.putObject(putObjectRequest)
+                Log.d(TAG, "Minio upload successful for key: $key")
+                true
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to upload file to Minio S3: ${e.message}", e)
+                false
+            }
+        }
+    }
     fun queueImageUpload(imageUri: Uri, fullStoragePath: String, projectId: String, meterId: String) {
-        val inputData = workDataOf(
-            S3UploadWorker.KEY_IMAGE_URI to imageUri.toString(),
-            S3UploadWorker.KEY_S3_KEY to fullStoragePath,
-            S3UploadWorker.KEY_PROJECT_ID to projectId,
-            S3UploadWorker.KEY_METER_ID to meterId
-        )
-        val uploadWorkRequest = OneTimeWorkRequestBuilder<S3UploadWorker>()
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-            .setInputData(inputData)
-            .build()
+        val inputData = workDataOf(S3UploadWorker.KEY_IMAGE_URI to imageUri.toString(), S3UploadWorker.KEY_S3_KEY to fullStoragePath, S3UploadWorker.KEY_PROJECT_ID to projectId, S3UploadWorker.KEY_METER_ID to meterId)
+        val uploadWorkRequest = OneTimeWorkRequestBuilder<S3UploadWorker>().setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()).setInputData(inputData).build()
         workManager.enqueue(uploadWorkRequest)
         Log.d(TAG, "S3UploadWorker scheduled for image: $fullStoragePath")
     }
-
-    suspend fun postFileMetadata(
-        fileName: String,
-        bucketName: String,
-        storagePath: String,
-        fileSize: Long,
-        fileMimeType: String,
-        entityId: String,
-        entityType: String,
-        documentType: String = "other"
-    ): Boolean {
+    suspend fun postFileMetadata(fileName: String, bucketName: String, storagePath: String, fileSize: Long, fileMimeType: String, entityId: String, entityType: String, documentType: String = "other"): Boolean {
         return withContext(Dispatchers.IO) {
             try {
-                val fileMetadata = FileMetadata(
-                    id = UUID.randomUUID().toString(),
-                    name = fileName,
-                    bucket = bucketName,
-                    storage_path = storagePath,
-                    size = fileSize,
-                    type = fileMimeType,
-                    metadata = mapOf(
-                        "entity_id" to entityId,
-                        "entity_type" to entityType,
-                        "document_type" to documentType
-                    )
-                )
+                val fileMetadata = FileMetadata(id = UUID.randomUUID().toString(), name = fileName, bucket = bucketName, storage_path = storagePath, size = fileSize, type = fileMimeType, metadata = mapOf("entity_id" to entityId, "entity_type" to entityType, "document_type" to documentType))
                 val response = apiService.postFileMetadata(fileMetadata)
                 if (!response.isSuccessful) {
                     queueRequest("file_metadata", "files", "POST", gson.toJson(fileMetadata))
                 }
                 true
             } catch (e: IOException) {
-                val fileMetadata = FileMetadata(
-                    id = UUID.randomUUID().toString(),
-                    name = fileName,
-                    bucket = bucketName,
-                    storage_path = storagePath,
-                    size = fileSize,
-                    type = fileMimeType,
-                    metadata = mapOf("entity_id" to entityId, "entity_type" to entityType, "document_type" to documentType)
-                )
+                val fileMetadata = FileMetadata(id = UUID.randomUUID().toString(), name = fileName, bucket = bucketName, storage_path = storagePath, size = fileSize, type = fileMimeType, metadata = mapOf("entity_id" to entityId, "entity_type" to entityType, "document_type" to documentType))
                 queueRequest("file_metadata", "files", "POST", gson.toJson(fileMetadata))
                 true
             } catch (e: Exception) {
@@ -206,7 +199,6 @@ class MeterRepository(
             }
         }
     }
-
     suspend fun processQueuedRequest(request: QueuedRequest): Boolean {
         return withContext(Dispatchers.IO) {
             try {
@@ -227,14 +219,11 @@ class MeterRepository(
             }
         }
     }
-
     private suspend fun queueRequest(type: String, endpoint: String, method: String, body: String) {
         val queuedRequest = QueuedRequest(type = type, endpoint = endpoint, method = method, body = body)
         queuedRequestDao.insert(queuedRequest)
         Log.d(TAG, "Request queued locally: ${queuedRequest.id} (Type: $type)")
-        val syncWorkRequest = OneTimeWorkRequestBuilder<SyncWorker>()
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-            .build()
+        val syncWorkRequest = OneTimeWorkRequestBuilder<SyncWorker>().setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()).build()
         workManager.enqueue(syncWorkRequest)
     }
 }

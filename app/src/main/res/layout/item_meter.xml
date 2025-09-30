@@ -19,6 +19,7 @@
         android:orientation="vertical"
         android:padding="12dp">
 
+        <!-- Top Row -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -49,7 +50,6 @@
                     android:textColor="@android:color/holo_blue_dark"
                     android:layout_marginTop="2dp"
                     tools:text="Electricity" />
-
             </LinearLayout>
 
             <ImageView
@@ -61,9 +61,9 @@
                 android:scaleType="fitCenter"
                 tools:src="@drawable/ic_bolt"
                 app:tint="@android:color/holo_red_dark" />
-
         </LinearLayout>
 
+        <!-- Last Reading Info -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -77,7 +77,6 @@
                 android:textSize="12sp"
                 android:textColor="@android:color/black"
                 android:text="Last Reading: " />
-
             <TextView
                 android:id="@+id/meterLastReadingTextView"
                 android:layout_width="wrap_content"
@@ -86,7 +85,6 @@
                 android:textStyle="bold"
                 android:textColor="@android:color/black"
                 tools:text="80792.5" />
-
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -94,7 +92,6 @@
                 android:textColor="@android:color/black"
                 android:layout_marginStart="8dp"
                 android:text="Date: " />
-
             <TextView
                 android:id="@+id/meterLastReadingDateTextView"
                 android:layout_width="0dp"
@@ -104,9 +101,9 @@
                 android:textStyle="bold"
                 android:textColor="@android:color/black"
                 tools:text="29/12/2023" />
-
         </LinearLayout>
 
+        <!-- Editable Reading Value -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/readingValueInputLayout"
             android:layout_width="match_parent"
@@ -116,7 +113,6 @@
             app:boxBackgroundMode="outline"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.Dense"
             app:boxStrokeColor="@drawable/text_input_stroke_color_selector">
-
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/newReadingValueEditText"
                 android:layout_width="match_parent"
@@ -128,6 +124,7 @@
                 tools:text="1234.5" />
         </com.google.android.material.textfield.TextInputLayout>
 
+        <!-- Buttons -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -135,10 +132,23 @@
             android:layout_marginTop="16dp"
             android:gravity="end">
 
+            <!-- ADDED: Change Meter Button -->
+            <ImageButton
+                android:id="@+id/changeMeterButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="@drawable/button_orange_background"
+                android:src="@drawable/ic_change"
+                android:contentDescription="Change Meter"
+                app:tint="@android:color/white"
+                android:padding="12dp"
+                android:scaleType="fitCenter" />
+
             <ImageButton
                 android:id="@+id/cameraButton"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
+                android:layout_marginStart="16dp"
                 android:background="@drawable/button_orange_background"
                 android:src="@drawable/ic_camera_white_24"
                 android:contentDescription="@string/camera_button_description"
@@ -169,9 +179,7 @@
                 app:tint="@android:color/white"
                 android:padding="12dp"
                 android:scaleType="fitCenter" />
-
         </LinearLayout>
-
     </LinearLayout>
-
 </androidx.cardview.widget.CardView>
+

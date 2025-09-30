@@ -8,24 +8,18 @@ import com.example.meterreadingsapp.data.Meter
 import com.example.meterreadingsapp.data.Project
 import com.example.meterreadingsapp.data.Reading
 import com.example.meterreadingsapp.repository.MeterRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.Locale
 
-/**
- * ViewModel for managing UI-related data.
- * This has been updated to handle the Project -> Building -> Meter hierarchy.
- * The name remains LocationViewModel for simplicity to avoid widespread refactoring.
- */
 class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
 
-    private val TAG = "MainViewModel" // Renamed tag for clarity in logs
+    private val TAG = "MainViewModel"
 
-    // LiveData for UI messages (e.g., success/error toasts)
     private val _uiMessage = MutableStateFlow<String?>(null)
     val uiMessage: StateFlow<String?> = _uiMessage.asStateFlow()
 
-    // --- State for Project List View ---
     private val _projectSearchQuery = MutableStateFlow("")
     val projectSearchQuery: StateFlow<String> = _projectSearchQuery.asStateFlow()
 
@@ -44,11 +38,10 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
 
     val selectedProjectId = MutableStateFlow<String?>(null)
 
-    // --- State for Building List View ---
     private val _buildingSearchQuery = MutableStateFlow("")
     val buildingSearchQuery: StateFlow<String> = _buildingSearchQuery.asStateFlow()
 
-    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @OptIn(ExperimentalCoroutinesApi::class)
     val buildings: LiveData<List<Building>> = selectedProjectId.flatMapLatest { projectId ->
         if (projectId == null) {
             flowOf(emptyList())
@@ -69,11 +62,10 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
 
     val selectedBuildingId = MutableStateFlow<String?>(null)
 
-    // --- State for Meter List View ---
     private val _meterSearchQuery = MutableStateFlow("")
     val meterSearchQuery: StateFlow<String> = _meterSearchQuery.asStateFlow()
 
-    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    @OptIn(ExperimentalCoroutinesApi::class)
     val meters: LiveData<List<Meter>> = selectedBuildingId.flatMapLatest { buildingId ->
         if (buildingId == null) {
             flowOf(emptyList())
@@ -92,53 +84,38 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
     }.asLiveData()
 
 
-    // --- Actions ---
-
-    fun setProjectSearchQuery(query: String) {
-        _projectSearchQuery.value = query
-    }
-
-    fun selectProject(project: Project?) {
-        selectedProjectId.value = project?.id
-        // Reset downstream selections
-        selectedBuildingId.value = null
-    }
-
-    fun setBuildingSearchQuery(query: String) {
-        _buildingSearchQuery.value = query
-    }
-
-    fun selectBuilding(building: Building?) {
-        selectedBuildingId.value = building?.id
-    }
-
-    fun setMeterSearchQuery(query: String) {
-        _meterSearchQuery.value = query
-    }
-
-    fun refreshAllData() {
+    // ADDED: Function to handle the meter exchange process
+    fun exchangeMeter(
+        oldMeter: Meter,
+        oldMeterLastReading: Reading,
+        newMeterNumber: String,
+        newMeterInitialReading: Reading
+    ) {
         viewModelScope.launch {
-            Log.d(TAG, "Initiating full data refresh from ViewModel.")
-            try {
-                repository.refreshAllData()
-                _uiMessage.value = "All data refreshed successfully!"
-            } catch (e: Exception) {
-                _uiMessage.value = "Error refreshing data: ${e.message}"
-                Log.e(TAG, "Error during data refresh: ${e.message}", e)
+            _uiMessage.value = "Exchanging meter..."
+            val success = repository.performMeterExchange(
+                oldMeter,
+                oldMeterLastReading,
+                newMeterNumber,
+                newMeterInitialReading
+            )
+            if (success) {
+                _uiMessage.value = "Meter exchanged successfully!"
+                refreshAllData() // Refresh data to show the changes
+            } else {
+                _uiMessage.value = "Meter exchange failed. Please try again."
             }
         }
     }
 
-    fun postMeterReading(reading: Reading) {
-        viewModelScope.launch {
-            repository.postMeterReading(reading)
-            // The repository now handles queuing, so we just fire and forget.
-            // UI message can be triggered based on immediate success/failure if needed.
-        }
-    }
 
-    fun queueImageUpload(imageUri: Uri, fullStoragePath: String, projectId: String, meterId: String) {
-        repository.queueImageUpload(imageUri, fullStoragePath, projectId, meterId)
-    }
+    fun setProjectSearchQuery(query: String) { _projectSearchQuery.value = query }
+    fun selectProject(project: Project?) { selectedProjectId.value = project?.id; selectedBuildingId.value = null }
+    fun setBuildingSearchQuery(query: String) { _buildingSearchQuery.value = query }
+    fun selectBuilding(building: Building?) { selectedBuildingId.value = building?.id }
+    fun setMeterSearchQuery(query: String) { _meterSearchQuery.value = query }
+    fun refreshAllData() { viewModelScope.launch { Log.d(TAG, "Initiating full data refresh from ViewModel."); try { repository.refreshAllData(); _uiMessage.value = "All data refreshed successfully!" } catch (e: Exception) { _uiMessage.value = "Error refreshing data: ${e.message}"; Log.e(TAG, "Error during data refresh: ${e.message}", e) } } }
+    fun postMeterReading(reading: Reading) { viewModelScope.launch { repository.postMeterReading(reading) } }
+    fun queueImageUpload(imageUri: Uri, fullStoragePath: String, projectId: String, meterId: String) { repository.queueImageUpload(imageUri, fullStoragePath, projectId, meterId) }
 }
 
