@@ -19,7 +19,6 @@
         android:orientation="vertical"
         android:padding="12dp">
 
-        <!-- Top Row: Meter Number, Energy Type, and Icon -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -32,7 +31,6 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
 
-                <!-- Meter Number -->
                 <TextView
                     android:id="@+id/meterNumberTextView"
                     android:layout_width="wrap_content"
@@ -42,7 +40,6 @@
                     android:textColor="@android:color/black"
                     tools:text="105251-M17" />
 
-                <!-- Energy Type -->
                 <TextView
                     android:id="@+id/meterEnergyTypeTextView"
                     android:layout_width="wrap_content"
@@ -55,7 +52,6 @@
 
             </LinearLayout>
 
-            <!-- Energy Type Icon -->
             <ImageView
                 android:id="@+id/energyTypeIcon"
                 android:layout_width="28dp"
@@ -68,7 +64,6 @@
 
         </LinearLayout>
 
-        <!-- Last Reading Information -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -92,7 +87,6 @@
                 android:textColor="@android:color/black"
                 tools:text="80792.5" />
 
-            <!-- Last Reading Date -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -113,7 +107,6 @@
 
         </LinearLayout>
 
-        <!-- Editable Reading Value (at the bottom, spans width) -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/readingValueInputLayout"
             android:layout_width="match_parent"
@@ -135,13 +128,12 @@
                 tools:text="1234.5" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Camera, View Image, and NEW Delete Image Buttons -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:layout_marginTop="16dp"
-            android:gravity="end"> <!-- Align buttons to the end (right) -->
+            android:gravity="end">
 
             <ImageButton
                 android:id="@+id/cameraButton"
@@ -166,7 +158,6 @@
                 android:padding="12dp"
                 android:scaleType="fitCenter" />
 
-            <!-- NEW: Delete Image Button -->
             <ImageButton
                 android:id="@+id/deleteImageButton"
                 android:layout_width="48dp"

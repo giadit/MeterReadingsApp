@@ -15,7 +15,6 @@
         android:orientation="vertical"
         android:padding="16dp">
 
-        <!-- Project Name -->
         <TextView
             android:id="@+id/projectNameTextView"
             android:layout_width="match_parent"
@@ -25,10 +24,6 @@
             android:textColor="@android:color/black"
             tools:text="IHK Gebäude" />
 
-        <!-- REMOVED: Project Address TextView -->
-        <!-- REMOVED: Project Status TextView -->
-
-        <!-- Project Responsible -->
         <TextView
             android:id="@+id/projectResponsibleTextView"
             android:layout_width="match_parent"
@@ -44,7 +39,6 @@
             android:orientation="horizontal"
             android:layout_marginTop="8dp">
 
-            <!-- Meters Count -->
             <TextView
                 android:id="@+id/projectMeterCountTextView"
                 android:layout_width="0dp"
@@ -54,7 +48,6 @@
                 android:textColor="@android:color/black"
                 tools:text="Meters: 5" />
 
-            <!-- Buildings Count -->
             <TextView
                 android:id="@+id/projectBuildingCountTextView"
                 android:layout_width="0dp"
