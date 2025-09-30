@@ -316,7 +316,6 @@ class MainActivity : AppCompatActivity() {
         dialog.show()
     }
 
-    // UPDATED: Full implementation for adding a new meter
     private fun showAddMeterDialog() {
         val currentProjectId = locationViewModel.selectedProjectId.value
         val currentBuildingId = locationViewModel.selectedBuildingId.value
@@ -334,10 +333,21 @@ class MainActivity : AppCompatActivity() {
             .setNegativeButton("Abbrechen", null)
             .create()
 
+        // Setup spinners with a larger layout
         val energyTypes = listOf("Electricity", "Heat", "Gas")
-        val meterTypes = listOf("Main", "Sub", "Generator") // Example types, adjust if needed
-        val energyAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, energyTypes)
-        val meterAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, meterTypes)
+        val meterTypes = listOf("Summenzähler","Wohnung","Gewerbe", "Hausstrom", "Unterzähler",
+            "Erzeugungszähler PV", "Eigenbedarf PV", "Eigenbedarf KWK", "Erzeugungszähler KWK",
+            "BEA Eigenbedarf", "Elektromobilität", "Zwischenzähler","Abgrenzungszähler","Baustrom",
+            "Balkon-PV Einspeisung", "Eigenbedarf WP", "unbekannt")
+
+        // UPDATED: Using a larger, standard layout for the spinner items
+        val energyAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, energyTypes)
+        val meterAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, meterTypes)
+
+        // This makes the dropdown list itself look better too
+        energyAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        meterAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+
         dialogBinding.spinnerEnergyType.adapter = energyAdapter
         dialogBinding.spinnerMeterType.adapter = meterAdapter
 
@@ -365,7 +375,7 @@ class MainActivity : AppCompatActivity() {
                     buildingId = currentBuilding.id,
                     energyType = energyType,
                     type = meterType,
-                    replacedOldMeterId = null, // Not replacing an old meter
+                    replacedOldMeterId = null,
                     street = currentBuilding.street,
                     postalCode = currentBuilding.postal_code,
                     city = currentBuilding.city,
@@ -375,7 +385,7 @@ class MainActivity : AppCompatActivity() {
 
                 val initialReading = Reading(
                     id = UUID.randomUUID().toString(),
-                    meter_id = "", // Will be filled in by the repository
+                    meter_id = "",
                     value = initialReadingValue,
                     date = readingDate,
                     read_by = "App User"
