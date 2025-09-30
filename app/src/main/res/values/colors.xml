@@ -11,7 +11,7 @@
     <color name="heat_orange">#F03716</color>   <!-- A fiery orange for heat -->
     <color name="gas_green">#3CB371</color>
 
-    <color name="bright_orange">#FFFF5722</color> <!-- A common bright orange -->
+    <color name="bright_orange">#F47216</color> <!-- A common bright orange -->
     <color name="dark_orange">#FFBF360C</color>   <!-- A darker shade for status bar -->
     <color name="pure_white">#FFFFFFFF</color>    <!-- Explicitly named white -->
     <color name="dark_gray_text">#FF333333</color> <!-- For text on white background -->
