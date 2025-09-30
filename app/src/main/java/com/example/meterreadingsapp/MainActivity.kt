@@ -3,6 +3,7 @@ package com.example.meterreadingsapp
 import android.app.DatePickerDialog
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -16,6 +17,7 @@ import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.widget.DatePicker
+import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
@@ -24,6 +26,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.core.content.edit
+import androidx.core.view.isVisible
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -44,10 +48,6 @@ import java.io.File
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.*
-import android.content.pm.PackageManager
-import android.widget.EditText
-import androidx.core.content.edit
-import androidx.core.view.isVisible
 
 class MainActivity : AppCompatActivity() {
 
@@ -57,16 +57,18 @@ class MainActivity : AppCompatActivity() {
     private lateinit var buildingAdapter: BuildingAdapter
     private lateinit var meterAdapter: MeterAdapter
 
-    private val uiDateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.GERMANY) // Format for display
+    private val uiDateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.GERMANY)
     private val apiDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
     private val s3KeyDateFormat = SimpleDateFormat("yyyyMMdd", Locale.US)
     private val timeFormat = SimpleDateFormat("HHmm", Locale.US)
 
     private var selectedReadingDate: Calendar = Calendar.getInstance()
     private val selectedMeterTypesFilter: MutableSet<String> = mutableSetOf("All")
+    private var showExchangedMeters = false
 
     private lateinit var filterTextViews: Map<String, TextView>
 
+    // ... (rest of properties and camera launchers remain the same)
     private val PREFS_NAME = "LoginPrefs"
     private val KEY_USERNAME = "username"
     private val KEY_PASSWORD = "password"
@@ -74,8 +76,6 @@ class MainActivity : AppCompatActivity() {
 
     private var currentPhotoUri: Uri? = null
     private var currentMeterForPhoto: Meter? = null
-
-    // ... (Camera launchers remain the same)
 
     private val requestCameraPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
@@ -106,14 +106,12 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // ... (Window insets code remains the same)
+        // ... (window insets, toolbar, DI setup remains the same)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             window.insetsController?.apply {
                 hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
@@ -127,7 +125,6 @@ class MainActivity : AppCompatActivity() {
                             or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
                     )
         }
-
 
         setSupportActionBar(binding.toolbar)
 
@@ -147,12 +144,13 @@ class MainActivity : AppCompatActivity() {
         locationViewModel = ViewModelProvider(this, LocationViewModelFactory(repository))
             .get(LocationViewModel::class.java)
 
+
         setupProjectRecyclerView()
         setupBuildingRecyclerView()
         setupMeterRecyclerView()
         setupSearchView()
-        setupDateSelection() // This now sets up the new calendar button
-        setupSendButton() // This now sets up the new send button
+        setupDateSelection()
+        setupSendButton()
         setupTypeFilter()
         setupMeterSearchView()
 
@@ -166,7 +164,7 @@ class MainActivity : AppCompatActivity() {
         binding.projectsContainer.isVisible = true
         binding.locationsContainer.isVisible = false
         binding.metersContainer.isVisible = false
-        binding.bottomBar.isVisible = false // Hide bottom bar initially
+        binding.bottomBar.isVisible = false
         binding.backButton.isVisible = false
 
         binding.refreshButton.setOnClickListener {
@@ -210,8 +208,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ... (RecyclerView setup methods remain mostly the same, just names updated)
-
+    // ... (RecyclerView and other setup methods remain unchanged unless specified)
     private fun setupProjectRecyclerView() {
         projectAdapter = ProjectAdapter { project ->
             locationViewModel.selectProject(project)
@@ -270,8 +267,6 @@ class MainActivity : AppCompatActivity() {
             adapter = meterAdapter
         }
     }
-
-    // ... (Search, Camera, and Image methods remain the same)
 
     private fun setupSearchView() {
         binding.searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
@@ -385,14 +380,11 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-
-    // UPDATED: This now handles the new bottom bar calendar button
     private fun setupDateSelection() {
         updateSelectedDateText()
         binding.bottomBarCalendarButton.setOnClickListener { showDatePicker() }
     }
 
-    // UPDATED: This now updates the new date TextView in the toolbar
     private fun updateSelectedDateText() {
         binding.toolbarDateTextView.text = uiDateFormat.format(selectedReadingDate.time)
     }
@@ -407,7 +399,7 @@ class MainActivity : AppCompatActivity() {
             R.style.AppDatePickerDialogTheme,
             { _, selectedYear, selectedMonth, selectedDayOfMonth ->
                 selectedReadingDate.set(selectedYear, selectedMonth, selectedDayOfMonth)
-                updateSelectedDateText() // This will now update the toolbar text
+                updateSelectedDateText()
             },
             year, month, day
         )
@@ -418,14 +410,17 @@ class MainActivity : AppCompatActivity() {
         datePickerDialog.getButton(DatePickerDialog.BUTTON_NEGATIVE)?.setTextColor(ContextCompat.getColor(this, R.color.bright_orange))
     }
 
-    // ... (Filter logic remains the same)
+
+    // UPDATED: All filter logic now resides here
     private fun setupTypeFilter() {
         filterTextViews = mapOf(
             "All" to binding.filterAll,
             "Electricity" to binding.filterElectricity,
             "Heat" to binding.filterHeat,
-            "Gas" to binding.filterGas
+            "Gas" to binding.filterGas,
+            "getauscht" to binding.filterGetauscht
         )
+
         filterTextViews.forEach { (type, textView) ->
             textView.setOnClickListener {
                 toggleFilter(type)
@@ -435,20 +430,24 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun toggleFilter(type: String) {
-        if (type == "All") {
-            if ("All" !in selectedMeterTypesFilter) {
-                selectedMeterTypesFilter.clear()
-                selectedMeterTypesFilter.add("All")
-            }
+        if (type == "getauscht") {
+            showExchangedMeters = !showExchangedMeters
         } else {
-            selectedMeterTypesFilter.remove("All")
-            if (type in selectedMeterTypesFilter) {
-                selectedMeterTypesFilter.remove(type)
+            if (type == "All") {
+                if ("All" !in selectedMeterTypesFilter) {
+                    selectedMeterTypesFilter.clear()
+                    selectedMeterTypesFilter.add("All")
+                }
             } else {
-                selectedMeterTypesFilter.add(type)
-            }
-            if (selectedMeterTypesFilter.isEmpty()) {
-                selectedMeterTypesFilter.add("All")
+                selectedMeterTypesFilter.remove("All")
+                if (type in selectedMeterTypesFilter) {
+                    selectedMeterTypesFilter.remove(type)
+                } else {
+                    selectedMeterTypesFilter.add(type)
+                }
+                if (selectedMeterTypesFilter.isEmpty()) {
+                    selectedMeterTypesFilter.add("All")
+                }
             }
         }
         updateFilterUI()
@@ -457,18 +456,21 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateFilterUI() {
         filterTextViews.forEach { (type, textView) ->
-            val isSelected = type in selectedMeterTypesFilter
+            val isSelected = if (type == "getauscht") {
+                showExchangedMeters
+            } else {
+                type in selectedMeterTypesFilter
+            }
+
+            // UPDATED: Logic to handle dark red color
             val colorResId = when (type) {
                 "Electricity" -> R.color.electric_blue
                 "Heat" -> R.color.heat_orange
                 "Gas" -> R.color.gas_green
+                "getauscht" -> android.R.color.holo_red_dark // Using a standard dark red color
                 else -> R.color.black
             }
-            val accentColor = if (type == "All") {
-                if (isSelected) ContextCompat.getColor(this, R.color.black) else Color.TRANSPARENT
-            } else {
-                ContextCompat.getColor(this, colorResId)
-            }
+            val accentColor = ContextCompat.getColor(this, colorResId)
 
             if (isSelected) {
                 textView.setBackgroundResource(R.drawable.filter_button_selected_background)
@@ -486,15 +488,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-
-    // UPDATED: This now handles the new bottom bar send button
     private fun setupSendButton() {
         binding.bottomBarSendButton.setOnClickListener {
             sendAllMeterReadingsAndPictures()
         }
     }
 
-    // ... (Observation and Send logic remains the same)
+    // ... (Observe methods, send logic, etc. remain the same)
     private fun observeProjects() {
         locationViewModel.projects.observe(this) { projects ->
             binding.loadingProgressBar.isVisible = false
@@ -523,25 +523,38 @@ class MainActivity : AppCompatActivity() {
     private fun observeMeters() {
         locationViewModel.meters.observe(this) { meters ->
             binding.loadingProgressBar.isVisible = false
-            binding.noDataTextView.isVisible = meters.isNullOrEmpty()
-            if (meters.isNullOrEmpty()) {
-                binding.noDataTextView.text = "No meters found for this building."
-                meterAdapter.submitList(emptyList())
-            } else {
+            if (meters != null) {
                 applyMeterFilter(meters)
+            } else {
+                binding.noDataTextView.text = "No meters found for this building."
+                binding.noDataTextView.isVisible = true
+                meterAdapter.submitList(emptyList())
             }
         }
     }
 
+
     private fun applyMeterFilter(meters: List<Meter>) {
-        val filteredMeters = if ("All" in selectedMeterTypesFilter) {
-            meters
+        val statusFilteredMeters = if (showExchangedMeters) {
+            meters.filter { it.status.equals("Exchanged", ignoreCase = true) }
         } else {
-            meters.filter { meter ->
+            meters.filter { it.status.equals("Valid", ignoreCase = true) }
+        }
+
+        val finalFilteredMeters = if ("All" in selectedMeterTypesFilter) {
+            statusFilteredMeters
+        } else {
+            statusFilteredMeters.filter { meter ->
                 selectedMeterTypesFilter.any { it.equals(meter.energyType, ignoreCase = true) }
             }
         }
-        meterAdapter.submitList(filteredMeters)
+
+        meterAdapter.submitList(finalFilteredMeters)
+
+        binding.noDataTextView.isVisible = finalFilteredMeters.isEmpty()
+        if (finalFilteredMeters.isEmpty()) {
+            binding.noDataTextView.text = "No meters match the current filters."
+        }
     }
 
     private fun sendAllMeterReadingsAndPictures() {
@@ -578,7 +591,7 @@ class MainActivity : AppCompatActivity() {
                 imagesToUpload.forEach { (meterId, imageUri) ->
                     val meter = meterAdapter.currentList.find { it.id == meterId }
                     if (meter != null) {
-                        val projectId = meter.projectId ?: "unknown_project"
+                        val projectId = meter.projectId
                         val currentTime = timeFormat.format(Date())
                         val fileName = "${s3KeyDateFormat.format(selectedReadingDate.time)}_${currentTime}_${meter.number.replace("/", "_").replace(".", "_")}.jpg"
                         val fullStoragePath = "meter-documents/meter/${meter.id}/$fileName"
@@ -622,15 +635,13 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-    // --- Toolbar Update Logic (Updated) ---
-
     private fun updateToolbarForProjects() {
         binding.toolbarTitle.text = "Projects"
         binding.searchView.queryHint = "Search Projects..."
         binding.toolbarTitle.isVisible = true
         binding.searchView.isVisible = true
         binding.meterSearchView.isVisible = false
-        binding.toolbarDateTextView.isVisible = false // Hide date
+        binding.toolbarDateTextView.isVisible = false
     }
 
     private fun updateToolbarForBuildings(projectId: String?) {
@@ -640,15 +651,15 @@ class MainActivity : AppCompatActivity() {
         binding.toolbarTitle.isVisible = true
         binding.searchView.isVisible = true
         binding.meterSearchView.isVisible = false
-        binding.toolbarDateTextView.isVisible = false // Hide date
+        binding.toolbarDateTextView.isVisible = false
     }
 
     private fun updateToolbarForMeters(building: Building) {
         binding.toolbarTitle.text = building.name
         binding.searchView.isVisible = false
         binding.meterSearchView.isVisible = true
-        binding.toolbarDateTextView.isVisible = true // Show date
-        updateSelectedDateText() // Make sure it's up-to-date
+        binding.toolbarDateTextView.isVisible = true
+        updateSelectedDateText()
     }
 
     override fun onResume() {
