@@ -6,8 +6,7 @@ import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.EditText
-import android.widget.Toast
+import android.widget.Toast // ADDED: This line fixes the build error
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
@@ -16,6 +15,8 @@ import com.example.meterreadingsapp.R
 import com.example.meterreadingsapp.data.Meter
 import com.example.meterreadingsapp.databinding.ItemMeterBinding
 import com.example.meterreadingsapp.MainActivity.AppMode
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 class MeterAdapter(
     private val onCameraClicked: (Meter, Uri?) -> Unit,
@@ -29,33 +30,50 @@ class MeterAdapter(
     private val enteredReadings: MutableMap<String, String> = mutableMapOf()
     private val meterImages: MutableMap<String, Uri> = mutableMapOf()
 
+    // Date formatting helpers
+    private val apiDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+    private val uiDateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.GERMANY)
+
     inner class MeterViewHolder(private val binding: ItemMeterBinding) :
         RecyclerView.ViewHolder(binding.root) {
 
-        // A TextWatcher to avoid removing and re-adding the listener repeatedly
         private val textWatcher = object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
-                // Save the text to the map in real-time
-                val meter = getItem(adapterPosition)
-                enteredReadings[meter.id] = s.toString()
+                if (adapterPosition != RecyclerView.NO_POSITION) {
+                    val meter = getItem(adapterPosition)
+                    enteredReadings[meter.id] = s.toString()
+                }
             }
         }
 
         fun bind(meter: Meter) {
+            // --- DATA BINDING FOR METER INFO ---
             binding.meterNumberTextView.text = meter.number
             binding.meterEnergyTypeTextView.text = meter.energyType
 
-            // --- THIS IS THE CORRECTED LOGIC ---
-            // Remove the old listener to prevent multiple listeners on recycled views
-            binding.newReadingValueEditText.removeTextChangedListener(textWatcher)
-            // Pre-fill the reading from our map
-            binding.newReadingValueEditText.setText(enteredReadings[meter.id])
-            // Add the listener to capture changes in real-time
-            binding.newReadingValueEditText.addTextChangedListener(textWatcher)
-            // --- END OF CORRECTION ---
+            // --- THIS IS THE NEWLY ADDED LOGIC ---
+            // Display the last reading value, or "N/A" if it's null or blank
+            binding.meterLastReadingTextView.text = if (meter.lastReading.isNullOrBlank()) "N/A" else meter.lastReading
 
+            // Parse the date from the API format and display it in the UI format
+            binding.meterLastReadingDateTextView.text = meter.lastReadingDate?.let {
+                try {
+                    val date = apiDateFormat.parse(it)
+                    if (date != null) uiDateFormat.format(date) else "N/A"
+                } catch (e: Exception) {
+                    "N/A" // Handle parsing errors
+                }
+            } ?: "N/A"
+            // --- END OF NEW LOGIC ---
+
+
+            binding.newReadingValueEditText.removeTextChangedListener(textWatcher)
+            binding.newReadingValueEditText.setText(enteredReadings[meter.id])
+            binding.newReadingValueEditText.addTextChangedListener(textWatcher)
+
+            // --- Image button logic (unchanged) ---
             val newlyTakenImageUri = meterImages[meter.id]
             val hasImage = newlyTakenImageUri != null
 
