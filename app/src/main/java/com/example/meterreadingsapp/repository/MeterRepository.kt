@@ -31,7 +31,6 @@ class MeterRepository(
     private val projectDao: ProjectDao,
     private val buildingDao: BuildingDao,
     private val queuedRequestDao: QueuedRequestDao,
-    private val locationDao: LocationDao,
     private val appContext: Context
 ) {
     private val TAG = "MeterRepository"

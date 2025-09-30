@@ -31,7 +31,6 @@ class SyncWorker(
             projectDao = database.projectDao(),
             buildingDao = database.buildingDao(),
             queuedRequestDao = database.queuedRequestDao(),
-            locationDao = database.locationDao(),
             appContext = applicationContext
         )
 

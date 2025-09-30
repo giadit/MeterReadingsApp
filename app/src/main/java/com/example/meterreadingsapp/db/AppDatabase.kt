@@ -5,50 +5,34 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
-import com.example.meterreadingsapp.converters.MapConverter
 import com.example.meterreadingsapp.converters.ListConverter
+import com.example.meterreadingsapp.converters.MapConverter
 
 /**
  * The Room database class for the application.
  * Defines the database configuration and provides access to the DAOs.
- * @param entities Specifies the entities (tables) included in this database.
- * @param version The version number of the database. Incremented to 18 to include the Building entity.
- * @param exportSchema Set to false to prevent exporting schema to a folder.
  */
 @Database(
     entities = [
-        Location::class,
+        Project::class,
+        Building::class, // Location::class has been replaced by Building::class
         Meter::class,
         Reading::class,
-        QueuedRequest::class,
-        Project::class,
-        Building::class // ADDED: New Building entity
+        QueuedRequest::class
     ],
-    version = 18, // UPDATED: Incremented version for schema change
+    version = 19, // Incremented version to trigger migration
     exportSchema = false
 )
 @TypeConverters(MapConverter::class, ListConverter::class)
 abstract class AppDatabase : RoomDatabase() {
 
-    // Abstract function to get the DAO for Location entities.
-    abstract fun locationDao(): LocationDao
-
-    // Abstract function to get the DAO for Meter entities.
-    abstract fun meterDao(): MeterDao
-
-    // Abstract function to get the DAO for Reading entities.
-    abstract fun readingDao(): ReadingDao
-
-    // Abstract function to get the DAO for QueuedRequest entities.
-    abstract fun queuedRequestDao(): QueuedRequestDao
-
-    // Abstract function to get the DAO for Project entities.
     abstract fun projectDao(): ProjectDao
-
-    // ADDED: Abstract function to get the DAO for the new Building entity.
     abstract fun buildingDao(): BuildingDao
+    abstract fun meterDao(): MeterDao
+    abstract fun readingDao(): ReadingDao
+    abstract fun queuedRequestDao(): QueuedRequestDao
+    // The locationDao() function has been removed.
 
-    // Companion object to provide a singleton instance of the database.
     companion object {
         @Volatile
         private var INSTANCE: AppDatabase? = null
@@ -60,7 +44,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "meter_readings_database"
                 )
-                    .fallbackToDestructiveMigration() // Critical for schema changes without migrations
+                    .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
                 instance

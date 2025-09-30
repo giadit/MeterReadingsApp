@@ -133,11 +133,11 @@ class MainActivity : AppCompatActivity() {
         val meterDao = database.meterDao()
         val readingDao = database.readingDao()
         val queuedRequestDao = database.queuedRequestDao()
-        val locationDao = database.locationDao()
+
 
         val repository = MeterRepository(
             apiService, meterDao, readingDao, projectDao, buildingDao,
-            queuedRequestDao, locationDao, applicationContext
+            queuedRequestDao, applicationContext
         )
 
         locationViewModel = ViewModelProvider(this, LocationViewModelFactory(repository))

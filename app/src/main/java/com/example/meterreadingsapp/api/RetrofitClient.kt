@@ -1,32 +1,28 @@
 package com.example.meterreadingsapp.api
 
 import android.content.Context
+import com.example.meterreadingsapp.BuildConfig
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
-import com.example.meterreadingsapp.BuildConfig
 
 object RetrofitClient {
 
     private const val BASE_URL_API = "https://database.berliner-e-agentur.de/rest/v1/"
-    private const val BASE_URL_STORAGE = "https://rtbkdkofphqzifnozvqe.supabase.co/storage/v1/"
     private val API_KEY = BuildConfig.SUPABASE_API_KEY
 
     private var sessionManager: SessionManager? = null
 
-    // This interceptor is now simpler and more powerful.
-    // It will add the Authorization token to EVERY request if it exists.
     private val authInterceptor = Interceptor { chain ->
         val originalRequest = chain.request()
         val token = sessionManager?.fetchAuthToken()
 
         val requestBuilder = originalRequest.newBuilder()
-            .header("apikey", API_KEY) // Always add the API key
+            .header("apikey", API_KEY)
 
-        // If we have a token, add the Authorization header
         token?.let {
             requestBuilder.header("Authorization", "Bearer $it")
         }
@@ -46,26 +42,10 @@ object RetrofitClient {
         .writeTimeout(30, TimeUnit.SECONDS)
         .build()
 
-    private val okHttpClientStorage = OkHttpClient.Builder()
-        .addInterceptor(authInterceptor) // Also uses the smart interceptor
-        .addInterceptor(loggingInterceptor)
-        .connectTimeout(60, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .writeTimeout(60, TimeUnit.SECONDS)
-        .build()
-
     private val retrofitApi: Retrofit by lazy {
         Retrofit.Builder()
             .baseUrl(BASE_URL_API)
             .client(okHttpClientApi)
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-    }
-
-    private val retrofitStorage: Retrofit by lazy {
-        Retrofit.Builder()
-            .baseUrl(BASE_URL_STORAGE)
-            .client(okHttpClientStorage)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
     }
@@ -77,7 +57,7 @@ object RetrofitClient {
 
         return when (serviceClass) {
             ApiService::class.java -> retrofitApi.create(serviceClass) as T
-            StorageApiService::class.java -> retrofitStorage.create(serviceClass) as T
+            // The StorageApiService case has been removed.
             else -> throw IllegalArgumentException("Unknown service class: ${serviceClass.name}")
         }
     }
