@@ -11,20 +11,22 @@ import com.example.meterreadingsapp.BuildConfig
 
 object RetrofitClient {
 
-    private const val BASE_URL_API = "https://database.berliner-e-agentur.de"
+    private const val BASE_URL_API = "https://database.berliner-e-agentur.de/rest/v1/"
     private const val BASE_URL_STORAGE = "https://rtbkdkofphqzifnozvqe.supabase.co/storage/v1/"
     private val API_KEY = BuildConfig.SUPABASE_API_KEY
 
-    // This needs a Context to initialize SessionManager, so we'll pass it in.
     private var sessionManager: SessionManager? = null
 
+    // This interceptor is now simpler and more powerful.
+    // It will add the Authorization token to EVERY request if it exists.
     private val authInterceptor = Interceptor { chain ->
         val originalRequest = chain.request()
         val token = sessionManager?.fetchAuthToken()
 
         val requestBuilder = originalRequest.newBuilder()
-            .header("apikey", API_KEY)
+            .header("apikey", API_KEY) // Always add the API key
 
+        // If we have a token, add the Authorization header
         token?.let {
             requestBuilder.header("Authorization", "Bearer $it")
         }
@@ -44,11 +46,8 @@ object RetrofitClient {
         .writeTimeout(30, TimeUnit.SECONDS)
         .build()
 
-    // ... (rest of the file remains the same)
-    // You do not need to edit anything below this line in this file.
-
     private val okHttpClientStorage = OkHttpClient.Builder()
-        .addInterceptor(authInterceptor)
+        .addInterceptor(authInterceptor) // Also uses the smart interceptor
         .addInterceptor(loggingInterceptor)
         .connectTimeout(60, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
@@ -72,7 +71,6 @@ object RetrofitClient {
     }
 
     fun <T> getService(serviceClass: Class<T>, context: Context): T {
-        // Initialize SessionManager here, as we need the context.
         if (sessionManager == null) {
             sessionManager = SessionManager(context.applicationContext)
         }
