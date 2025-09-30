@@ -1,6 +1,8 @@
 package com.example.meterreadingsapp.adapter
 
 import android.net.Uri
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -30,18 +32,29 @@ class MeterAdapter(
     inner class MeterViewHolder(private val binding: ItemMeterBinding) :
         RecyclerView.ViewHolder(binding.root) {
 
+        // A TextWatcher to avoid removing and re-adding the listener repeatedly
+        private val textWatcher = object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                // Save the text to the map in real-time
+                val meter = getItem(adapterPosition)
+                enteredReadings[meter.id] = s.toString()
+            }
+        }
+
         fun bind(meter: Meter) {
             binding.meterNumberTextView.text = meter.number
-            binding.meterEnergyTypeTextView.text = meter.energyType // CORRECTED
+            binding.meterEnergyTypeTextView.text = meter.energyType
 
+            // --- THIS IS THE CORRECTED LOGIC ---
+            // Remove the old listener to prevent multiple listeners on recycled views
+            binding.newReadingValueEditText.removeTextChangedListener(textWatcher)
+            // Pre-fill the reading from our map
             binding.newReadingValueEditText.setText(enteredReadings[meter.id])
-
-            binding.newReadingValueEditText.onFocusChangeListener = View.OnFocusChangeListener { v, hasFocus ->
-                if (!hasFocus) {
-                    val editText = v as EditText
-                    enteredReadings[meter.id] = editText.text.toString()
-                }
-            }
+            // Add the listener to capture changes in real-time
+            binding.newReadingValueEditText.addTextChangedListener(textWatcher)
+            // --- END OF CORRECTION ---
 
             val newlyTakenImageUri = meterImages[meter.id]
             val hasImage = newlyTakenImageUri != null
