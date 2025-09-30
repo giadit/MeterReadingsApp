@@ -27,16 +27,6 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
 
-                <!-- App Logo -->
-                <ImageView
-                    android:id="@+id/appLogo"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:src="@drawable/ic_app_logo"
-                    android:contentDescription="@string/app_logo_description"
-                    app:tint="@android:color/white"
-                    android:layout_marginEnd="8dp" />
-
                 <ImageButton
                     android:id="@+id/backButton"
                     android:layout_width="wrap_content"
@@ -48,7 +38,6 @@
                     android:visibility="gone"
                     app:tint="?attr/colorOnPrimary"/>
 
-                <!-- Toolbar Title (visible by default, takes available space when search is collapsed) -->
                 <TextView
                     android:id="@+id/toolbarTitle"
                     android:layout_width="0dp"
@@ -61,7 +50,17 @@
                     android:layout_marginStart="8dp"
                     android:visibility="visible"/>
 
-                <!-- Search View (initially iconified, expands on click) -->
+                <TextView
+                    android:id="@+id/toolbarDateTextView"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="?attr/colorOnPrimary"
+                    android:textSize="16sp"
+                    android:layout_marginEnd="8dp"
+                    android:visibility="gone"
+                    tools:text="29.09.2025"
+                    tools:visibility="visible"/>
+
                 <androidx.appcompat.widget.SearchView
                     android:id="@+id/searchView"
                     android:layout_width="wrap_content"
@@ -81,7 +80,6 @@
                     android:padding="8dp"
                     app:tint="?attr/colorOnPrimary" />
 
-                <!-- Hardcoded Logout Button -->
                 <ImageButton
                     android:id="@+id/logoutButton"
                     android:layout_width="wrap_content"
@@ -95,7 +93,6 @@
         </androidx.appcompat.widget.Toolbar>
     </com.google.android.material.appbar.AppBarLayout>
 
-    <!-- Main content container -->
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -125,7 +122,6 @@
             app:layout_constraintTop_toTopOf="parent"
             tools:visibility="gone" />
 
-        <!-- Projects Container (Initially visible) -->
         <LinearLayout
             android:id="@+id/projectsContainer"
             android:layout_width="0dp"
@@ -144,7 +140,6 @@
                 tools:listitem="@layout/item_project" />
         </LinearLayout>
 
-        <!-- Locations Container (Initially hidden) -->
         <LinearLayout
             android:id="@+id/locationsContainer"
             android:layout_width="0dp"
@@ -163,62 +158,17 @@
                 tools:listitem="@layout/item_location" />
         </LinearLayout>
 
-        <!-- Container for Meters UI (initially hidden) -->
         <LinearLayout
             android:id="@+id/metersContainer"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
             android:orientation="vertical"
             android:visibility="gone"
-            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintBottom_toTopOf="@+id/bottomBar"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent">
 
-            <!-- Date Selection (Slimmed down and moved to top) -->
-            <LinearLayout
-                android:id="@+id/dateSelectionLayout"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingVertical="4dp"
-                android:layout_marginHorizontal="8dp"
-                android:layout_marginTop="8dp"
-                android:background="@drawable/date_selection_frame_background"
-                android:clickable="true"
-                android:focusable="true">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/reading_date_label"
-                    android:textStyle="bold"
-                    android:textAppearance="?attr/textAppearanceSubtitle1" />
-
-                <TextView
-                    android:id="@+id/selectedDateTextView"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:textAppearance="?attr/textAppearanceBody1"
-                    tools:text="2025-06-16"
-                    android:textColor="@android:color/black"
-                    android:paddingVertical="2dp"/>
-
-                <ImageButton
-                    android:id="@+id/selectDateButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:src="@drawable/ic_calendar"
-                    android:contentDescription="@string/select_date_button_description"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:padding="8dp"
-                    app:tint="@color/bright_orange" />
-
-            </LinearLayout>
-
-            <!-- Type Filter -->
             <HorizontalScrollView
                 android:id="@+id/filterButtonsLayout"
                 android:layout_width="match_parent"
@@ -234,6 +184,7 @@
                     android:gravity="center_vertical"
                     android:paddingVertical="4dp">
 
+                    <!-- CORRECTED: Reverted to explicit styling -->
                     <TextView
                         android:id="@+id/filterAll"
                         android:layout_width="wrap_content"
@@ -300,7 +251,6 @@
                 </LinearLayout>
             </HorizontalScrollView>
 
-            <!-- NEW: CardView wrapper for Meter Search Bar with custom background -->
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -310,7 +260,7 @@
                 app:cardCornerRadius="8dp"
                 app:cardElevation="0dp"
                 app:cardBackgroundColor="@android:color/transparent"
-                android:background="@drawable/search_view_background_selector"> <!-- Apply custom background to CardView -->
+                android:background="@drawable/search_view_background_selector">
 
                 <androidx.appcompat.widget.SearchView
                     android:id="@+id/meterSearchView"
@@ -318,11 +268,10 @@
                     android:layout_height="wrap_content"
                     app:iconifiedByDefault="false"
                     app:queryHint="@string/search_meter_number_hint"
-                    android:background="@android:color/transparent" /> <!-- Ensure SearchView itself has transparent background -->
+                    android:background="@android:color/transparent" />
 
             </androidx.cardview.widget.CardView>
 
-            <!-- Scrollable list of meters -->
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/metersRecyclerView"
                 android:layout_width="match_parent"
@@ -331,26 +280,52 @@
                 android:padding="8dp"
                 tools:listitem="@layout/item_meter" />
 
-        </LinearLayout> <!-- Closing tag for metersContainer LinearLayout -->
+        </LinearLayout>
 
-    </androidx.constraintlayout.widget.ConstraintLayout> <!-- Closing tag for main content ConstraintLayout -->
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/bottomBar"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:background="?attr/colorPrimary"
+            android:padding="8dp"
+            android:visibility="gone"
+            tools:visibility="visible"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent">
 
-    <!-- Send Button (Extended Floating Action Button - kept as is) -->
-    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
-        android:id="@+id/sendReadingsFab"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="16dp"
-        android:clickable="true"
-        android:focusable="true"
-        android:text="@string/send_button_text"
-        android:textColor="@android:color/white"
-        app:icon="@drawable/ic_send"
-        android:contentDescription="@string/send_readings_button_description"
-        app:iconTint="@android:color/white"
-        app:backgroundTint="@color/bright_orange"
-        tools:visibility="visible"
-        android:visibility="gone"/>
+            <ImageButton
+                android:id="@+id/bottomBarCalendarButton"
+                android:layout_width="wrap_content"
+                android:layout_height="0dp"
+                android:src="@drawable/ic_calendar"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/select_date_button_description"
+                android:padding="8dp"
+                app:tint="?attr/colorOnPrimary"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/bottomBarSendButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:text="@string/send_button_text"
+                android:textColor="@android:color/white"
+                app:icon="@drawable/ic_send"
+                app:iconTint="@android:color/white"
+                app:backgroundTint="@color/bright_orange"
+                app:cornerRadius="8dp"
+                android:layout_marginStart="16dp"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toEndOf="@id/bottomBarCalendarButton"
+                app:layout_constraintEnd_toEndOf="parent"/>
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
+

@@ -57,7 +57,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var buildingAdapter: BuildingAdapter
     private lateinit var meterAdapter: MeterAdapter
 
-    private val uiDateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.US)
+    private val uiDateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.GERMANY) // Format for display
     private val apiDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
     private val s3KeyDateFormat = SimpleDateFormat("yyyyMMdd", Locale.US)
     private val timeFormat = SimpleDateFormat("HHmm", Locale.US)
@@ -74,6 +74,8 @@ class MainActivity : AppCompatActivity() {
 
     private var currentPhotoUri: Uri? = null
     private var currentMeterForPhoto: Meter? = null
+
+    // ... (Camera launchers remain the same)
 
     private val requestCameraPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
@@ -104,12 +106,14 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // ... (Window insets code remains the same)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             window.insetsController?.apply {
                 hide(WindowInsets.Type.statusBars() or WindowInsets.Type.navigationBars())
@@ -124,6 +128,7 @@ class MainActivity : AppCompatActivity() {
                     )
         }
 
+
         setSupportActionBar(binding.toolbar)
 
         val apiService = RetrofitClient.getService(ApiService::class.java, applicationContext)
@@ -133,7 +138,6 @@ class MainActivity : AppCompatActivity() {
         val meterDao = database.meterDao()
         val readingDao = database.readingDao()
         val queuedRequestDao = database.queuedRequestDao()
-
 
         val repository = MeterRepository(
             apiService, meterDao, readingDao, projectDao, buildingDao,
@@ -147,9 +151,9 @@ class MainActivity : AppCompatActivity() {
         setupBuildingRecyclerView()
         setupMeterRecyclerView()
         setupSearchView()
-        setupDateSelection()
+        setupDateSelection() // This now sets up the new calendar button
+        setupSendButton() // This now sets up the new send button
         setupTypeFilter()
-        setupSendButton()
         setupMeterSearchView()
 
         observeProjects()
@@ -157,10 +161,12 @@ class MainActivity : AppCompatActivity() {
         observeMeters()
         observeUiMessages()
 
+        locationViewModel.refreshAllData()
+
         binding.projectsContainer.isVisible = true
         binding.locationsContainer.isVisible = false
         binding.metersContainer.isVisible = false
-        binding.sendReadingsFab.isVisible = false
+        binding.bottomBar.isVisible = false // Hide bottom bar initially
         binding.backButton.isVisible = false
 
         binding.refreshButton.setOnClickListener {
@@ -174,7 +180,7 @@ class MainActivity : AppCompatActivity() {
                     locationViewModel.selectBuilding(null)
                     binding.metersContainer.isVisible = false
                     binding.locationsContainer.isVisible = true
-                    binding.sendReadingsFab.isVisible = false
+                    binding.bottomBar.isVisible = false
                     binding.backButton.isVisible = true
 
                     binding.meterSearchView.setQuery("", false)
@@ -186,7 +192,7 @@ class MainActivity : AppCompatActivity() {
                     binding.locationsContainer.isVisible = false
                     binding.projectsContainer.isVisible = true
                     binding.backButton.isVisible = false
-                    binding.sendReadingsFab.isVisible = false
+                    binding.bottomBar.isVisible = false
 
                     binding.searchView.setQuery("", false)
                     binding.searchView.isIconified = true
@@ -203,6 +209,8 @@ class MainActivity : AppCompatActivity() {
             performLogout()
         }
     }
+
+    // ... (RecyclerView setup methods remain mostly the same, just names updated)
 
     private fun setupProjectRecyclerView() {
         projectAdapter = ProjectAdapter { project ->
@@ -223,7 +231,7 @@ class MainActivity : AppCompatActivity() {
             locationViewModel.selectBuilding(building)
             binding.locationsContainer.isVisible = false
             binding.metersContainer.isVisible = true
-            binding.sendReadingsFab.isVisible = true
+            binding.bottomBar.isVisible = true
             binding.backButton.isVisible = true
             updateToolbarForMeters(building)
         }
@@ -262,6 +270,8 @@ class MainActivity : AppCompatActivity() {
             adapter = meterAdapter
         }
     }
+
+    // ... (Search, Camera, and Image methods remain the same)
 
     private fun setupSearchView() {
         binding.searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
@@ -375,14 +385,16 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+
+    // UPDATED: This now handles the new bottom bar calendar button
     private fun setupDateSelection() {
         updateSelectedDateText()
-        binding.selectedDateTextView.setOnClickListener { showDatePicker() }
-        binding.selectDateButton.setOnClickListener { showDatePicker() }
+        binding.bottomBarCalendarButton.setOnClickListener { showDatePicker() }
     }
 
+    // UPDATED: This now updates the new date TextView in the toolbar
     private fun updateSelectedDateText() {
-        binding.selectedDateTextView.text = uiDateFormat.format(selectedReadingDate.time)
+        binding.toolbarDateTextView.text = uiDateFormat.format(selectedReadingDate.time)
     }
 
     private fun showDatePicker() {
@@ -395,7 +407,7 @@ class MainActivity : AppCompatActivity() {
             R.style.AppDatePickerDialogTheme,
             { _, selectedYear, selectedMonth, selectedDayOfMonth ->
                 selectedReadingDate.set(selectedYear, selectedMonth, selectedDayOfMonth)
-                updateSelectedDateText()
+                updateSelectedDateText() // This will now update the toolbar text
             },
             year, month, day
         )
@@ -406,6 +418,7 @@ class MainActivity : AppCompatActivity() {
         datePickerDialog.getButton(DatePickerDialog.BUTTON_NEGATIVE)?.setTextColor(ContextCompat.getColor(this, R.color.bright_orange))
     }
 
+    // ... (Filter logic remains the same)
     private fun setupTypeFilter() {
         filterTextViews = mapOf(
             "All" to binding.filterAll,
@@ -473,12 +486,15 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+
+    // UPDATED: This now handles the new bottom bar send button
     private fun setupSendButton() {
-        binding.sendReadingsFab.setOnClickListener {
+        binding.bottomBarSendButton.setOnClickListener {
             sendAllMeterReadingsAndPictures()
         }
     }
 
+    // ... (Observation and Send logic remains the same)
     private fun observeProjects() {
         locationViewModel.projects.observe(this) { projects ->
             binding.loadingProgressBar.isVisible = false
@@ -522,7 +538,7 @@ class MainActivity : AppCompatActivity() {
             meters
         } else {
             meters.filter { meter ->
-                selectedMeterTypesFilter.any { it.equals(meter.energyType, ignoreCase = true) } // CORRECTED
+                selectedMeterTypesFilter.any { it.equals(meter.energyType, ignoreCase = true) }
             }
         }
         meterAdapter.submitList(filteredMeters)
@@ -562,7 +578,7 @@ class MainActivity : AppCompatActivity() {
                 imagesToUpload.forEach { (meterId, imageUri) ->
                     val meter = meterAdapter.currentList.find { it.id == meterId }
                     if (meter != null) {
-                        val projectId = meter.projectId ?: "unknown_project" // CORRECTED
+                        val projectId = meter.projectId ?: "unknown_project"
                         val currentTime = timeFormat.format(Date())
                         val fileName = "${s3KeyDateFormat.format(selectedReadingDate.time)}_${currentTime}_${meter.number.replace("/", "_").replace(".", "_")}.jpg"
                         val fullStoragePath = "meter-documents/meter/${meter.id}/$fileName"
@@ -605,14 +621,16 @@ class MainActivity : AppCompatActivity() {
         finish()
     }
 
+
+    // --- Toolbar Update Logic (Updated) ---
+
     private fun updateToolbarForProjects() {
         binding.toolbarTitle.text = "Projects"
         binding.searchView.queryHint = "Search Projects..."
         binding.toolbarTitle.isVisible = true
         binding.searchView.isVisible = true
         binding.meterSearchView.isVisible = false
-        binding.dateSelectionLayout.isVisible = false
-        binding.filterButtonsLayout.isVisible = false
+        binding.toolbarDateTextView.isVisible = false // Hide date
     }
 
     private fun updateToolbarForBuildings(projectId: String?) {
@@ -622,17 +640,15 @@ class MainActivity : AppCompatActivity() {
         binding.toolbarTitle.isVisible = true
         binding.searchView.isVisible = true
         binding.meterSearchView.isVisible = false
-        binding.dateSelectionLayout.isVisible = false
-        binding.filterButtonsLayout.isVisible = false
+        binding.toolbarDateTextView.isVisible = false // Hide date
     }
 
     private fun updateToolbarForMeters(building: Building) {
         binding.toolbarTitle.text = building.name
         binding.searchView.isVisible = false
         binding.meterSearchView.isVisible = true
-        binding.dateSelectionLayout.isVisible = true
-        binding.filterButtonsLayout.isVisible = true
-        binding.toolbarTitle.isVisible = true
+        binding.toolbarDateTextView.isVisible = true // Show date
+        updateSelectedDateText() // Make sure it's up-to-date
     }
 
     override fun onResume() {
