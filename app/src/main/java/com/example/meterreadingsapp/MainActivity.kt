@@ -274,6 +274,10 @@ class MainActivity : AppCompatActivity() {
 
         dialog.setOnShowListener {
             val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            // ADDED: Styling for the positive button
+            positiveButton.setBackgroundColor(ContextCompat.getColor(this, R.color.bright_orange))
+            positiveButton.setTextColor(Color.WHITE)
+
             positiveButton.setOnClickListener {
                 val oldReadingValue = dialogBinding.oldMeterLastReading.text.toString()
                 val newMeterNumber = dialogBinding.newMeterNumber.text.toString()
@@ -318,8 +322,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun showAddMeterDialog() {
         val currentProjectId = locationViewModel.selectedProjectId.value
-        val currentBuildingId = locationViewModel.selectedBuildingId.value
-        val currentBuilding = locationViewModel.buildings.value?.find { it.id == currentBuildingId }
+        val currentBuilding = locationViewModel.buildings.value?.find { it.id == locationViewModel.selectedBuildingId.value }
 
         if (currentProjectId == null || currentBuilding == null) {
             Toast.makeText(this, "Error: No project or building selected.", Toast.LENGTH_LONG).show()
@@ -333,18 +336,15 @@ class MainActivity : AppCompatActivity() {
             .setNegativeButton("Abbrechen", null)
             .create()
 
-        // Setup spinners with a larger layout
         val energyTypes = listOf("Electricity", "Heat", "Gas")
         val meterTypes = listOf("Summenzähler","Wohnung","Gewerbe", "Hausstrom", "Unterzähler",
             "Erzeugungszähler PV", "Eigenbedarf PV", "Eigenbedarf KWK", "Erzeugungszähler KWK",
             "BEA Eigenbedarf", "Elektromobilität", "Zwischenzähler","Abgrenzungszähler","Baustrom",
             "Balkon-PV Einspeisung", "Eigenbedarf WP", "unbekannt")
 
-        // UPDATED: Using a larger, standard layout for the spinner items
         val energyAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, energyTypes)
         val meterAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, meterTypes)
 
-        // This makes the dropdown list itself look better too
         energyAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         meterAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
 
@@ -353,6 +353,10 @@ class MainActivity : AppCompatActivity() {
 
         dialog.setOnShowListener {
             val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            // ADDED: Styling for the positive button
+            positiveButton.setBackgroundColor(ContextCompat.getColor(this, R.color.bright_orange))
+            positiveButton.setTextColor(Color.WHITE)
+
             positiveButton.setOnClickListener {
                 val newMeterNumber = dialogBinding.newMeterNumber.text.toString()
                 val initialReadingValue = dialogBinding.newMeterInitialReading.text.toString()
