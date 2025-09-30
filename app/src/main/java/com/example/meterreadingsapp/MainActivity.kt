@@ -17,6 +17,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
+import android.widget.ArrayAdapter
 import android.widget.DatePicker
 import android.widget.EditText
 import android.widget.TextView
@@ -40,6 +41,7 @@ import com.example.meterreadingsapp.api.ApiService
 import com.example.meterreadingsapp.api.RetrofitClient
 import com.example.meterreadingsapp.data.*
 import com.example.meterreadingsapp.databinding.ActivityMainBinding
+import com.example.meterreadingsapp.databinding.DialogAddMeterBinding
 import com.example.meterreadingsapp.databinding.DialogChangeMeterBinding
 import com.example.meterreadingsapp.repository.MeterRepository
 import com.example.meterreadingsapp.viewmodel.LocationViewModel
@@ -204,6 +206,10 @@ class MainActivity : AppCompatActivity() {
         binding.logoutButton.setOnClickListener {
             performLogout()
         }
+
+        binding.bottomBarAddMeterButton.setOnClickListener {
+            showAddMeterDialog()
+        }
     }
 
     private fun setupProjectRecyclerView() {
@@ -235,7 +241,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // UPDATED: Added the onExchangeMeterClicked lambda
     private fun setupMeterRecyclerView() {
         meterAdapter = MeterAdapter(
             onCameraClicked = { meter, _ ->
@@ -259,7 +264,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ADDED: New function to show and handle the change meter dialog
     private fun showChangeMeterDialog(oldMeter: Meter) {
         val dialogBinding = DialogChangeMeterBinding.inflate(LayoutInflater.from(this))
         val dialog = MaterialAlertDialogBuilder(this)
@@ -306,6 +310,78 @@ class MainActivity : AppCompatActivity() {
                     newMeterNumber,
                     newMeterInitialReading
                 )
+                dialog.dismiss()
+            }
+        }
+        dialog.show()
+    }
+
+    // UPDATED: Full implementation for adding a new meter
+    private fun showAddMeterDialog() {
+        val currentProjectId = locationViewModel.selectedProjectId.value
+        val currentBuildingId = locationViewModel.selectedBuildingId.value
+        val currentBuilding = locationViewModel.buildings.value?.find { it.id == currentBuildingId }
+
+        if (currentProjectId == null || currentBuilding == null) {
+            Toast.makeText(this, "Error: No project or building selected.", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        val dialogBinding = DialogAddMeterBinding.inflate(LayoutInflater.from(this))
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setView(dialogBinding.root)
+            .setPositiveButton("Erstellen", null)
+            .setNegativeButton("Abbrechen", null)
+            .create()
+
+        val energyTypes = listOf("Electricity", "Heat", "Gas")
+        val meterTypes = listOf("Main", "Sub", "Generator") // Example types, adjust if needed
+        val energyAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, energyTypes)
+        val meterAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, meterTypes)
+        dialogBinding.spinnerEnergyType.adapter = energyAdapter
+        dialogBinding.spinnerMeterType.adapter = meterAdapter
+
+        dialog.setOnShowListener {
+            val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            positiveButton.setOnClickListener {
+                val newMeterNumber = dialogBinding.newMeterNumber.text.toString()
+                val initialReadingValue = dialogBinding.newMeterInitialReading.text.toString()
+                val datePicker = dialogBinding.newMeterReadingDate
+                val calendar = Calendar.getInstance().apply {
+                    set(datePicker.year, datePicker.month, datePicker.dayOfMonth)
+                }
+                val readingDate = apiDateFormat.format(calendar.time)
+                val energyType = dialogBinding.spinnerEnergyType.selectedItem.toString()
+                val meterType = dialogBinding.spinnerMeterType.selectedItem.toString()
+
+                if (newMeterNumber.isBlank() || initialReadingValue.isBlank()) {
+                    Toast.makeText(this, "Bitte alle Felder ausfüllen.", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+
+                val newMeterRequest = NewMeterRequest(
+                    number = newMeterNumber,
+                    projectId = currentProjectId,
+                    buildingId = currentBuilding.id,
+                    energyType = energyType,
+                    type = meterType,
+                    replacedOldMeterId = null, // Not replacing an old meter
+                    street = currentBuilding.street,
+                    postalCode = currentBuilding.postal_code,
+                    city = currentBuilding.city,
+                    houseNumber = currentBuilding.house_number,
+                    houseNumberAddition = currentBuilding.house_number_addition
+                )
+
+                val initialReading = Reading(
+                    id = UUID.randomUUID().toString(),
+                    meter_id = "", // Will be filled in by the repository
+                    value = initialReadingValue,
+                    date = readingDate,
+                    read_by = "App User"
+                )
+
+                locationViewModel.addNewMeter(newMeterRequest, initialReading)
                 dialog.dismiss()
             }
         }
@@ -648,6 +724,7 @@ class MainActivity : AppCompatActivity() {
         binding.searchView.queryHint = "Search Projects..."
         binding.toolbarTitle.isVisible = true
         binding.searchView.isVisible = true
+        binding.logoutButton.isVisible = true
         binding.meterSearchView.isVisible = false
         binding.toolbarDateTextView.isVisible = false
     }
@@ -658,6 +735,7 @@ class MainActivity : AppCompatActivity() {
         binding.searchView.queryHint = "Search Buildings..."
         binding.toolbarTitle.isVisible = true
         binding.searchView.isVisible = true
+        binding.logoutButton.isVisible = false
         binding.meterSearchView.isVisible = false
         binding.toolbarDateTextView.isVisible = false
     }
@@ -666,6 +744,7 @@ class MainActivity : AppCompatActivity() {
         binding.toolbarTitle.text = building.name
         binding.searchView.isVisible = false
         binding.meterSearchView.isVisible = true
+        binding.logoutButton.isVisible = false
         binding.toolbarDateTextView.isVisible = true
         updateSelectedDateText()
     }

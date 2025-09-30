@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.lifecycle.*
 import com.example.meterreadingsapp.data.Building
 import com.example.meterreadingsapp.data.Meter
+import com.example.meterreadingsapp.data.NewMeterRequest
 import com.example.meterreadingsapp.data.Project
 import com.example.meterreadingsapp.data.Reading
 import com.example.meterreadingsapp.repository.MeterRepository
@@ -83,8 +84,20 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
         }
     }.asLiveData()
 
+    // ADDED: Function to handle creating a new meter
+    fun addNewMeter(newMeterRequest: NewMeterRequest, initialReading: Reading) {
+        viewModelScope.launch {
+            _uiMessage.value = "Creating new meter..."
+            val success = repository.createNewMeter(newMeterRequest, initialReading)
+            if (success) {
+                _uiMessage.value = "New meter created successfully!"
+                refreshAllData() // Refresh data to show the new meter
+            } else {
+                _uiMessage.value = "Failed to create new meter. Please try again."
+            }
+        }
+    }
 
-    // ADDED: Function to handle the meter exchange process
     fun exchangeMeter(
         oldMeter: Meter,
         oldMeterLastReading: Reading,
@@ -101,13 +114,12 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
             )
             if (success) {
                 _uiMessage.value = "Meter exchanged successfully!"
-                refreshAllData() // Refresh data to show the changes
+                refreshAllData()
             } else {
                 _uiMessage.value = "Meter exchange failed. Please try again."
             }
         }
     }
-
 
     fun setProjectSearchQuery(query: String) { _projectSearchQuery.value = query }
     fun selectProject(project: Project?) { selectedProjectId.value = project?.id; selectedBuildingId.value = null }

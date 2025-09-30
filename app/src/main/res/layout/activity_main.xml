@@ -169,7 +169,6 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent">
 
-            <!-- UPDATED: Filter bar is now a static LinearLayout -->
             <LinearLayout
                 android:id="@+id/filterButtonsLayout"
                 android:layout_width="match_parent"
@@ -180,7 +179,6 @@
                 android:paddingStart="8dp"
                 android:paddingEnd="8dp">
 
-                <!-- CORRECTED: Reverted to explicit styling and added layout_weight -->
                 <TextView
                     android:id="@+id/filterAll"
                     android:layout_width="0dp"
@@ -310,10 +308,10 @@
                 android:layout_width="wrap_content"
                 android:layout_height="0dp"
                 android:src="@drawable/ic_calendar"
-                android:background="?attr/selectableItemBackgroundBorderless"
+                android:background="@drawable/button_white_background"
                 android:contentDescription="@string/select_date_button_description"
                 android:padding="8dp"
-                app:tint="?attr/colorOnPrimary"
+                app:tint="@color/bright_orange"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent" />
@@ -323,16 +321,30 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:text="@string/send_button_text"
-                android:textColor="@android:color/white"
+                android:textColor="@color/bright_orange"
                 app:icon="@drawable/ic_send"
-                app:iconTint="@android:color/white"
-                app:backgroundTint="@color/bright_orange"
+                app:iconTint="@color/bright_orange"
+                app:backgroundTint="@android:color/white"
                 app:cornerRadius="8dp"
                 android:layout_marginStart="16dp"
+                android:layout_marginEnd="16dp"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toEndOf="@id/bottomBarCalendarButton"
-                app:layout_constraintEnd_toEndOf="parent"/>
+                app:layout_constraintEnd_toStartOf="@+id/bottomBarAddMeterButton"/>
+
+            <ImageButton
+                android:id="@+id/bottomBarAddMeterButton"
+                android:layout_width="wrap_content"
+                android:layout_height="0dp"
+                android:src="@drawable/ic_add"
+                android:background="@drawable/button_white_background"
+                android:contentDescription="Add New Meter"
+                android:padding="8dp"
+                app:tint="@color/bright_orange"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 
