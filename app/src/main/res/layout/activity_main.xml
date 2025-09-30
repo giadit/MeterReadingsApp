@@ -169,7 +169,97 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent">
 
-            <!-- UPDATED: Search bar is now at the top -->
+            <LinearLayout
+                android:id="@+id/filterButtonsLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:paddingVertical="4dp"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp">
+
+                <TextView
+                    android:id="@+id/filterAll"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:text="@string/filter_all"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="8dp"
+                    android:background="@drawable/filter_button_background"
+                    android:textColor="@android:color/black"
+                    android:textStyle="normal"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:layout_marginEnd="4dp"/>
+
+                <TextView
+                    android:id="@+id/filterElectricity"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:text="@string/filter_electricity"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="8dp"
+                    android:background="@drawable/filter_button_background"
+                    android:textColor="@android:color/black"
+                    android:textStyle="normal"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:layout_marginEnd="4dp"/>
+
+                <TextView
+                    android:id="@+id/filterHeat"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:text="@string/filter_heat"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="8dp"
+                    android:background="@drawable/filter_button_background"
+                    android:textColor="@android:color/black"
+                    android:textStyle="normal"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:layout_marginEnd="4dp"/>
+
+                <TextView
+                    android:id="@+id/filterGas"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:text="@string/filter_gas"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="8dp"
+                    android:background="@drawable/filter_button_background"
+                    android:textColor="@android:color/black"
+                    android:textStyle="normal"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:layout_marginEnd="4dp"/>
+
+                <TextView
+                    android:id="@+id/filterGetauscht"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center"
+                    android:text="Getauscht"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="8dp"
+                    android:background="@drawable/filter_button_background"
+                    android:textColor="@android:color/black"
+                    android:textStyle="normal"
+                    android:clickable="true"
+                    android:focusable="true"/>
+
+            </LinearLayout>
+
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -188,105 +278,8 @@
                     app:iconifiedByDefault="false"
                     app:queryHint="@string/search_meter_number_hint"
                     android:background="@android:color/transparent" />
+
             </androidx.cardview.widget.CardView>
-
-            <!-- UPDATED: Filter bar is now below the search bar -->
-            <HorizontalScrollView
-                android:id="@+id/filterButtonsLayout"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingStart="8dp"
-                android:paddingEnd="8dp"
-                android:scrollbars="none">
-                <LinearLayout
-                    android:id="@+id/meterTypeFilterGroup"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
-                    android:paddingVertical="4dp">
-
-                    <TextView
-                        android:id="@+id/filterAll"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/filter_all"
-                        android:paddingStart="16dp"
-                        android:paddingEnd="16dp"
-                        android:paddingTop="8dp"
-                        android:paddingBottom="8dp"
-                        android:background="@drawable/filter_button_background"
-                        android:textColor="@android:color/black"
-                        android:textStyle="normal"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:layout_marginEnd="8dp"/>
-
-                    <TextView
-                        android:id="@+id/filterElectricity"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/filter_electricity"
-                        android:paddingStart="16dp"
-                        android:paddingEnd="16dp"
-                        android:paddingTop="8dp"
-                        android:paddingBottom="8dp"
-                        android:background="@drawable/filter_button_background"
-                        android:textColor="@android:color/black"
-                        android:textStyle="normal"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:layout_marginEnd="8dp"/>
-
-                    <TextView
-                        android:id="@+id/filterHeat"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/filter_heat"
-                        android:paddingStart="16dp"
-                        android:paddingEnd="16dp"
-                        android:paddingTop="8dp"
-                        android:paddingBottom="8dp"
-                        android:background="@drawable/filter_button_background"
-                        android:textColor="@android:color/black"
-                        android:textStyle="normal"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:layout_marginEnd="8dp"/>
-
-                    <TextView
-                        android:id="@+id/filterGas"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/filter_gas"
-                        android:paddingStart="16dp"
-                        android:paddingEnd="16dp"
-                        android:paddingTop="8dp"
-                        android:paddingBottom="8dp"
-                        android:background="@drawable/filter_button_background"
-                        android:textColor="@android:color/black"
-                        android:textStyle="normal"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:layout_marginEnd="8dp"/>
-
-                    <TextView
-                        android:id="@+id/filterGetauscht"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Getauscht"
-                        android:paddingStart="16dp"
-                        android:paddingEnd="16dp"
-                        android:paddingTop="8dp"
-                        android:paddingBottom="8dp"
-                        android:background="@drawable/filter_button_background"
-                        android:textColor="@android:color/black"
-                        android:textStyle="normal"
-                        android:clickable="true"
-                        android:focusable="true"/>
-
-                </LinearLayout>
-            </HorizontalScrollView>
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/metersRecyclerView"
