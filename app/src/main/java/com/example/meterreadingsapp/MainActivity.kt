@@ -661,13 +661,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // UPDATED: This function is now corrected
     private fun sendAllMeterReadingsAndPictures() {
         val readingsToSend = mutableListOf<Reading>()
-        // CORRECTED: Iterate over the adapter's internal map, not the displayed list
         val enteredValues = meterAdapter.getEnteredReadings()
         val readingDateString = apiDateFormat.format(selectedReadingDate.time)
-
         enteredValues.forEach { (meterId, readingValue) ->
             if (readingValue.isNotBlank()) {
                 readingsToSend.add(
@@ -681,21 +678,17 @@ class MainActivity : AppCompatActivity() {
                 )
             }
         }
-
         val imagesToUpload = meterAdapter.getMeterImages()
         if (readingsToSend.isEmpty() && imagesToUpload.isEmpty()) {
             Toast.makeText(this, "No readings or pictures entered.", Toast.LENGTH_SHORT).show()
             return
         }
         MaterialAlertDialogBuilder(this)
-            .setTitle("Confirm Send Data")
-            .setMessage("Send ${readingsToSend.size} readings and ${imagesToUpload.size} pictures for date ${uiDateFormat.format(selectedReadingDate.time)}?")
-            .setPositiveButton("Send") { dialog, _ ->
+            .setTitle("Daten Senden Bestätigen")
+            .setMessage("Sollen ${readingsToSend.size} Zählerstände und ${imagesToUpload.size} Bilder für das Datum ${uiDateFormat.format(selectedReadingDate.time)} gesendet werden?")
+            .setPositiveButton("Senden") { dialog, _ ->
                 readingsToSend.forEach { locationViewModel.postMeterReading(it) }
-
-                // This logic needs the full meter list, so we get it from the ViewModel
                 val allMeters = locationViewModel.meters.value ?: emptyList()
-
                 imagesToUpload.forEach { (meterId, imageUri) ->
                     val meter = allMeters.find { it.id == meterId }
                     if (meter != null) {
@@ -706,13 +699,12 @@ class MainActivity : AppCompatActivity() {
                         locationViewModel.queueImageUpload(imageUri, fullStoragePath, projectId, meter.id)
                     }
                 }
-
                 meterAdapter.clearEnteredReadings()
                 meterAdapter.clearMeterImages()
                 Toast.makeText(this, "${readingsToSend.size} readings and ${imagesToUpload.size} pictures have been queued for sending.", Toast.LENGTH_LONG).show()
                 dialog.dismiss()
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton("Abbrechen", null)
             .show()
     }
 

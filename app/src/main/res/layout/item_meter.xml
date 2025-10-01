@@ -29,14 +29,11 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent">
 
-            <!-- Top Row -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
-
-                <!-- UPDATED: Energy Type Icon is now on the left -->
                 <ImageView
                     android:id="@+id/energyTypeIcon"
                     android:layout_width="28dp"
@@ -46,7 +43,6 @@
                     android:scaleType="fitCenter"
                     tools:src="@drawable/ic_bolt"
                     app:tint="@android:color/holo_red_dark" />
-
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_weight="1"
@@ -68,12 +64,10 @@
                         android:textStyle="italic"
                         android:textColor="@android:color/holo_blue_dark"
                         android:layout_marginTop="2dp"
-                        tools:text="Electricity" />
+                        tools:text="Strom" />
                 </LinearLayout>
-
             </LinearLayout>
 
-            <!-- Last Reading Info -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -85,7 +79,7 @@
                     android:layout_height="wrap_content"
                     android:textSize="12sp"
                     android:textColor="@android:color/black"
-                    android:text="Last Reading: " />
+                    android:text="Letzter Zählerstand: " />
                 <TextView
                     android:id="@+id/meterLastReadingTextView"
                     android:layout_width="wrap_content"
@@ -100,7 +94,7 @@
                     android:textSize="12sp"
                     android:textColor="@android:color/black"
                     android:layout_marginStart="8dp"
-                    android:text="Date: " />
+                    android:text="Datum: " />
                 <TextView
                     android:id="@+id/meterLastReadingDateTextView"
                     android:layout_width="0dp"
@@ -109,10 +103,9 @@
                     android:textSize="12sp"
                     android:textStyle="bold"
                     android:textColor="@android:color/black"
-                    tools:text="29/12/2023" />
+                    tools:text="29.12.2023" />
             </LinearLayout>
 
-            <!-- Editable Reading Value -->
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/readingValueInputLayout"
                 android:layout_width="match_parent"
@@ -133,7 +126,6 @@
                     tools:text="1234.5" />
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- Buttons -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
