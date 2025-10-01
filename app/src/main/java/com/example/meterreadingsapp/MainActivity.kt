@@ -665,6 +665,20 @@ class MainActivity : AppCompatActivity() {
         val readingsToSend = mutableListOf<Reading>()
         val enteredValues = meterAdapter.getEnteredReadings()
         val readingDateString = apiDateFormat.format(selectedReadingDate.time)
+        val allMeters = locationViewModel.meters.value ?: emptyList()
+
+        // --- VALIDATION LOGIC ---
+        for ((meterId, readingValue) in enteredValues) {
+            if (readingValue.isNotBlank()) {
+                if (readingValue == "." || readingValue.startsWith(".") || readingValue.endsWith(".")) {
+                    val meterNumber = allMeters.find { it.id == meterId }?.number ?: "Unknown"
+                    Toast.makeText(this, "Ungültige Eingabe für Zähler $meterNumber: '$readingValue'", Toast.LENGTH_LONG).show()
+                    return // Stop the sending process
+                }
+            }
+        }
+        // --- END VALIDATION ---
+
         enteredValues.forEach { (meterId, readingValue) ->
             if (readingValue.isNotBlank()) {
                 readingsToSend.add(
@@ -678,6 +692,7 @@ class MainActivity : AppCompatActivity() {
                 )
             }
         }
+
         val imagesToUpload = meterAdapter.getMeterImages()
         if (readingsToSend.isEmpty() && imagesToUpload.isEmpty()) {
             Toast.makeText(this, "No readings or pictures entered.", Toast.LENGTH_SHORT).show()
@@ -688,7 +703,6 @@ class MainActivity : AppCompatActivity() {
             .setMessage("Sollen ${readingsToSend.size} Zählerstände und ${imagesToUpload.size} Bilder für das Datum ${uiDateFormat.format(selectedReadingDate.time)} gesendet werden?")
             .setPositiveButton("Senden") { dialog, _ ->
                 readingsToSend.forEach { locationViewModel.postMeterReading(it) }
-                val allMeters = locationViewModel.meters.value ?: emptyList()
                 imagesToUpload.forEach { (meterId, imageUri) ->
                     val meter = allMeters.find { it.id == meterId }
                     if (meter != null) {
