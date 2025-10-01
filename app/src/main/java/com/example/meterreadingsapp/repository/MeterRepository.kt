@@ -1,6 +1,8 @@
 package com.example.meterreadingsapp.repository
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
@@ -17,8 +19,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import retrofit2.Response
+import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
 import java.util.*
+import kotlin.math.roundToInt
 
 class MeterRepository(
     private val apiService: ApiService,
@@ -70,30 +75,25 @@ class MeterRepository(
         }
     }
 
-    // ADDED: Function to create a new meter and its initial reading
     suspend fun createNewMeter(newMeterRequest: NewMeterRequest, initialReading: Reading): Boolean {
         return withContext(Dispatchers.IO) {
             try {
-                // Step 1: Create the new meter
                 Log.d(TAG, "Step 1: Creating new meter with number ${newMeterRequest.number}")
                 val createMeterResponse = apiService.createMeter(newMeterRequest)
                 val newMeter = createMeterResponse.body()?.firstOrNull()
                     ?: throw Exception("Failed to create new meter. Error: ${createMeterResponse.errorBody()?.string()}")
                 Log.d(TAG, "New meter created with ID: ${newMeter.id}")
-
-                // Step 2: Post the initial reading for the new meter
                 val finalInitialReading = initialReading.copy(meter_id = newMeter.id)
                 Log.d(TAG, "Step 2: Posting initial reading for new meter ${newMeter.id}")
                 val postReadingResponse = apiService.postReading(finalInitialReading)
                 if (!postReadingResponse.isSuccessful) {
                     throw Exception("Failed to post initial reading. Error: ${postReadingResponse.errorBody()?.string()}")
                 }
-
                 Log.d(TAG, "New meter and initial reading created successfully.")
-                true // Success
+                true
             } catch (e: Exception) {
                 Log.e(TAG, "Create new meter failed: ${e.message}", e)
-                false // Failure
+                false
             }
         }
     }
@@ -108,13 +108,11 @@ class MeterRepository(
             try {
                 Log.d(TAG, "Step 1: Posting final reading for old meter ${oldMeter.id}")
                 val postOldReadingResponse = apiService.postReading(oldMeterLastReading)
-                if (!postOldReadingResponse.isSuccessful) throw Exception("Failed to post final reading for old meter. Error: ${postOldReadingResponse.errorBody()?.string()}")
-
+                if (!postOldReadingResponse.isSuccessful) throw Exception("Failed to post final reading. Error: ${postOldReadingResponse.errorBody()?.string()}")
                 Log.d(TAG, "Step 2: Updating status for old meter ${oldMeter.id}")
                 val updateStatusRequest = UpdateMeterRequest(status = "Exchanged")
                 val updateStatusResponse = apiService.updateMeter("eq.${oldMeter.id}", updateStatusRequest)
                 if (!updateStatusResponse.isSuccessful) throw Exception("Failed to update old meter status. Error: ${updateStatusResponse.errorBody()?.string()}")
-
                 Log.d(TAG, "Step 3: Creating new meter with number $newMeterNumber")
                 val newMeterRequest = NewMeterRequest(
                     number = newMeterNumber,
@@ -130,19 +128,16 @@ class MeterRepository(
                     houseNumberAddition = oldMeter.houseNumberAddition
                 )
                 val createMeterResponse = apiService.createMeter(newMeterRequest)
-                val newMeter = createMeterResponse.body()?.firstOrNull() ?: throw Exception("Failed to create new meter or parse response. Error: ${createMeterResponse.errorBody()?.string()}")
+                val newMeter = createMeterResponse.body()?.firstOrNull() ?: throw Exception("Failed to create new meter. Error: ${createMeterResponse.errorBody()?.string()}")
                 Log.d(TAG, "New meter created with ID: ${newMeter.id}")
-
                 Log.d(TAG, "Step 4: Linking old meter ${oldMeter.id} to new meter ${newMeter.id}")
                 val linkMetersRequest = UpdateMeterRequest(exchangedWithNewMeterId = newMeter.id)
                 val linkMetersResponse = apiService.updateMeter("eq.${oldMeter.id}", linkMetersRequest)
                 if (!linkMetersResponse.isSuccessful) throw Exception("Failed to link old meter to new meter. Error: ${linkMetersResponse.errorBody()?.string()}")
-
                 Log.d(TAG, "Step 5: Posting initial reading for new meter ${newMeter.id}")
                 val finalNewMeterReading = newMeterInitialReading.copy(meter_id = newMeter.id)
                 val postNewReadingResponse = apiService.postReading(finalNewMeterReading)
                 if (!postNewReadingResponse.isSuccessful) throw Exception("Failed to post initial reading for new meter. Error: ${postNewReadingResponse.errorBody()?.string()}")
-
                 Log.d(TAG, "Meter exchange sequence completed successfully.")
                 true
             } catch (e: Exception) {
@@ -169,31 +164,62 @@ class MeterRepository(
         }
     }
 
+    // UPDATED: This function now compresses the image before uploading
     suspend fun uploadFileToS3(imageUri: Uri, fullStoragePath: String): Boolean {
         return withContext(Dispatchers.IO) {
+            var tempFile: File? = null
             try {
-                val s3Client = S3Client.getInstance()
-                val inputStream = appContext.contentResolver.openInputStream(imageUri) ?: throw IOException("Could not open input stream for URI: $imageUri")
-                val metadata = ObjectMetadata()
-                appContext.contentResolver.query(imageUri, null, null, null, null)?.use { cursor ->
-                    if (cursor.moveToFirst()) {
-                        val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
-                        if (!cursor.isNull(sizeIndex)) {
-                            metadata.contentLength = cursor.getLong(sizeIndex)
-                        }
-                    }
+                // --- COMPRESSION LOGIC ---
+                val inputStream = appContext.contentResolver.openInputStream(imageUri)
+                    ?: throw IOException("Could not open input stream for URI: $imageUri")
+
+                val originalBitmap = BitmapFactory.decodeStream(inputStream)
+                inputStream.close()
+
+                // Resize logic
+                val maxHeight = 1280.0
+                val maxWidth = 1280.0
+                val width = originalBitmap.width
+                val height = originalBitmap.height
+                val ratio: Double = if (width > height) {
+                    maxWidth / width
+                } else {
+                    maxHeight / height
                 }
-                metadata.contentType = appContext.contentResolver.getType(imageUri)
+                val newWidth = (width * ratio).roundToInt()
+                val newHeight = (height * ratio).roundToInt()
+                val resizedBitmap = Bitmap.createScaledBitmap(originalBitmap, newWidth, newHeight, false)
+
+                // Create a temporary file to hold the compressed image
+                tempFile = File.createTempFile("compressed_", ".jpg", appContext.cacheDir)
+                val outputStream = FileOutputStream(tempFile)
+                resizedBitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream)
+                outputStream.flush()
+                outputStream.close()
+                // --- END COMPRESSION LOGIC ---
+
+                val s3Client = S3Client.getInstance()
+
+                val metadata = ObjectMetadata()
+                metadata.contentLength = tempFile.length()
+                metadata.contentType = "image/jpeg"
+
                 val bucketName = fullStoragePath.substringBefore('/')
                 val key = fullStoragePath.substringAfter('/')
-                Log.d(TAG, "Uploading to Minio. Bucket: $bucketName, Key: $key")
-                val putObjectRequest = PutObjectRequest(bucketName, key, inputStream, metadata)
+
+                Log.d(TAG, "Uploading compressed image to Minio. Bucket: $bucketName, Key: $key, Size: ${tempFile.length() / 1024} KB")
+
+                val putObjectRequest = PutObjectRequest(bucketName, key, tempFile.inputStream(), metadata)
                 s3Client.putObject(putObjectRequest)
+
                 Log.d(TAG, "Minio upload successful for key: $key")
                 true
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to upload file to Minio S3: ${e.message}", e)
                 false
+            } finally {
+                // Clean up the temporary file
+                tempFile?.delete()
             }
         }
     }
