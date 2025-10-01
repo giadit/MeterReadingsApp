@@ -52,7 +52,7 @@
     <string name="search_meter_number_hint">Zählernummer suchen</string>
     <string name="filter_all">Alle</string>
     <string name="filter_electricity">Strom</string>
-    <string name="filter_heat">Heizung</string>
+    <string name="filter_heat">Wärme</string>
     <string name="filter_gas">Gas</string>
     <string name="reading_date_label">Ablesedatum:</string>
 
