@@ -5,7 +5,9 @@ import android.util.Log
 import androidx.lifecycle.*
 import com.example.meterreadingsapp.data.Building
 import com.example.meterreadingsapp.data.Meter
+import com.example.meterreadingsapp.data.MeterWithObisPoints // NEW IMPORT
 import com.example.meterreadingsapp.data.NewMeterRequest
+import com.example.meterreadingsapp.data.ObisCode // ADDED: Import
 import com.example.meterreadingsapp.data.Project
 import com.example.meterreadingsapp.data.Reading
 import com.example.meterreadingsapp.repository.MeterRepository
@@ -67,22 +69,27 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
     val meterSearchQuery: StateFlow<String> = _meterSearchQuery.asStateFlow()
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val meters: LiveData<List<Meter>> = selectedBuildingId.flatMapLatest { buildingId ->
+    val meters: LiveData<List<MeterWithObisPoints>> = selectedBuildingId.flatMapLatest { buildingId -> // CHANGED: Output type
         if (buildingId == null) {
             flowOf(emptyList())
         } else {
-            repository.getMetersByBuildingIdFromDb(buildingId)
+            // CHANGED: Call the renamed repository function
+            repository.getMetersWithObisByBuildingIdFromDb(buildingId)
         }
     }.combine(_meterSearchQuery) { meterList, query ->
         if (query.isBlank()) {
             meterList
         } else {
+            // CHANGED: Filtering logic now uses the nested 'meter' object
             meterList.filter {
-                it.number.contains(query, ignoreCase = true) ||
-                        it.location?.contains(query, ignoreCase = true) == true
+                it.meter.number.contains(query, ignoreCase = true) ||
+                        it.meter.location?.contains(query, ignoreCase = true) == true
             }
         }
     }.asLiveData()
+
+    // ADDED: Property to expose OBIS codes to the MainActivity
+    val allObisCodes: LiveData<List<ObisCode>> = repository.getAllObisCodesFromDb().asLiveData()
 
     // ADDED: Function to handle creating a new meter
     fun addNewMeter(newMeterRequest: NewMeterRequest, initialReading: Reading) {

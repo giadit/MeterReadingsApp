@@ -18,9 +18,12 @@ import com.example.meterreadingsapp.converters.MapConverter
         Building::class, // Location::class has been replaced by Building::class
         Meter::class,
         Reading::class,
-        QueuedRequest::class
+        QueuedRequest::class,
+        // ADDED: New entities for OBIS structure
+        ObisCode::class,
+        MeterObis::class
     ],
-    version = 19, // Incremented version to trigger migration
+    version = 20, // INCREMENTED VERSION (from 19) to trigger migration
     exportSchema = false
 )
 @TypeConverters(MapConverter::class, ListConverter::class)
@@ -31,6 +34,9 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun meterDao(): MeterDao
     abstract fun readingDao(): ReadingDao
     abstract fun queuedRequestDao(): QueuedRequestDao
+    // ADDED: New DAOs for OBIS structure
+    abstract fun obisCodeDao(): ObisCodeDao
+    abstract fun meterObisDao(): MeterObisDao
     // The locationDao() function has been removed.
 
     companion object {
@@ -52,4 +58,3 @@ abstract class AppDatabase : RoomDatabase() {
         }
     }
 }
-

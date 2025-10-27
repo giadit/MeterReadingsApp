@@ -39,7 +39,7 @@ import com.example.meterreadingsapp.adapter.MeterAdapter
 import com.example.meterreadingsapp.adapter.ProjectAdapter
 import com.example.meterreadingsapp.api.ApiService
 import com.example.meterreadingsapp.api.RetrofitClient
-import com.example.meterreadingsapp.data.*
+import com.example.meterreadingsapp.data.* // Ensure all DAOs and Entities are imported
 import com.example.meterreadingsapp.databinding.ActivityMainBinding
 import com.example.meterreadingsapp.databinding.DialogAddMeterBinding
 import com.example.meterreadingsapp.databinding.DialogChangeMeterBinding
@@ -138,10 +138,23 @@ class MainActivity : AppCompatActivity() {
         val meterDao = database.meterDao()
         val readingDao = database.readingDao()
         val queuedRequestDao = database.queuedRequestDao()
+        // START NEW DAO DECLARATIONS
+        val obisCodeDao = database.obisCodeDao()
+        val meterObisDao = database.meterObisDao()
+        // END NEW DAO DECLARATIONS
 
         val repository = MeterRepository(
-            apiService, meterDao, readingDao, projectDao, buildingDao,
-            queuedRequestDao, applicationContext
+            apiService,
+            meterDao,
+            readingDao,
+            projectDao,
+            buildingDao,
+            queuedRequestDao,
+            // START REPOSITORY CONSTRUCTOR UPDATE
+            obisCodeDao,
+            meterObisDao,
+            // END REPOSITORY CONSTRUCTOR UPDATE
+            applicationContext
         )
 
         locationViewModel = ViewModelProvider(this, LocationViewModelFactory(repository))
@@ -160,6 +173,13 @@ class MainActivity : AppCompatActivity() {
         observeBuildings()
         observeMeters()
         observeUiMessages()
+
+        // ADDED: Observe OBIS codes and pass them to the adapter
+        locationViewModel.allObisCodes.observe(this) { codes ->
+            if (codes != null) {
+                meterAdapter.setObisCodes(codes)
+            }
+        }
 
         locationViewModel.refreshAllData()
 
@@ -297,14 +317,18 @@ class MainActivity : AppCompatActivity() {
                     meter_id = oldMeter.id,
                     value = oldReadingValue,
                     date = oldReadingDate,
-                    read_by = "App User"
+                    read_by = "App User",
+                    meterObisId = null, // This is a simple reading
+                    migrationStatus = null
                 )
                 val newMeterInitialReading = Reading(
                     id = UUID.randomUUID().toString(),
                     meter_id = "",
                     value = newReadingValue,
                     date = oldReadingDate,
-                    read_by = "App User"
+                    read_by = "App User",
+                    meterObisId = null, // This is a simple reading
+                    migrationStatus = null
                 )
 
                 locationViewModel.exchangeMeter(
@@ -390,7 +414,9 @@ class MainActivity : AppCompatActivity() {
                     meter_id = "",
                     value = initialReadingValue,
                     date = readingDate,
-                    read_by = "App User"
+                    read_by = "App User",
+                    meterObisId = null, // This is a simple reading
+                    migrationStatus = null
                 )
 
                 locationViewModel.addNewMeter(newMeterRequest, initialReading)
@@ -563,6 +589,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         updateFilterUI()
+        // UPDATED: Check for null before filtering
         locationViewModel.meters.value?.let { applyMeterFilter(it) }
     }
 
@@ -629,10 +656,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun observeMeters() {
+        // The 'meters' list is now of type List<MeterWithObisPoints>
         locationViewModel.meters.observe(this) { meters ->
             binding.loadingProgressBar.isVisible = false
             if (meters != null) {
-                applyMeterFilter(meters)
+                applyMeterFilter(meters) // Pass the new list type
             } else {
                 binding.noDataTextView.text = "No meters found for this building."
                 binding.noDataTextView.isVisible = true
@@ -641,17 +669,23 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun applyMeterFilter(meters: List<Meter>) {
+    // UPDATED: Change parameter type to List<MeterWithObisPoints>
+    private fun applyMeterFilter(meters: List<MeterWithObisPoints>) {
         val statusFilteredMeters = if (showExchangedMeters) {
-            meters.filter { it.status.equals("Exchanged", ignoreCase = true) }
+            // Access the nested 'meter' property
+            meters.filter { it.meter.status.equals("Exchanged", ignoreCase = true) }
         } else {
-            meters.filter { it.status.equals("Valid", ignoreCase = true) }
+            // Access the nested 'meter' property
+            meters.filter { it.meter.status.equals("Valid", ignoreCase = true) }
         }
         val finalFilteredMeters = if ("All" in selectedMeterTypesFilter) {
             statusFilteredMeters
         } else {
-            statusFilteredMeters.filter { meter ->
-                selectedMeterTypesFilter.any { it.equals(meter.energyType, ignoreCase = true) }
+            statusFilteredMeters.filter { meterWithObis ->
+                selectedMeterTypesFilter.any {
+                    // Access the nested 'meter' property
+                    it.equals(meterWithObis.meter.energyType, ignoreCase = true)
+                }
             }
         }
         meterAdapter.submitList(finalFilteredMeters)
@@ -663,33 +697,54 @@ class MainActivity : AppCompatActivity() {
 
     private fun sendAllMeterReadingsAndPictures() {
         val readingsToSend = mutableListOf<Reading>()
+        // UPDATED: Get the new nested map structure from the adapter
         val enteredValues = meterAdapter.getEnteredReadings()
         val readingDateString = apiDateFormat.format(selectedReadingDate.time)
-        val allMeters = locationViewModel.meters.value ?: emptyList()
+        // UPDATED: Get the List<MeterWithObisPoints>
+        val allMetersWithObis = locationViewModel.meters.value ?: emptyList()
 
-        // --- VALIDATION LOGIC ---
-        for ((meterId, readingValue) in enteredValues) {
-            if (readingValue.isNotBlank()) {
-                if (readingValue == "." || readingValue.startsWith(".") || readingValue.endsWith(".")) {
-                    val meterNumber = allMeters.find { it.id == meterId }?.number ?: "Unknown"
-                    Toast.makeText(this, "Ungültige Eingabe für Zähler $meterNumber: '$readingValue'", Toast.LENGTH_LONG).show()
-                    return // Stop the sending process
+        // --- VALIDATION LOGIC (UPDATED) ---
+        var invalidInputFound = false
+        for ((meterId, readingsMap) in enteredValues) {
+            for ((_, readingValue) in readingsMap) {
+                if (readingValue.isNotBlank()) {
+                    if (readingValue == "." || readingValue.startsWith(".") || readingValue.endsWith(".")) {
+                        // UPDATED: Access meter number correctly
+                        val meterNumber = allMetersWithObis.find { it.meter.id == meterId }?.meter?.number ?: "Unknown"
+                        Toast.makeText(this, "Ungültige Eingabe für Zähler $meterNumber: '$readingValue'", Toast.LENGTH_LONG).show()
+                        invalidInputFound = true
+                        break // Stop checking this meter
+                    }
                 }
             }
+            if (invalidInputFound) break // Stop checking all meters
         }
+        if (invalidInputFound) return // Stop the sending process
         // --- END VALIDATION ---
 
-        enteredValues.forEach { (meterId, readingValue) ->
-            if (readingValue.isNotBlank()) {
-                readingsToSend.add(
-                    Reading(
-                        id = UUID.randomUUID().toString(),
-                        meter_id = meterId,
-                        value = readingValue,
-                        date = readingDateString,
-                        read_by = "App User"
+        // UPDATED: Loop through the new nested map structure
+        enteredValues.forEach { (meterId, readingsMap) ->
+            readingsMap.forEach { (obisOrKey, readingValue) ->
+                if (readingValue.isNotBlank()) {
+                    // Check if the key is our special key for simple readings
+                    val meterObisId = if (obisOrKey == MeterAdapter.SINGLE_READING_KEY) {
+                        null // This is a simple reading
+                    } else {
+                        obisOrKey // This is a meter_obis_id
+                    }
+
+                    readingsToSend.add(
+                        Reading(
+                            id = UUID.randomUUID().toString(),
+                            meter_id = meterId,
+                            value = readingValue,
+                            date = readingDateString,
+                            read_by = "App User",
+                            meterObisId = meterObisId, // <-- CRUCIAL CHANGE
+                            migrationStatus = null
+                        )
                     )
-                )
+                }
             }
         }
 
@@ -704,7 +759,8 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton("Senden") { dialog, _ ->
                 readingsToSend.forEach { locationViewModel.postMeterReading(it) }
                 imagesToUpload.forEach { (meterId, imageUri) ->
-                    val meter = allMeters.find { it.id == meterId }
+                    // UPDATED: Access the nested 'meter' property
+                    val meter = allMetersWithObis.find { it.meter.id == meterId }?.meter
                     if (meter != null) {
                         val projectId = meter.projectId
                         val currentTime = timeFormat.format(Date())
@@ -713,7 +769,8 @@ class MainActivity : AppCompatActivity() {
                         locationViewModel.queueImageUpload(imageUri, fullStoragePath, projectId, meter.id)
                     }
                 }
-                meterAdapter.clearEnteredReadings()
+                // UPDATED: Call the renamed clear function
+                meterAdapter.clearEnteredObisReadings()
                 meterAdapter.clearMeterImages()
                 Toast.makeText(this, "${readingsToSend.size} readings and ${imagesToUpload.size} pictures have been queued for sending.", Toast.LENGTH_LONG).show()
                 dialog.dismiss()

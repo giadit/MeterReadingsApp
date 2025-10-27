@@ -41,7 +41,11 @@ class S3UploadWorker(
             val database = AppDatabase.getDatabase(applicationContext)
             val apiService = RetrofitClient.getService(ApiService::class.java, applicationContext)
 
-            // CORRECTED: The constructor arguments are now in the correct order
+            // Fetch new DAOs
+            val obisCodeDao = database.obisCodeDao()
+            val meterObisDao = database.meterObisDao()
+
+            // CORRECTED: Update constructor to pass all required DAOs
             val repository = MeterRepository(
                 apiService = apiService,
                 meterDao = database.meterDao(),
@@ -49,6 +53,9 @@ class S3UploadWorker(
                 projectDao = database.projectDao(),
                 buildingDao = database.buildingDao(),
                 queuedRequestDao = database.queuedRequestDao(),
+                // ADDED NEW DAOs
+                obisCodeDao = obisCodeDao,
+                meterObisDao = meterObisDao,
                 appContext = applicationContext
             )
 
@@ -60,6 +67,8 @@ class S3UploadWorker(
                 val bucketName = s3Key.substringBefore("/")
                 val pathWithinBucket = s3Key.substringAfter("/")
                 val fileName = pathWithinBucket.substringAfterLast("/")
+                // Note: File size should be calculated from the compressed file if using compression in repo.
+                // Using contentResolver for original file length for simplicity here, as that's what was done before.
                 val fileSize = applicationContext.contentResolver.openAssetFileDescriptor(imageUri, "r")?.use { it.length } ?: 0L
                 val fileMimeType = applicationContext.contentResolver.getType(imageUri) ?: "application/octet-stream"
 
@@ -91,4 +100,3 @@ class S3UploadWorker(
         }
     }
 }
-

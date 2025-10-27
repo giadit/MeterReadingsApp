@@ -23,7 +23,11 @@ class SyncWorker(
         val database = AppDatabase.getDatabase(applicationContext)
         val apiService = RetrofitClient.getService(ApiService::class.java, applicationContext)
 
-        // CORRECTED: The constructor arguments are now in the correct order
+        // Fetch new DAOs
+        val obisCodeDao = database.obisCodeDao()
+        val meterObisDao = database.meterObisDao()
+
+        // CORRECTED: Update constructor to pass all required DAOs
         val repository = MeterRepository(
             apiService = apiService,
             meterDao = database.meterDao(),
@@ -31,6 +35,9 @@ class SyncWorker(
             projectDao = database.projectDao(),
             buildingDao = database.buildingDao(),
             queuedRequestDao = database.queuedRequestDao(),
+            // ADDED NEW DAOs
+            obisCodeDao = obisCodeDao,
+            meterObisDao = meterObisDao,
             appContext = applicationContext
         )
 
@@ -44,11 +51,15 @@ class SyncWorker(
         var allSuccessful = true
         for (request in queuedRequests) {
             Log.d(TAG, "Processing queued request: ${request.id}")
+            // Attempt to process the request
             val success = repository.processQueuedRequest(request)
+
             if (success) {
+                // If successful, delete from queue
                 database.queuedRequestDao().delete(request.id)
                 Log.d(TAG, "Successfully processed and deleted queued request: ${request.id}")
             } else {
+                // If failed, update attempt count and mark for retry
                 request.attemptCount++
                 database.queuedRequestDao().update(request)
                 Log.e(TAG, "Failed to process queued request: ${request.id}. Attempt count: ${request.attemptCount}.")
@@ -65,4 +76,3 @@ class SyncWorker(
         }
     }
 }
-

@@ -167,4 +167,3 @@ data class Meter(
     @SerializedName("elec_source")
     val elecSource: String?
 )
-

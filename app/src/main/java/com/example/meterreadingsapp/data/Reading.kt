@@ -1,5 +1,6 @@
 package com.example.meterreadingsapp.data
 
+import androidx.room.ColumnInfo // NEW: Required for @ColumnInfo annotation
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.google.gson.annotations.SerializedName
@@ -27,6 +28,8 @@ import com.google.gson.annotations.SerializedName
  * @param source_metadata Metadata related to the source (represented as a Map, nullable).
  * @param validation_status Status of the reading's validation (e.g., "valid", "invalid").
  * @param validation_messages List of validation messages (nullable).
+ * @param meterObisId NEW: UUID linking to meter_obis table (nullable).
+ * @param migrationStatus NEW: For tracking migration status (nullable).
  */
 @Entity(tableName = "readings")
 data class Reading(
@@ -48,5 +51,13 @@ data class Reading(
     @SerializedName("source_type") val source_type: String? = null,
     @SerializedName("source_metadata") val source_metadata: Map<String, Any?>? = null,
     @SerializedName("validation_status") val validation_status: String? = null,
-    @SerializedName("validation_messages") val validation_messages: List<String>? = null
+    @SerializedName("validation_messages") val validation_messages: List<String>? = null,
+
+    // NEW FIELD: Links the reading to a specific OBIS data point on a meter
+    @ColumnInfo(name = "meter_obis_id")
+    @SerializedName("meter_obis_id") val meterObisId: String? = null,
+
+    // NEW FIELD: For tracking migration status
+    @ColumnInfo(name = "migration_status")
+    @SerializedName("migration_status") val migrationStatus: String? = null
 )

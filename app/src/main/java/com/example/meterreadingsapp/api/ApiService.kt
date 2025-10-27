@@ -21,6 +21,13 @@ interface ApiService {
     @GET("meters")
     suspend fun getMetersByBuildingId(@Query("building_id") buildingId: String): Response<List<Meter>>
 
+    // ADDED: Endpoints for fetching new OBIS-related data
+    @GET("obis_codes")
+    suspend fun getObisCodes(): Response<List<ObisCode>>
+
+    @GET("meter_obis")
+    suspend fun getMeterObis(): Response<List<MeterObis>>
+
     @POST("readings")
     suspend fun postReading(
         @Body reading: Reading,
@@ -49,4 +56,3 @@ interface ApiService {
         @Header("Prefer") prefer: String = "return=minimal"
     ): Response<Unit>
 }
-

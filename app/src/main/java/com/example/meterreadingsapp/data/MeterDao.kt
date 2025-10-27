@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction // Import for Room Relations
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -28,13 +29,32 @@ interface MeterDao {
     fun getAllMeters(): Flow<List<Meter>>
 
     /**
-     * ADDED: Retrieves meters for a specific building ID.
+     * Retrieves meters for a specific building ID.
      * This is the key function for our new navigation hierarchy.
      * @param buildingId The ID of the building to filter meters by.
      * @return A Flow emitting a list of Meter objects for the given building ID.
      */
     @Query("SELECT * FROM meters WHERE building_id = :buildingId")
     fun getMetersByBuildingId(buildingId: String): Flow<List<Meter>>
+
+    /**
+     * **NEW:** Retrieves a single meter by its unique ID.
+     * @param meterId The ID of the meter to retrieve.
+     * @return The Meter object, or null if not found.
+     */
+    @Query("SELECT * FROM meters WHERE id = :meterId LIMIT 1")
+    suspend fun getMeterById(meterId: String): Meter?
+
+    /**
+     * **NEW:** Retrieves a list of Meters with their associated MeterObis points
+     * for a specific building ID.
+     *
+     * @param buildingId The ID of the building to filter meters by.
+     * @return A Flow emitting a list of MeterWithObisPoints objects.
+     */
+    @Transaction
+    @Query("SELECT * FROM meters WHERE building_id = :buildingId")
+    fun getMetersWithObisByBuildingId(buildingId: String): Flow<List<MeterWithObisPoints>>
 
     /**
      * Deletes all meters from the database.
@@ -46,4 +66,3 @@ interface MeterDao {
     // for the main navigation flow, but we can leave them for now to avoid breaking
     // any other potential usages. They can be cleaned up in a later refactor.
 }
-
