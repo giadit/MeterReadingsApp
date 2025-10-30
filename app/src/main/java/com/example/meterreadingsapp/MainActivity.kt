@@ -292,12 +292,33 @@ class MainActivity : AppCompatActivity() {
             onEditMeterClicked = { meter -> Toast.makeText(this, "Edit meter: ${meter.number}", Toast.LENGTH_SHORT).show() },
             onDeleteMeterClicked = { meter -> Toast.makeText(this, "Delete meter: ${meter.number}", Toast.LENGTH_SHORT).show() },
             onExchangeMeterClicked = { meter -> showChangeMeterDialog(meter) },
+            // ADDED: New callback for the info button
+            onInfoClicked = { meter -> showMeterInfoDialog(meter) },
             currentMode = { AppMode.READINGS }
         )
         binding.metersRecyclerView.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
             adapter = meterAdapter
         }
+    }
+
+    /**
+     * Shows a dialog displaying key information from the Meter data object.
+     */
+    private fun showMeterInfoDialog(meter: Meter) {
+        // Construct the information string based on user's requirements
+        val info = """
+            Standort: ${meter.location ?: "-"}
+            Verbraucher: ${meter.consumer ?: "-"}
+            Zählertypus: ${meter.type ?: "-"}
+            MSB: ${meter.msb ?: "-"}
+        """.trimIndent()
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Zähler-Informationen (${meter.number})")
+            .setMessage(info)
+            .setPositiveButton("OK", null)
+            .show()
     }
 
     private fun showChangeMeterDialog(oldMeter: Meter) {
@@ -904,5 +925,3 @@ class MainActivity : AppCompatActivity() {
         EDITING
     }
 }
-
-

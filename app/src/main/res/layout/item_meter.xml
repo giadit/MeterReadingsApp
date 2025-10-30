@@ -28,7 +28,7 @@
             android:padding="12dp"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/changeMeterButton"> <!-- MODIFIED: Constrained to new changeMeterButton -->
+            app:layout_constraintEnd_toStartOf="@id/infoButton"> <!-- UPDATED: Constrained to new infoButton -->
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -95,7 +95,7 @@
                     android:textSize="12sp"
                     android:textColor="@android:color/black"
                     android:layout_marginStart="8dp"
-                    android:text="Datum: " />
+                    android:text="am: " />
                 <TextView
                     android:id="@+id/meterLastReadingDateTextView"
                     android:layout_width="0dp"
@@ -107,6 +107,22 @@
                     tools:text="29.12.2023" />
             </LinearLayout>
         </LinearLayout>
+
+        <!-- ADDED: Info Button -->
+        <ImageButton
+            android:id="@+id/infoButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:src="@drawable/ic_info"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Meter Information"
+            app:tint="@color/bright_orange"
+            android:padding="12dp"
+            android:scaleType="fitCenter"
+            app:layout_constraintTop_toTopOf="@id/headerContent"
+            app:layout_constraintBottom_toBottomOf="@id/headerContent"
+            app:layout_constraintEnd_toStartOf="@id/changeMeterButton"
+            android:layout_marginEnd="0dp"/>
 
         <!-- MOVED: Change Meter Button -->
         <ImageButton
@@ -244,8 +260,7 @@
             app:tint="@color/bright_orange"
             tools:visibility="visible"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/changeMeterButton" /> <!-- MODIFIED: Constrained to new changeMeterButton -->
+            app:layout_constraintEnd_toStartOf="@id/infoButton" /> <!-- UPDATED: Constrained to new infoButton -->
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </com.google.android.material.card.MaterialCardView>
-

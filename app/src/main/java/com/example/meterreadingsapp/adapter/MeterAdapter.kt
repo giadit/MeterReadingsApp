@@ -43,6 +43,8 @@ class MeterAdapter(
     private val onEditMeterClicked: (Meter) -> Unit,
     private val onDeleteMeterClicked: (Meter) -> Unit,
     private val onExchangeMeterClicked: (Meter) -> Unit,
+    // ADDED: New callback for the Info button
+    private val onInfoClicked: (Meter) -> Unit,
     private val currentMode: () -> AppMode
 ) : ListAdapter<MeterWithObisPoints, MeterAdapter.MeterViewHolder>(DiffCallback) {
 
@@ -100,6 +102,12 @@ class MeterAdapter(
                     apiDateFormat.parse(it)?.let { date -> uiDateFormat.format(date) } ?: "N/A"
                 } catch (e: Exception) { "N/A" }
             } ?: "N/A"
+
+            // --- Setup Click Listeners ---
+            // ADDED: Info Button click listener
+            binding.infoButton.setOnClickListener {
+                onInfoClicked(meter)
+            }
 
             // --- Setup Expand/Collapse ---
             binding.collapsibleContent.isVisible = isExpanded
@@ -457,4 +465,3 @@ class MeterAdapter(
         notifyDataSetChanged()
     }
 }
-
