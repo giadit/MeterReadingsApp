@@ -80,34 +80,45 @@ class MainActivity : AppCompatActivity() {
 
     private var currentPhotoUri: Uri? = null
     private var currentMeterForPhoto: Meter? = null
+    // UPDATED: Add a variable to store the specific OBIS key for the photo
+    private var currentObisKeyForPhoto: String? = null
+    // UPDATED: Add a variable to store the OBIS code string (e.g., "1.8.0")
+    private var currentObisCodeForPhoto: String? = null
 
     private val requestCameraPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
             if (isGranted) {
-                currentMeterForPhoto?.let { meter ->
-                    launchCamera(meter)
+                // UPDATED: Check for all properties
+                if (currentMeterForPhoto != null && currentObisKeyForPhoto != null) {
+                    // UPDATED: Pass the code string to launchCamera
+                    launchCamera(currentMeterForPhoto!!, currentObisCodeForPhoto)
                 }
             } else {
                 Toast.makeText(this, "Camera permission denied", Toast.LENGTH_LONG).show()
                 currentMeterForPhoto = null
                 currentPhotoUri = null
+                currentObisKeyForPhoto = null // UPDATED
+                currentObisCodeForPhoto = null // UPDATED
             }
         }
 
     private val takePictureLauncher: ActivityResultLauncher<Intent> =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == RESULT_OK) {
-                currentPhotoUri?.let { uri ->
-                    currentMeterForPhoto?.let { meter ->
-                        meterAdapter.updateMeterImageUri(meter.id, uri)
-                        Toast.makeText(this, "Picture saved: ${uri.lastPathSegment}", Toast.LENGTH_SHORT).show()
-                    }
+                // UPDATED: Check for all three properties
+                if (currentPhotoUri != null && currentMeterForPhoto != null && currentObisKeyForPhoto != null) {
+                    // UPDATED: Use the obisKey (UUID) to update the adapter's map
+                    meterAdapter.updateMeterImageUri(currentMeterForPhoto!!.id, currentObisKeyForPhoto!!, currentPhotoUri!!)
+                    Toast.makeText(this, "Picture saved: ${currentPhotoUri!!.lastPathSegment}", Toast.LENGTH_SHORT).show()
                 }
             } else {
                 Toast.makeText(this, "Picture capture failed", Toast.LENGTH_SHORT).show()
-                currentPhotoUri = null
-                currentMeterForPhoto = null
             }
+            // UPDATED: Always clear all properties
+            currentPhotoUri = null
+            currentMeterForPhoto = null
+            currentObisKeyForPhoto = null
+            currentObisCodeForPhoto = null // UPDATED
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -263,16 +274,21 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupMeterRecyclerView() {
         meterAdapter = MeterAdapter(
-            onCameraClicked = { meter, _ ->
+            // UPDATED: Adapter now sends (meter, obisKey, obisCodeString, currentUri)
+            onCameraClicked = { meter, obisKey, obisCodeString, _ ->
                 currentMeterForPhoto = meter
+                currentObisKeyForPhoto = obisKey // UPDATED: Store the key (UUID)
+                currentObisCodeForPhoto = obisCodeString // UPDATED: Store the code string ("1.8.0")
                 if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-                    launchCamera(meter)
+                    launchCamera(meter, obisCodeString) // UPDATED: Pass code string
                 } else {
                     requestCameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
                 }
             },
-            onViewImageClicked = { _, imageUri -> viewImage(imageUri) },
-            onDeleteImageClicked = { meter, imageUri -> confirmAndDeleteImage(meter, imageUri) },
+            // UPDATED: Adapter now sends (meter, obisKey, uri)
+            onViewImageClicked = { _, _, imageUri -> viewImage(imageUri) }, // obisKey not needed here
+            // UPDATED: Adapter now sends (meter, obisKey, obisCodeString, uri)
+            onDeleteImageClicked = { meter, obisKey, obisCodeString, imageUri -> confirmAndDeleteImage(meter, obisKey, obisCodeString, imageUri) },
             onEditMeterClicked = { meter -> Toast.makeText(this, "Edit meter: ${meter.number}", Toast.LENGTH_SHORT).show() },
             onDeleteMeterClicked = { meter -> Toast.makeText(this, "Delete meter: ${meter.number}", Toast.LENGTH_SHORT).show() },
             onExchangeMeterClicked = { meter -> showChangeMeterDialog(meter) },
@@ -462,8 +478,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun launchCamera(meter: Meter) {
-        currentPhotoUri = createImageFileForMeter(meter)
+    // UPDATED: Signature now requires obisCode string
+    private fun launchCamera(meter: Meter, obisCode: String?) {
+        currentPhotoUri = createImageFileForMeter(meter, obisCode) // UPDATED
         currentPhotoUri?.let { uri ->
             val cameraIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
                 putExtra(MediaStore.EXTRA_OUTPUT, uri)
@@ -476,9 +493,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     @Throws(IOException::class)
-    private fun createImageFileForMeter(meter: Meter): Uri {
+    // UPDATED: Signature now requires obisCode string
+    private fun createImageFileForMeter(meter: Meter, obisCode: String?): Uri {
         val timeStamp: String = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-        val imageFileName = "${timeStamp}_${meter.number.replace("/", "_").replace(".", "_")}"
+        // UPDATED: Make filename unique using obisCode string
+        val safeObisKey = obisCode?.replace(Regex("[^a-zA-Z0-9.-]"), "_") ?: "reading" // Allow dots in code
+        val imageFileName = "${timeStamp}_${meter.number.replace("/", "_").replace(".", "_")}_$safeObisKey"
         val storageDir: File? = getExternalFilesDir(Environment.DIRECTORY_PICTURES)
         val imageFile = File.createTempFile(imageFileName, ".jpg", storageDir)
         return FileProvider.getUriForFile(this, "${applicationContext.packageName}.fileprovider", imageFile)
@@ -498,23 +518,25 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun confirmAndDeleteImage(meter: Meter, imageUri: Uri) {
+    // UPDATED: Signature now requires obisKey (UUID) and obisCode (string)
+    private fun confirmAndDeleteImage(meter: Meter, obisKey: String, obisCode: String?, imageUri: Uri) {
         MaterialAlertDialogBuilder(this)
             .setTitle("Delete Image?")
-            .setMessage("Are you sure you want to delete the image for meter ${meter.number}?")
+            // UPDATED: Show the human-readable obisCode in the message
+            .setMessage("Are you sure you want to delete the image for meter ${meter.number} (Reading: ${obisCode ?: "N/A"})?")
             .setPositiveButton("Delete") { dialog, _ ->
                 imageUri.path?.let { path ->
                     val file = File(path)
                     if (file.exists()) {
                         if (file.delete()) {
-                            meterAdapter.removeMeterImageUri(meter.id)
+                            meterAdapter.removeMeterImageUri(meter.id, obisKey) // UPDATED: Use obisKey (UUID)
                             Toast.makeText(this, "Image deleted.", Toast.LENGTH_SHORT).show()
                         } else {
                             Toast.makeText(this, "Failed to delete image file.", Toast.LENGTH_SHORT).show()
                         }
                     } else {
                         Toast.makeText(this, "Image file not found.", Toast.LENGTH_SHORT).show()
-                        meterAdapter.removeMeterImageUri(meter.id)
+                        meterAdapter.removeMeterImageUri(meter.id, obisKey) // UPDATED: Use obisKey (UUID)
                     }
                 }
                 dialog.dismiss()
@@ -730,7 +752,7 @@ class MainActivity : AppCompatActivity() {
                     val meterObisId = if (obisOrKey == MeterAdapter.SINGLE_READING_KEY) {
                         null // This is a simple reading
                     } else {
-                        obisOrKey // This is a meter_obis_id
+                        obisOrKey // This is a meter_obis_id (the UUID)
                     }
 
                     readingsToSend.add(
@@ -748,31 +770,60 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // UPDATED: Get the new nested map structure
         val imagesToUpload = meterAdapter.getMeterImages()
-        if (readingsToSend.isEmpty() && imagesToUpload.isEmpty()) {
+        // UPDATED: Calculate total number of images
+        val totalImageCount = imagesToUpload.values.sumOf { it.size }
+
+        if (readingsToSend.isEmpty() && totalImageCount == 0) {
             Toast.makeText(this, "No readings or pictures entered.", Toast.LENGTH_SHORT).show()
             return
         }
         MaterialAlertDialogBuilder(this)
             .setTitle("Daten Senden Bestätigen")
-            .setMessage("Sollen ${readingsToSend.size} Zählerstände und ${imagesToUpload.size} Bilder für das Datum ${uiDateFormat.format(selectedReadingDate.time)} gesendet werden?")
+            // UPDATED: Show correct image count
+            .setMessage("Sollen ${readingsToSend.size} Zählerstände und $totalImageCount Bilder für das Datum ${uiDateFormat.format(selectedReadingDate.time)} gesendet werden?")
             .setPositiveButton("Senden") { dialog, _ ->
                 readingsToSend.forEach { locationViewModel.postMeterReading(it) }
-                imagesToUpload.forEach { (meterId, imageUri) ->
-                    // UPDATED: Access the nested 'meter' property
-                    val meter = allMetersWithObis.find { it.meter.id == meterId }?.meter
-                    if (meter != null) {
-                        val projectId = meter.projectId
-                        val currentTime = timeFormat.format(Date())
-                        val fileName = "${s3KeyDateFormat.format(selectedReadingDate.time)}_${currentTime}_${meter.number.replace("/", "_").replace(".", "_")}.jpg"
-                        val fullStoragePath = "meter-documents/meter/${meter.id}/$fileName"
-                        locationViewModel.queueImageUpload(imageUri, fullStoragePath, projectId, meter.id)
+
+                // UPDATED: Loop through the new nested map structure
+                imagesToUpload.forEach { (meterId, obisMap) ->
+                    // UPDATED: Loop through inner map (obisKey is the UUID)
+                    obisMap.forEach { (obisKey, imageUri) ->
+                        // UPDATED: Access the nested 'meter' property
+                        val meter = allMetersWithObis.find { it.meter.id == meterId }?.meter
+                        if (meter != null) {
+                            val projectId = meter.projectId
+                            val currentTime = timeFormat.format(Date())
+
+                            // UPDATED: Create a unique name including the OBIS code string
+                            val obisSuffix: String
+                            if (obisKey == MeterAdapter.SINGLE_READING_KEY) {
+                                obisSuffix = "main"
+                            } else {
+                                // Find the obisCode.code from the obisKey (which is meter_obis.id)
+                                val meterWithObis = allMetersWithObis.find { it.meter.id == meterId }
+                                val meterObisPoint = meterWithObis?.obisPoints?.find { it.id == obisKey }
+                                // Use the full list of obis codes from the viewmodel
+                                val obisCode = meterObisPoint?.let { locationViewModel.allObisCodes.value?.find { c -> c.id == it.obisCodeId } }
+                                val obisCodeString = obisCode?.code // This is "1.8.0", etc.
+
+                                // Use the code string, clean it, or fallback to the obisKey (UUID)
+                                obisSuffix = obisCodeString?.replace(Regex("[^a-zA-Z0-9.-]"), "_") // Allow dots
+                                    ?: obisKey.substring(0, 8) // Fallback to part of the UUID
+                            }
+                            val fileName = "${s3KeyDateFormat.format(selectedReadingDate.time)}_${currentTime}_${meter.number.replace("/", "_").replace(".", "_")}_$obisSuffix.jpg"
+                            val fullStoragePath = "meter-documents/meter/${meter.id}/$fileName"
+                            locationViewModel.queueImageUpload(imageUri, fullStoragePath, projectId, meter.id)
+                        }
                     }
                 }
+
                 // UPDATED: Call the renamed clear function
                 meterAdapter.clearEnteredObisReadings()
                 meterAdapter.clearMeterImages()
-                Toast.makeText(this, "${readingsToSend.size} readings and ${imagesToUpload.size} pictures have been queued for sending.", Toast.LENGTH_LONG).show()
+                // UPDATED: Show correct image count
+                Toast.makeText(this, "${readingsToSend.size} readings and $totalImageCount pictures have been queued for sending.", Toast.LENGTH_LONG).show()
                 dialog.dismiss()
             }
             .setNegativeButton("Abbrechen", null)
@@ -852,4 +903,5 @@ class MainActivity : AppCompatActivity() {
         EDITING
     }
 }
+
 

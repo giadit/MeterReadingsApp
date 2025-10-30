@@ -1,15 +1,19 @@
 package com.example.meterreadingsapp.adapter
 
+import android.content.Context
 import android.content.res.ColorStateList
 import android.net.Uri
 import android.text.Editable
 import android.text.InputType
 import android.text.TextWatcher
 import android.util.Log
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
+import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.core.content.ContextCompat
@@ -25,7 +29,6 @@ import com.example.meterreadingsapp.data.ObisCode
 import com.example.meterreadingsapp.databinding.ItemMeterBinding
 import com.example.meterreadingsapp.MainActivity.AppMode
 import com.google.android.material.card.MaterialCardView
-// UPDATED: We must import TextInputEditText
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import java.text.SimpleDateFormat
@@ -33,9 +36,10 @@ import java.util.*
 import kotlin.math.roundToInt
 
 class MeterAdapter(
-    private val onCameraClicked: (Meter, Uri?) -> Unit,
-    private val onViewImageClicked: (Meter, Uri) -> Unit,
-    private val onDeleteImageClicked: (Meter, Uri) -> Unit,
+    // UPDATED: Pass obisKey (UUID) AND obisCode (String)
+    private val onCameraClicked: (meter: Meter, obisKey: String, obisCode: String?, currentUri: Uri?) -> Unit,
+    private val onViewImageClicked: (meter: Meter, obisKey: String, uri: Uri) -> Unit,
+    private val onDeleteImageClicked: (meter: Meter, obisKey: String, obisCode: String?, uri: Uri) -> Unit,
     private val onEditMeterClicked: (Meter) -> Unit,
     private val onDeleteMeterClicked: (Meter) -> Unit,
     private val onExchangeMeterClicked: (Meter) -> Unit,
@@ -56,24 +60,21 @@ class MeterAdapter(
         }
     }
 
-    // UPDATED: Store readings per OBIS point (meterObis.id or SINGLE_READING_KEY) for each meter (meter.id)
-    // Map<MeterID, Map<ObisOrSingleKey, ReadingValue>>
-    private val enteredObisReadings: MutableMap<String, MutableMap<String, String>> = mutableMapOf()
-    private val meterImages: MutableMap<String, Uri> = mutableMapOf()
+    // Map<MeterID, Map<ObisKey, ReadingValue>>
+    private val enteredReadings: MutableMap<String, MutableMap<String, String>> = mutableMapOf()
+    // Map<MeterID, Map<ObisKey, ImageUri>>
+    private val meterImages: MutableMap<String, MutableMap<String, Uri>> = mutableMapOf()
     private var allObisCodes: Map<String, ObisCode> = emptyMap() // Map<ObisCodeID, ObisCode>
 
-    // UPDATED: Keep track of expanded items
     private val expandedItems: MutableSet<String> = mutableSetOf()
 
     private val apiDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
     private val uiDateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.GERMANY)
     private val todayDateString = apiDateFormat.format(Date())
 
-    // UPDATED: Function to receive the list of all OBIS codes from the Activity/ViewModel
     fun setObisCodes(codes: List<ObisCode>) {
         allObisCodes = codes.associateBy { it.id }
-        // We might need to refresh visible items if codes arrive after binding
-        notifyDataSetChanged() // Use more specific updates if performance is an issue
+        notifyDataSetChanged()
     }
 
     inner class MeterViewHolder(private val binding: ItemMeterBinding) :
@@ -81,6 +82,9 @@ class MeterAdapter(
 
         // Store watchers to remove them later
         private val watchers = mutableMapOf<EditText, TextWatcher>()
+
+        // Store dynamically created buttons to manage state
+        private val dynamicButtons = mutableListOf<ImageButton>()
 
         fun bind(meterWithObis: MeterWithObisPoints) {
             val meter = meterWithObis.meter
@@ -97,148 +101,129 @@ class MeterAdapter(
                 } catch (e: Exception) { "N/A" }
             } ?: "N/A"
 
-            // --- Update Visual State (Color, Icon, Stroke) ---
-            updateVisualState(meter)
-
             // --- Setup Expand/Collapse ---
             binding.collapsibleContent.isVisible = isExpanded
             binding.expandCollapseButton.setImageResource(
                 if (isExpanded) R.drawable.ic_expand_less else R.drawable.ic_expand_more
             )
-            val clickableView = binding.headerContent // Or binding.root or binding.expandCollapseButton
-            clickableView.setOnClickListener {
-                toggleExpansion(meter.id)
-            }
-            binding.expandCollapseButton.setOnClickListener { // Ensure button also toggles
-                toggleExpansion(meter.id)
-            }
+            binding.headerContent.setOnClickListener { toggleExpansion(meter.id) }
+            binding.expandCollapseButton.setOnClickListener { toggleExpansion(meter.id) }
 
             // --- Clear previous dynamic views and watchers ---
-            binding.obisReadingsContainer.removeAllViews()
-            watchers.forEach { (editText, watcher) -> editText.removeTextChangedListener(watcher) }
-            watchers.clear()
+            clearDynamicViewsAndWatchers()
+            val meterReadings = enteredReadings.getOrPut(meter.id) { mutableMapOf() }
+            val meterImageMap = meterImages.getOrPut(meter.id) { mutableMapOf() }
 
-            // --- Dynamically Create Reading Input Fields ---
-            val meterReadings = enteredObisReadings.getOrPut(meter.id) { mutableMapOf() }
-
-            if (meterWithObis.obisPoints.isNotEmpty()) {
+            val obisPoints = meterWithObis.obisPoints
+            if (obisPoints.isNotEmpty()) {
                 // Hide the fallback single reading input layout
                 binding.readingValueInputLayout.visibility = View.GONE
 
-                meterWithObis.obisPoints.forEach { meterObis ->
+                obisPoints.forEach { meterObis ->
+                    val obisKey = meterObis.id // This is the UUID
                     val obisCode = allObisCodes[meterObis.obisCodeId]
+                    val obisCodeString = obisCode?.code // This is "1.8.0" etc.
+                    val currentImageUri = meterImageMap[obisKey]
 
-                    // UPDATED: Combine description and code for the hint as requested
-                    val description = obisCode?.description?.takeIf { it.isNotBlank() }
-                    val code = obisCode?.code?.takeIf { it.isNotBlank() }
-                    val layoutHint = when {
-                        !description.isNullOrBlank() && !code.isNullOrBlank() -> "$description [$code]"
-                        !description.isNullOrBlank() -> description
-                        !code.isNullOrBlank() -> code
-                        else -> "Reading"
-                    }
+                    val (rowLayout, editText) = createReadingInputRow(
+                        context = context,
+                        hint = obisCode?.description ?: obisCodeString ?: "Reading",
+                        obisCode = obisCodeString,
+                        savedValue = meterReadings[obisKey] ?: "",
+                        hasImage = currentImageUri != null
+                    )
 
-                    // Create TextInputLayout and EditText dynamically
-                    val textInputLayout = TextInputLayout(context).apply {
-                        layoutParams = LinearLayout.LayoutParams(
-                            LinearLayout.LayoutParams.MATCH_PARENT,
-                            LinearLayout.LayoutParams.WRAP_CONTENT
-                        ).also {
-                            val marginInPixels = (8 * context.resources.displayMetrics.density).roundToInt()
-                            it.topMargin = marginInPixels
-                        }
-                        // FIXED: Set isHintEnabled to false to match your XML
-                        isHintEnabled = false
-                        boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINE
+                    val cameraButton = rowLayout.getChildAt(1) as ImageButton
+                    val viewButton = rowLayout.getChildAt(2) as ImageButton
+                    val deleteButton = rowLayout.getChildAt(3) as ImageButton
 
-                        // UPDATED: Use the stroke color selector to match the original field
-                        try {
-                            // FIXED: Use the explicit setter 'setBoxStrokeColorStateList'
-                            setBoxStrokeColorStateList(ContextCompat.getColorStateList(context, R.drawable.text_input_stroke_color_selector))
-                        } catch (e: Exception) {
-                            Log.e("MeterAdapter", "R.drawable.text_input_stroke_color_selector not found, using default color.")
-                            boxStrokeColor = ContextCompat.getColor(context, R.color.bright_orange)
-                        }
-                    }
-
-                    // FIXED: This is the critical change.
-                    // We must use TextInputEditText for Material styles to apply correctly.
-                    val editText = TextInputEditText(context).apply {
-                        layoutParams = LinearLayout.LayoutParams(
-                            LinearLayout.LayoutParams.MATCH_PARENT,
-                            LinearLayout.LayoutParams.WRAP_CONTENT
-                        )
-                        // FIXED: Set the hint on the EditText, not the layout
-                        hint = layoutHint
-                        inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
-                        setText(meterReadings[meterObis.id] ?: "") // Restore saved value
-                    }
-
-                    // Add EditText to TextInputLayout
-                    textInputLayout.addView(editText)
-
-                    // Add TextInputLayout to the container
-                    binding.obisReadingsContainer.addView(textInputLayout)
+                    // Add to container
+                    binding.obisReadingsContainer.addView(rowLayout)
 
                     // Add TextWatcher
                     val textWatcher = object : TextWatcher {
                         override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                         override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                         override fun afterTextChanged(s: Editable?) {
-                            meterReadings[meterObis.id] = s.toString()
-                            updateVisualState(meter) // Update stroke color if needed
+                            meterReadings[obisKey] = s.toString()
+                            updateVisualState(meter, meterWithObis) // Pass meterWithObis
                         }
                     }
                     editText.addTextChangedListener(textWatcher)
                     watchers[editText] = textWatcher // Store watcher for removal
+
+                    // Set click listeners
+                    cameraButton.setOnClickListener { onCameraClicked(meter, obisKey, obisCodeString, currentImageUri) }
+                    viewButton.setOnClickListener { currentImageUri?.let { onViewImageClicked(meter, obisKey, it) } }
+                    deleteButton.setOnClickListener { currentImageUri?.let { onDeleteImageClicked(meter, obisKey, obisCodeString, it) } }
+
+                    dynamicButtons.addAll(listOf(cameraButton, viewButton, deleteButton))
                 }
             } else {
                 // Show the fallback single reading input layout
                 binding.readingValueInputLayout.visibility = View.VISIBLE
-                val editText = binding.newReadingValueEditText
-                editText.setText(meterReadings[SINGLE_READING_KEY] ?: "") // Restore saved value
+                val obisKey = SINGLE_READING_KEY
+                val obisCodeString = "main" // Special code for single/main reading
+                val currentImageUri = meterImageMap[obisKey]
 
-                // Add TextWatcher for the single field
+                // Create the dynamic row for the fallback
+                val (rowLayout, dynamicEditText) = createReadingInputRow(
+                    context = context,
+                    hint = context.getString(R.string.enter_reading_hint),
+                    obisCode = null, // No code for fallback
+                    savedValue = meterReadings[obisKey] ?: "",
+                    hasImage = currentImageUri != null
+                )
+
+                // Hide the XML-based layout
+                binding.readingValueInputLayout.visibility = View.GONE
+                // Add the new dynamic layout
+                binding.obisReadingsContainer.addView(rowLayout)
+
+
+                val cameraButton = rowLayout.getChildAt(1) as ImageButton
+                val viewButton = rowLayout.getChildAt(2) as ImageButton
+                val deleteButton = rowLayout.getChildAt(3) as ImageButton
+
+                // Add TextWatcher
                 val textWatcher = object : TextWatcher {
                     override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                     override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
                     override fun afterTextChanged(s: Editable?) {
-                        meterReadings[SINGLE_READING_KEY] = s.toString()
-                        updateVisualState(meter) // Update stroke color if needed
+                        meterReadings[obisKey] = s.toString()
+                        updateVisualState(meter, meterWithObis) // Pass meterWithObis
                     }
                 }
-                editText.addTextChangedListener(textWatcher)
-                watchers[editText] = textWatcher // Store watcher for removal
+                dynamicEditText.addTextChangedListener(textWatcher)
+                watchers[dynamicEditText] = textWatcher // Store watcher for removal
+
+                // Set click listeners
+                cameraButton.setOnClickListener { onCameraClicked(meter, obisKey, obisCodeString, currentImageUri) }
+                viewButton.setOnClickListener { currentImageUri?.let { onViewImageClicked(meter, obisKey, it) } }
+                deleteButton.setOnClickListener { currentImageUri?.let { onDeleteImageClicked(meter, obisKey, obisCodeString, it) } }
+
+                dynamicButtons.addAll(listOf(cameraButton, viewButton, deleteButton))
             }
 
 
-            // --- Image Handling ---
-            val newlyTakenImageUri = meterImages[meter.id]
-            val hasImage = newlyTakenImageUri != null
-            updateButtonStates(hasImage) // Update image button states
-
-            // --- Button Click Listeners ---
+            // --- Button Click Listeners (Original XML buttons) ---
             binding.changeMeterButton.setOnClickListener { onExchangeMeterClicked(meter) }
-            binding.cameraButton.setOnClickListener { onCameraClicked(meter, newlyTakenImageUri) }
-            binding.viewImageButton.setOnClickListener {
-                newlyTakenImageUri?.let { uri -> onViewImageClicked(meter, uri) }
-                    ?: Toast.makeText(context, R.string.no_image_to_view, Toast.LENGTH_SHORT).show()
-            }
-            binding.deleteImageButton.setOnClickListener {
-                newlyTakenImageUri?.let { uri -> onDeleteImageClicked(meter, uri) }
-                    ?: Toast.makeText(context, R.string.no_image_to_delete, Toast.LENGTH_SHORT).show()
-            }
+            // Hide the XML buttons since we create them dynamically
+            binding.buttonsContainer.visibility = View.GONE
 
             // --- Enable/Disable based on App Mode ---
             val mode = currentMode()
-            val isReadingMode = (mode == AppMode.READINGS)
-            // Enable/disable dynamically created EditTexts
-            watchers.keys.forEach { it.isEnabled = isReadingMode }
-            // Enable/disable fallback EditText
-            binding.newReadingValueEditText.isEnabled = isReadingMode
-            binding.readingValueInputLayout.isEnabled = isReadingMode // Also disable the layout itself
-            binding.cameraButton.isEnabled = isReadingMode
+            updateFieldsForAppMode(mode)
 
+            // --- Update Visual State ---
+            updateVisualState(meter, meterWithObis)
+        }
+
+        private fun clearDynamicViewsAndWatchers() {
+            binding.obisReadingsContainer.removeAllViews()
+            watchers.forEach { (editText, watcher) -> editText.removeTextChangedListener(watcher) }
+            watchers.clear()
+            dynamicButtons.clear()
         }
 
         private fun toggleExpansion(meterId: String) {
@@ -253,11 +238,138 @@ class MeterAdapter(
             }
         }
 
-        private fun updateVisualState(meter: Meter) {
+        private fun createReadingInputRow(
+            context: Context,
+            hint: String,
+            obisCode: String?,
+            savedValue: String,
+            hasImage: Boolean
+        ): Pair<LinearLayout, TextInputEditText> {
+            // 1. Create Row LinearLayout
+            val rowLayout = LinearLayout(context).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).also {
+                    val marginInPixels = (8 * context.resources.displayMetrics.density).roundToInt()
+                    it.topMargin = marginInPixels
+                }
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+
+            // 2. Create TextInputLayout
+            val textInputLayout = TextInputLayout(context).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    0, // Width 0
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    1.0f // Weight 1
+                )
+                isHintEnabled = false
+                boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINE
+                try {
+                    setBoxStrokeColorStateList(ContextCompat.getColorStateList(context, R.drawable.text_input_stroke_color_selector))
+                } catch (e: Exception) {
+                    Log.e("MeterAdapter", "R.drawable.text_input_stroke_color_selector not found.")
+                }
+            }
+
+            // 3. Create TextInputEditText
+            val editText = TextInputEditText(context).apply {
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+                val fullHint = if (obisCode != null) "$hint [$obisCode]" else hint
+                setHint(fullHint)
+                setText(savedValue)
+                inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+                maxLines = 1
+            }
+
+            // Add EditText to Layout
+            textInputLayout.addView(editText)
+
+            // 4. Create Buttons
+            val cameraButton = createDynamicImageButton(context, R.drawable.ic_camera_white_24, R.drawable.button_orange_background, R.string.camera_button_description)
+            val viewButton = createDynamicImageButton(context, R.drawable.ic_image_white_24, R.drawable.button_orange_background, R.string.view_image_button_description)
+            val deleteButton = createDynamicImageButton(context, R.drawable.ic_delete_white_24, R.drawable.button_red_background, R.string.delete_image_button_description)
+
+            // 5. Set button states
+            updateDynamicButtonStates(viewButton, deleteButton, hasImage)
+
+            // 6. Add all views to the row
+            rowLayout.addView(textInputLayout)
+            rowLayout.addView(cameraButton)
+            rowLayout.addView(viewButton)
+            rowLayout.addView(deleteButton)
+
+            return Pair(rowLayout, editText)
+        }
+
+        private fun createDynamicImageButton(context: Context, iconRes: Int, bgRes: Int, contentDescRes: Int): ImageButton {
+            val marginInPixels = (4 * context.resources.displayMetrics.density).roundToInt()
+            val sizeInPixels = (40 * context.resources.displayMetrics.density).roundToInt() // Smaller 40dp buttons
+            val paddingInPixels = (8 * context.resources.displayMetrics.density).roundToInt() // 8dp padding
+
+            return ImageButton(context).apply {
+                layoutParams = LinearLayout.LayoutParams(sizeInPixels, sizeInPixels).also {
+                    it.marginStart = marginInPixels
+                }
+                setImageResource(iconRes)
+                setBackgroundResource(bgRes)
+                contentDescription = context.getString(contentDescRes)
+                imageTintList = ColorStateList.valueOf(ContextCompat.getColor(context, android.R.color.white))
+                setPadding(paddingInPixels, paddingInPixels, paddingInPixels, paddingInPixels)
+                scaleType = ImageView.ScaleType.FIT_CENTER
+            }
+        }
+
+        private fun updateDynamicButtonStates(viewButton: ImageButton, deleteButton: ImageButton, hasImage: Boolean) {
+            val context = viewButton.context
+            viewButton.isEnabled = hasImage
+            deleteButton.isEnabled = hasImage
+            val activeColor = ContextCompat.getColor(context, android.R.color.white)
+            val inactiveColor = ContextCompat.getColor(context, android.R.color.darker_gray) // Use a standard color
+            viewButton.imageTintList = ColorStateList.valueOf(if (hasImage) activeColor else inactiveColor)
+            deleteButton.imageTintList = ColorStateList.valueOf(if (hasImage) activeColor else inactiveColor)
+        }
+
+        // UPDATED: Function signature now takes meterWithObis
+        private fun updateVisualState(meter: Meter, meterWithObis: MeterWithObisPoints) {
             val context = binding.root.context
             val isReadToday = meter.lastReadingDate == todayDateString
-            // UPDATED: Check if any reading exists for this meter in the nested map
-            val hasNewReading = enteredObisReadings[meter.id]?.any { it.value.isNotBlank() } ?: false
+
+            // --- START OF NEW LOGIC ---
+            val readingsMap = enteredReadings[meter.id]
+            val hasNewReading: Boolean
+            val expectedReadingCount: Int
+
+            // Determine how many readings we expect
+            if (meterWithObis.obisPoints.isNotEmpty()) {
+                expectedReadingCount = meterWithObis.obisPoints.size
+            } else {
+                expectedReadingCount = 1 // For the single/fallback field
+            }
+
+            if (readingsMap == null || readingsMap.isEmpty()) {
+                hasNewReading = false
+            } else {
+                // Count how many of the *expected* fields are filled
+                val filledReadings = if (meterWithObis.obisPoints.isNotEmpty()) {
+                    // Count filled fields based on the obisPoints list
+                    meterWithObis.obisPoints.count { obisPoint ->
+                        readingsMap[obisPoint.id]?.isNotBlank() == true
+                    }
+                } else {
+                    // Check only the single reading key
+                    if (readingsMap[SINGLE_READING_KEY]?.isNotBlank() == true) 1 else 0
+                }
+
+                // Set to true ONLY if all expected readings are filled
+                hasNewReading = (filledReadings == expectedReadingCount) && (expectedReadingCount > 0)
+            }
+            // --- END OF NEW LOGIC ---
 
             binding.checkmarkIcon.visibility = if (isReadToday) View.VISIBLE else View.GONE
 
@@ -288,14 +400,22 @@ class MeterAdapter(
             }
         }
 
-        private fun updateButtonStates(hasImage: Boolean) {
-            val context = binding.root.context
-            binding.viewImageButton.isEnabled = hasImage
-            binding.deleteImageButton.isEnabled = hasImage
-            val activeColor = ContextCompat.getColor(context, android.R.color.white)
-            val inactiveColor = ContextCompat.getColor(context, android.R.color.darker_gray)
-            binding.viewImageButton.setColorFilter(if (hasImage) activeColor else inactiveColor)
-            binding.deleteImageButton.setColorFilter(if (hasImage) activeColor else inactiveColor)
+        private fun updateFieldsForAppMode(mode: AppMode) {
+            val isReadingMode = (mode == AppMode.READINGS)
+            // Enable/disable dynamically created EditTexts
+            watchers.keys.forEach { it.isEnabled = isReadingMode }
+            // Enable/disable dynamically created buttons
+            dynamicButtons.forEach { it.isEnabled = isReadingMode }
+            // Enable/disable fallback XML EditText (just in case)
+            binding.newReadingValueEditText.isEnabled = isReadingMode
+            binding.readingValueInputLayout.isEnabled = isReadingMode
+
+            // Also enable/disable the original buttons
+            binding.changeMeterButton.isEnabled = isReadingMode
+            // These are now hidden, but disabling is good practice
+            binding.cameraButton.isEnabled = isReadingMode
+            binding.viewImageButton.isEnabled = isReadingMode
+            binding.deleteImageButton.isEnabled = isReadingMode
         }
     }
 
@@ -308,26 +428,26 @@ class MeterAdapter(
         holder.bind(getItem(position))
     }
 
-    // UPDATED: Return the new nested map structure
-    fun getEnteredReadings(): Map<String, Map<String, String>> = enteredObisReadings
+    // Return the nested map structure
+    fun getEnteredReadings(): Map<String, Map<String, String>> = enteredReadings
 
-    fun getMeterImages(): Map<String, Uri> = meterImages
+    // Return the new nested map structure
+    fun getMeterImages(): Map<String, Map<String, Uri>> = meterImages
 
-    fun updateMeterImageUri(meterId: String, uri: Uri) {
-        meterImages[meterId] = uri
+    fun updateMeterImageUri(meterId: String, obisKey: String, uri: Uri) {
+        meterImages.getOrPut(meterId) { mutableMapOf() }[obisKey] = uri
         val index = currentList.indexOfFirst { it.meter.id == meterId }
         if (index != -1) notifyItemChanged(index)
     }
 
-    fun removeMeterImageUri(meterId: String) {
-        meterImages.remove(meterId)
+    fun removeMeterImageUri(meterId: String, obisKey: String) {
+        meterImages[meterId]?.remove(obisKey)
         val index = currentList.indexOfFirst { it.meter.id == meterId }
         if (index != -1) notifyItemChanged(index)
     }
 
-    // UPDATED: Renamed clear function for clarity
     fun clearEnteredObisReadings() {
-        enteredObisReadings.clear()
+        enteredReadings.clear()
         expandedItems.clear() // Also collapse all items when clearing
         notifyDataSetChanged()
     }
