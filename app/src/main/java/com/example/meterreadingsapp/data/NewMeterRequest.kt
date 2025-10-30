@@ -7,6 +7,7 @@ data class NewMeterRequest(
     @SerializedName("building_id") val buildingId: String?,
     @SerializedName("energy_type") val energyType: String?,
     @SerializedName("type") val type: String,
+    @SerializedName("status") val status: String?, // <-- ADDED THIS LINE
     @SerializedName("replaced_old_meter_id") val replacedOldMeterId: String?,
 
     // ADDED: Address fields are required by the database
@@ -16,4 +17,3 @@ data class NewMeterRequest(
     @SerializedName("house_number") val houseNumber: String?,
     @SerializedName("house_number_addition") val houseNumberAddition: String?
 )
-

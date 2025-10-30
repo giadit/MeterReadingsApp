@@ -161,6 +161,7 @@ class MeterRepository(
                     buildingId = oldMeter.buildingId,
                     energyType = oldMeter.energyType,
                     type = oldMeter.type,
+                    status = "Valid", // <-- THIS IS THE ADDED LINE
                     replacedOldMeterId = oldMeter.id,
                     street = oldMeter.street,
                     postalCode = oldMeter.postalCode,

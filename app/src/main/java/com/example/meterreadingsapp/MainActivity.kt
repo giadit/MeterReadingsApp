@@ -417,6 +417,7 @@ class MainActivity : AppCompatActivity() {
                     buildingId = currentBuilding.id,
                     energyType = energyType,
                     type = meterType,
+                    status = "Valid",
                     replacedOldMeterId = null,
                     street = currentBuilding.street,
                     postalCode = currentBuilding.postal_code,
