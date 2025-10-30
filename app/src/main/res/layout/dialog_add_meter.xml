@@ -35,7 +35,9 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"/>
 
+    <!-- Label for the Spinner -->
     <TextView
+        android:id="@+id/meterTypeSpinnerLabel"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Zählertyp"
@@ -45,6 +47,26 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"/>
+
+    <!-- Non-interactable display for Wärme/Gas -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/meterTypeDisplayLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:hint="Zählertyp"
+        android:visibility="gone"
+        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/meterTypeDisplayEditText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:enabled="false"
+            android:focusable="false"
+            android:textColor="@android:color/darker_gray" />
+    </com.google.android.material.textfield.TextInputLayout>
+
 
     <com.google.android.material.textfield.TextInputLayout
         android:layout_width="match_parent"

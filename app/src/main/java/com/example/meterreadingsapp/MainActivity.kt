@@ -17,6 +17,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
+import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.DatePicker
 import android.widget.EditText
@@ -397,19 +398,67 @@ class MainActivity : AppCompatActivity() {
             .create()
 
         val energyTypes = listOf("Strom", "Wärme", "Gas")
-        val meterTypes = listOf("Summenzähler","Wohnung","Gewerbe", "Hausstrom", "Unterzähler",
+        // Renamed for clarity
+        val stromMeterTypes = listOf("Summenzähler","Wohnung","Gewerbe", "Hausstrom", "Unterzähler",
             "Erzeugungszähler PV", "Eigenbedarf PV", "Eigenbedarf KWK", "Erzeugungszähler KWK",
             "BEA Eigenbedarf", "Elektromobilität", "Zwischenzähler","Abgrenzungszähler","Baustrom",
             "Balkon-PV Einspeisung", "Eigenbedarf WP", "unbekannt")
 
         val energyAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, energyTypes)
-        val meterAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, meterTypes)
+        // Renamed for clarity
+        val stromMeterAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, stromMeterTypes)
 
         energyAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        meterAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        stromMeterAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
 
         dialogBinding.spinnerEnergyType.adapter = energyAdapter
-        dialogBinding.spinnerMeterType.adapter = meterAdapter
+        dialogBinding.spinnerMeterType.adapter = stromMeterAdapter
+
+        // --- UPDATED: DYNAMIC SPINNER/TEXT LOGIC ---
+        // This logic now correctly references the IDs in the new dialog_add_meter.xml
+        dialogBinding.spinnerEnergyType.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                try {
+                    when (energyTypes[position]) {
+                        "Strom" -> {
+                            // Show the spinner and its label
+                            dialogBinding.meterTypeSpinnerLabel.visibility = View.VISIBLE
+                            dialogBinding.spinnerMeterType.visibility = View.VISIBLE
+                            // Hide the text box
+                            dialogBinding.meterTypeDisplayLayout.visibility = View.GONE
+                        }
+                        "Wärme" -> {
+                            // Hide the spinner and its label
+                            dialogBinding.meterTypeSpinnerLabel.visibility = View.GONE
+                            dialogBinding.spinnerMeterType.visibility = View.GONE
+                            // Show the text box
+                            dialogBinding.meterTypeDisplayLayout.visibility = View.VISIBLE
+                            dialogBinding.meterTypeDisplayEditText.setText("Wärmemengenzähler")
+                        }
+                        "Gas" -> {
+                            // Hide the spinner and its label
+                            dialogBinding.meterTypeSpinnerLabel.visibility = View.GONE
+                            dialogBinding.spinnerMeterType.visibility = View.GONE
+                            // Show the text box
+                            dialogBinding.meterTypeDisplayLayout.visibility = View.VISIBLE
+                            dialogBinding.meterTypeDisplayEditText.setText("Gaszähler")
+                        }
+                    }
+                } catch (e: Exception) {
+                    // This catch block is a safeguard in case of binding errors.
+                    Log.e("showAddMeterDialog", "Error toggling view visibility: ${e.message}")
+                }
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {
+                // By default, show the meter type spinner (as "Strom" is default)
+                try {
+                    dialogBinding.meterTypeSpinnerLabel.visibility = View.VISIBLE
+                    dialogBinding.spinnerMeterType.visibility = View.VISIBLE
+                    dialogBinding.meterTypeDisplayLayout.visibility = View.GONE
+                } catch (_: Exception) {}
+            }
+        }
+        // --- END OF UPDATED LOGIC ---
 
         dialog.setOnShowListener {
             val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
@@ -424,10 +473,19 @@ class MainActivity : AppCompatActivity() {
                     set(datePicker.year, datePicker.month, datePicker.dayOfMonth)
                 }
                 val readingDate = apiDateFormat.format(calendar.time)
-                val energyType = dialogBinding.spinnerEnergyType.selectedItem.toString()
-                val meterType = dialogBinding.spinnerMeterType.selectedItem.toString()
 
-                if (newMeterNumber.isBlank() || initialReadingValue.isBlank()) {
+                // --- MODIFIED: METER TYPE LOGIC ---
+                val energyType = dialogBinding.spinnerEnergyType.selectedItem.toString()
+                // This logic is already correct from the previous step and handles all cases.
+                val meterType: String = when (energyType) {
+                    "Strom" -> dialogBinding.spinnerMeterType.selectedItem.toString()
+                    "Wärme" -> "Wärmemengenzähler"
+                    "Gas" -> "Gaszähler"
+                    else -> "" // Should not happen, but good for safety
+                }
+                // --- END OF MODIFIED LOGIC ---
+
+                if (newMeterNumber.isBlank() || initialReadingValue.isBlank() || meterType.isBlank()) { // Added check for meterType
                     Toast.makeText(this, "Bitte alle Felder ausfüllen.", Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
@@ -437,7 +495,7 @@ class MainActivity : AppCompatActivity() {
                     projectId = currentProjectId,
                     buildingId = currentBuilding.id,
                     energyType = energyType,
-                    type = meterType,
+                    type = meterType, // Use the dynamically determined meterType
                     status = "Valid",
                     replacedOldMeterId = null,
                     street = currentBuilding.street,
@@ -925,3 +983,5 @@ class MainActivity : AppCompatActivity() {
         EDITING
     }
 }
+
+
