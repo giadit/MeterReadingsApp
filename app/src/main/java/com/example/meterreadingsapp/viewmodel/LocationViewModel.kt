@@ -91,11 +91,16 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
     // ADDED: Property to expose OBIS codes to the MainActivity
     val allObisCodes: LiveData<List<ObisCode>> = repository.getAllObisCodesFromDb().asLiveData()
 
-    // ADDED: Function to handle creating a new meter
-    fun addNewMeter(newMeterRequest: NewMeterRequest, initialReading: Reading) {
+    // UPDATED: Function signature now accepts a list of OBIS code IDs
+    fun addNewMeter(
+        newMeterRequest: NewMeterRequest,
+        initialReading: Reading,
+        selectedObisCodeIds: List<String> // ADDED
+    ) {
         viewModelScope.launch {
             _uiMessage.value = "Creating new meter..."
-            val success = repository.createNewMeter(newMeterRequest, initialReading)
+            // UPDATED: Pass the list of IDs to the repository
+            val success = repository.createNewMeter(newMeterRequest, initialReading, selectedObisCodeIds)
             if (success) {
                 _uiMessage.value = "New meter created successfully!"
                 refreshAllData() // Refresh data to show the new meter
@@ -137,4 +142,3 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
     fun postMeterReading(reading: Reading) { viewModelScope.launch { repository.postMeterReading(reading) } }
     fun queueImageUpload(imageUri: Uri, fullStoragePath: String, projectId: String, meterId: String) { repository.queueImageUpload(imageUri, fullStoragePath, projectId, meterId) }
 }
-

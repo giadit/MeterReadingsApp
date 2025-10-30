@@ -4,6 +4,7 @@ import android.app.DatePickerDialog
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -13,14 +14,17 @@ import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
+import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
+import android.widget.CheckBox // IMPORTED CheckBox
 import android.widget.DatePicker
 import android.widget.EditText
+import android.widget.LinearLayout // ADDED THIS IMPORT
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
@@ -460,6 +464,42 @@ class MainActivity : AppCompatActivity() {
         }
         // --- END OF UPDATED LOGIC ---
 
+        // START: Added logic to populate OBIS checklist
+        val obisCheckBoxes = mutableListOf<CheckBox>()
+        dialogBinding.obisChecklistContainer.removeAllViews() // Clear old views
+
+        // START: Define ColorStateList for checkbox
+        val colorStateList = ColorStateList(
+            arrayOf(
+                intArrayOf(android.R.attr.state_checked), // checked
+                intArrayOf(-android.R.attr.state_checked) // unchecked
+            ),
+            intArrayOf(
+                ContextCompat.getColor(this, R.color.bright_orange), // orange when checked
+                ContextCompat.getColor(this, R.color.dark_gray_text)  // gray when unchecked
+            )
+        )
+        // END: Define ColorStateList
+
+        locationViewModel.allObisCodes.value?.forEach { obisCode ->
+            val checkBox = CheckBox(this).apply {
+                // UPDATED: Changed text format
+                text = "${obisCode.description ?: "N/A"} [${obisCode.code}]"
+                tag = obisCode.id // Store the OBIS Code ID in the tag
+                layoutParams = LinearLayout.LayoutParams( // FIXED
+                    LinearLayout.LayoutParams.MATCH_PARENT, // FIXED
+                    LinearLayout.LayoutParams.WRAP_CONTENT // FIXED
+                )
+                // START: Apply new styling
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f) // Increase text size
+                buttonTintList = colorStateList // Apply orange color when checked
+                // END: Apply new styling
+            }
+            dialogBinding.obisChecklistContainer.addView(checkBox)
+            obisCheckBoxes.add(checkBox)
+        }
+        // END: Added logic
+
         dialog.setOnShowListener {
             val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
             positiveButton.setBackgroundColor(ContextCompat.getColor(this, R.color.bright_orange))
@@ -515,7 +555,14 @@ class MainActivity : AppCompatActivity() {
                     migrationStatus = null
                 )
 
-                locationViewModel.addNewMeter(newMeterRequest, initialReading)
+                // START: Get selected OBIS Code IDs
+                val selectedObisCodeIds = obisCheckBoxes
+                    .filter { it.isChecked }
+                    .map { it.tag as String }
+                // END: Get selected OBIS Code IDs
+
+                // UPDATED: Pass the list of IDs to the ViewModel
+                locationViewModel.addNewMeter(newMeterRequest, initialReading, selectedObisCodeIds)
                 dialog.dismiss()
             }
         }
@@ -955,6 +1002,8 @@ class MainActivity : AppCompatActivity() {
         binding.toolbarDateTextView.isVisible = false
     }
 
+
+
     private fun updateToolbarForMeters(building: Building) {
         binding.toolbarTitle.text = building.name
         binding.searchView.isVisible = false
@@ -983,5 +1032,4 @@ class MainActivity : AppCompatActivity() {
         EDITING
     }
 }
-
 

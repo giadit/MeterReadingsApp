@@ -103,7 +103,12 @@ class MeterRepository(
         }
     }
 
-    suspend fun createNewMeter(newMeterRequest: NewMeterRequest, initialReading: Reading): Boolean {
+    // UPDATED: Function signature now accepts a list of OBIS code IDs
+    suspend fun createNewMeter(
+        newMeterRequest: NewMeterRequest,
+        initialReading: Reading,
+        selectedObisCodeIds: List<String> // ADDED
+    ): Boolean {
         return withContext(Dispatchers.IO) {
             try {
                 Log.d(TAG, "Step 1: Creating new meter with number ${newMeterRequest.number}")
@@ -124,10 +129,33 @@ class MeterRepository(
                 if (!postReadingResponse.isSuccessful) {
                     throw Exception("Failed to post initial reading. Error: ${postReadingResponse.errorBody()?.string()}")
                 }
-                Log.d(TAG, "New meter and initial reading created successfully.")
-                true
+
+                // START: Added Step 3 for creating OBIS links
+                Log.d(TAG, "Step 3: Creating OBIS links for new meter ${newMeter.id}")
+                if (selectedObisCodeIds.isNotEmpty()) {
+                    val newObisLinks = selectedObisCodeIds.map { obisId ->
+                        NewMeterObisRequest(
+                            meterId = newMeter.id,
+                            obisCodeId = obisId
+                        )
+                    }
+                    val createLinksResponse = apiService.createMeterObis(newObisLinks)
+                    if (!createLinksResponse.isSuccessful) {
+                        // Log the error, but don't throw an exception,
+                        // as the meter and initial reading were already created.
+                        Log.e(TAG, "Failed to create OBIS links. Error: ${createLinksResponse.errorBody()?.string()}")
+                    } else {
+                        Log.d(TAG, "${newObisLinks.size} OBIS links created successfully.")
+                    }
+                } else {
+                    Log.d(TAG, "No OBIS codes selected, skipping link creation.")
+                }
+                // END: Added Step 3
+
+                Log.d(TAG, "New meter, initial reading, and OBIS links (if any) created successfully.")
+                true // Return true as the primary operation (meter + reading) succeeded
             } catch (e: Exception) {
-                Log.e(TAG, "Create new meter failed: ${e.message}", e)
+                Log.e(TAG, "Create new meter sequence failed: ${e.message}", e)
                 false
             }
         }
@@ -354,4 +382,3 @@ class MeterRepository(
         workManager.enqueue(syncWorkRequest)
     }
 }
-
