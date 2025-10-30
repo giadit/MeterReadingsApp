@@ -172,6 +172,29 @@ class MeterRepository(
                 val createMeterResponse = apiService.createMeter(newMeterRequest)
                 val newMeter = createMeterResponse.body()?.firstOrNull() ?: throw Exception("Failed to create new meter. Error: ${createMeterResponse.errorBody()?.string()}")
                 Log.d(TAG, "New meter created with ID: ${newMeter.id}")
+
+                // --- NEW: Step 3a: Get old meter's OBIS links ---
+                Log.d(TAG, "Step 3a: Fetching OBIS links for old meter ${oldMeter.id}")
+                val oldObisLinksResponse = apiService.getMeterObisByMeterId("eq.${oldMeter.id}")
+                if (!oldObisLinksResponse.isSuccessful) throw Exception("Failed to fetch OBIS links for old meter. Error: ${oldObisLinksResponse.errorBody()?.string()}")
+
+                val oldObisLinks = oldObisLinksResponse.body()
+                if (oldObisLinks.isNullOrEmpty()) {
+                    Log.d(TAG, "Old meter has no OBIS links to copy.")
+                } else {
+                    // --- NEW: Step 3b: Create new OBIS links for new meter ---
+                    Log.d(TAG, "Step 3b: Copying ${oldObisLinks.size} OBIS links to new meter ${newMeter.id}")
+                    val newObisLinks = oldObisLinks.map {
+                        NewMeterObisRequest(
+                            meterId = newMeter.id,
+                            obisCodeId = it.obisCodeId
+                        )
+                    }
+                    val createLinksResponse = apiService.createMeterObis(newObisLinks)
+                    if (!createLinksResponse.isSuccessful) throw Exception("Failed to create new OBIS links. Error: ${createLinksResponse.errorBody()?.string()}")
+                }
+                // --- END NEW ---
+
                 Log.d(TAG, "Step 4: Linking old meter ${oldMeter.id} to new meter ${newMeter.id}")
                 val linkMetersRequest = UpdateMeterRequest(exchangedWithNewMeterId = newMeter.id)
                 val linkMetersResponse = apiService.updateMeter("eq.${oldMeter.id}", linkMetersRequest)

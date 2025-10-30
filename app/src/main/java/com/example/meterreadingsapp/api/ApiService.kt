@@ -28,6 +28,13 @@ interface ApiService {
     @GET("meter_obis")
     suspend fun getMeterObis(): Response<List<MeterObis>>
 
+    // --- NEW: Get meter_obis entries filtered by meter_id ---
+    @GET("meter_obis")
+    suspend fun getMeterObisByMeterId(
+        @Query("meter_id") meterIdFilter: String // e.g., "eq.some-uuid"
+    ): Response<List<MeterObis>>
+    // --- END NEW ---
+
     @POST("readings")
     suspend fun postReading(
         @Body reading: Reading,
@@ -41,6 +48,14 @@ interface ApiService {
         @Body newMeter: NewMeterRequest,
         @Header("Prefer") prefer: String = "return=representation"
     ): Response<List<Meter>>
+
+    // --- NEW: Create new meter_obis entries (as a batch) ---
+    @POST("meter_obis")
+    suspend fun createMeterObis(
+        @Body newMeterObisList: List<NewMeterObisRequest>,
+        @Header("Prefer") prefer: String = "return=minimal"
+    ): Response<Unit>
+    // --- END NEW ---
 
     // ADDED: Endpoint to update an existing meter using PATCH.
     @PATCH("meters")
