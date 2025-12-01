@@ -89,10 +89,8 @@ class MeterAdapter(
             binding.meterEnergyTypeTextView.text = meter.energyType ?: "N/A"
 
             // UPDATED: Hide the general "last reading" line in the header
-            // We find the parent view of the text view (which is the LinearLayout row) and hide it
             (binding.meterLastReadingTextView.parent as? View)?.visibility = View.GONE
 
-            // Format date for use in specific rows
             val formattedDate = meter.lastReadingDate?.let {
                 try {
                     apiDateFormat.parse(it)?.let { date -> uiDateFormat.format(date) }
@@ -127,7 +125,6 @@ class MeterAdapter(
                     val obisCodeString = obisCode?.code
                     val currentImageUri = meterImageMap[obisKey]
 
-                    // UPDATED: Fetch specific last reading using OBIS code as key
                     val specificLastReading = if (obisCodeString != null) {
                         meter.lastReadings?.get(obisCodeString)?.toString()
                     } else null
@@ -138,12 +135,10 @@ class MeterAdapter(
                         obisCode = obisCodeString,
                         savedValue = meterReadings[obisKey] ?: "",
                         hasImage = currentImageUri != null,
-                        lastReading = specificLastReading, // Pass specific reading
-                        lastReadingDate = formattedDate // Pass date
+                        lastReading = specificLastReading,
+                        lastReadingDate = formattedDate
                     )
 
-                    // FIX: Correct indices for buttons.
-                    // Index 0 is the inputWrapper (LinearLayout) containing TextView and TextInputLayout
                     val cameraButton = rowLayout.getChildAt(1) as ImageButton
                     val viewButton = rowLayout.getChildAt(2) as ImageButton
                     val deleteButton = rowLayout.getChildAt(3) as ImageButton
@@ -173,7 +168,6 @@ class MeterAdapter(
                 val obisCodeString = "main"
                 val currentImageUri = meterImageMap[obisKey]
 
-                // Fallback: Try to get any value from lastReadings or use the old field if it existed
                 val specificLastReading = meter.lastReadings?.values?.firstOrNull()?.toString()
 
                 val (rowLayout, dynamicEditText) = createReadingInputRow(
@@ -188,7 +182,6 @@ class MeterAdapter(
 
                 binding.obisReadingsContainer.addView(rowLayout)
 
-                // FIX: Correct indices for buttons here as well.
                 val cameraButton = rowLayout.getChildAt(1) as ImageButton
                 val viewButton = rowLayout.getChildAt(2) as ImageButton
                 val deleteButton = rowLayout.getChildAt(3) as ImageButton
@@ -238,7 +231,6 @@ class MeterAdapter(
             }
         }
 
-        // UPDATED: Added lastReading and lastReadingDate parameters
         private fun createReadingInputRow(
             context: Context,
             hint: String,
@@ -257,10 +249,9 @@ class MeterAdapter(
                     it.topMargin = marginInPixels
                 }
                 orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL // Vertical center for buttons, but text input might grow
+                gravity = Gravity.CENTER_VERTICAL
             }
 
-            // NEW: Vertical Wrapper for "Last Reading Text" and "Input Field"
             val inputWrapper = LinearLayout(context).apply {
                 layoutParams = LinearLayout.LayoutParams(
                     0, // Width 0 (weight 1)
@@ -270,26 +261,27 @@ class MeterAdapter(
                 orientation = LinearLayout.VERTICAL
             }
 
-            // NEW: TextView for Last Reading
-            // CHANGED: Always display the TextView. Use "N/A" if lastReading is null.
             val displayReading = lastReading ?: "N/A"
             val displayDate = if (lastReadingDate != null) " ($lastReadingDate)" else ""
 
             val lastReadingTextView = TextView(context).apply {
                 text = "Ltz. Stand: $displayReading$displayDate"
-                textSize = 12f // Small text
+                textSize = 12f
                 try {
                     setTextColor(ContextCompat.getColor(context, R.color.dark_gray_text))
                 } catch (e: Exception) {
                     setTextColor(android.graphics.Color.GRAY)
                 }
-                setPadding(0, 0, 0, 4) // Padding bottom
+                setPadding(0, 0, 0, 4)
+                // Add scaling properties
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
             }
             inputWrapper.addView(lastReadingTextView)
 
             val textInputLayout = TextInputLayout(context).apply {
                 layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, // Match wrapper width
+                    LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 )
                 isHintEnabled = false
@@ -316,10 +308,8 @@ class MeterAdapter(
             textInputLayout.addView(editText)
             inputWrapper.addView(textInputLayout)
 
-            // Add Wrapper to Row
             rowLayout.addView(inputWrapper)
 
-            // Add Buttons
             val cameraButton = createDynamicImageButton(context, R.drawable.ic_camera_white_24, R.drawable.button_orange_background, R.string.camera_button_description)
             val viewButton = createDynamicImageButton(context, R.drawable.ic_image_white_24, R.drawable.button_orange_background, R.string.view_image_button_description)
             val deleteButton = createDynamicImageButton(context, R.drawable.ic_delete_white_24, R.drawable.button_red_background, R.string.delete_image_button_description)
@@ -339,9 +329,9 @@ class MeterAdapter(
             val paddingInPixels = (8 * context.resources.displayMetrics.density).roundToInt()
 
             return ImageButton(context).apply {
+                // FIXED SIZE for buttons to ensure they don't squash the text input
                 layoutParams = LinearLayout.LayoutParams(sizeInPixels, sizeInPixels).also {
                     it.marginStart = marginInPixels
-                    // Center vertically in the row
                     it.gravity = Gravity.CENTER_VERTICAL
                 }
                 setImageResource(iconRes)

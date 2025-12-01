@@ -48,7 +48,9 @@
                     android:textSize="20sp"
                     android:textStyle="bold"
                     android:layout_marginStart="8dp"
-                    android:visibility="visible"/>
+                    android:visibility="visible"
+                    android:ellipsize="end"
+                    android:maxLines="1"/>
 
                 <TextView
                     android:id="@+id/toolbarDateTextView"
@@ -169,6 +171,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent">
 
+            <!-- UPDATED: Filter Buttons Layout for better scaling -->
             <LinearLayout
                 android:id="@+id/filterButtonsLayout"
                 android:layout_width="match_parent"
@@ -176,87 +179,103 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:paddingVertical="4dp"
-                android:paddingStart="8dp"
-                android:paddingEnd="8dp">
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp">
 
+                <!-- Added autoSize attributes to all filter buttons -->
                 <TextView
                     android:id="@+id/filterAll"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="40dp"
                     android:layout_weight="1"
                     android:gravity="center"
                     android:text="@string/filter_all"
-                    android:paddingTop="8dp"
-                    android:paddingBottom="8dp"
                     android:background="@drawable/filter_button_background"
                     android:textColor="@android:color/black"
                     android:textStyle="normal"
                     android:clickable="true"
                     android:focusable="true"
-                    android:layout_marginEnd="4dp"/>
+                    android:layout_marginEnd="2dp"
+                    app:autoSizeTextType="uniform"
+                    app:autoSizeMinTextSize="10sp"
+                    app:autoSizeMaxTextSize="14sp"
+                    app:autoSizeStepGranularity="1sp"
+                    android:maxLines="1"/>
 
                 <TextView
                     android:id="@+id/filterElectricity"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="40dp"
                     android:layout_weight="1"
                     android:gravity="center"
                     android:text="@string/filter_electricity"
-                    android:paddingTop="8dp"
-                    android:paddingBottom="8dp"
                     android:background="@drawable/filter_button_background"
                     android:textColor="@android:color/black"
                     android:textStyle="normal"
                     android:clickable="true"
                     android:focusable="true"
-                    android:layout_marginEnd="4dp"/>
+                    android:layout_marginEnd="2dp"
+                    app:autoSizeTextType="uniform"
+                    app:autoSizeMinTextSize="10sp"
+                    app:autoSizeMaxTextSize="14sp"
+                    app:autoSizeStepGranularity="1sp"
+                    android:maxLines="1"/>
 
                 <TextView
                     android:id="@+id/filterHeat"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="40dp"
                     android:layout_weight="1"
                     android:gravity="center"
                     android:text="@string/filter_heat"
-                    android:paddingTop="8dp"
-                    android:paddingBottom="8dp"
                     android:background="@drawable/filter_button_background"
                     android:textColor="@android:color/black"
                     android:textStyle="normal"
                     android:clickable="true"
                     android:focusable="true"
-                    android:layout_marginEnd="4dp"/>
+                    android:layout_marginEnd="2dp"
+                    app:autoSizeTextType="uniform"
+                    app:autoSizeMinTextSize="10sp"
+                    app:autoSizeMaxTextSize="14sp"
+                    app:autoSizeStepGranularity="1sp"
+                    android:maxLines="1"/>
 
                 <TextView
                     android:id="@+id/filterGas"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
+                    android:layout_height="40dp"
                     android:layout_weight="1"
                     android:gravity="center"
                     android:text="@string/filter_gas"
-                    android:paddingTop="8dp"
-                    android:paddingBottom="8dp"
                     android:background="@drawable/filter_button_background"
                     android:textColor="@android:color/black"
                     android:textStyle="normal"
                     android:clickable="true"
                     android:focusable="true"
-                    android:layout_marginEnd="4dp"/>
+                    android:layout_marginEnd="2dp"
+                    app:autoSizeTextType="uniform"
+                    app:autoSizeMinTextSize="10sp"
+                    app:autoSizeMaxTextSize="14sp"
+                    app:autoSizeStepGranularity="1sp"
+                    android:maxLines="1"/>
 
                 <TextView
                     android:id="@+id/filterGetauscht"
                     android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
+                    android:layout_height="40dp"
+                    android:layout_weight="1.2"
                     android:gravity="center"
                     android:text="Getauscht"
-                    android:paddingTop="8dp"
-                    android:paddingBottom="8dp"
                     android:background="@drawable/filter_button_background"
                     android:textColor="@android:color/black"
                     android:textStyle="normal"
                     android:clickable="true"
-                    android:focusable="true"/>
+                    android:focusable="true"
+                    app:autoSizeTextType="uniform"
+                    app:autoSizeMinTextSize="10sp"
+                    app:autoSizeMaxTextSize="14sp"
+                    app:autoSizeStepGranularity="1sp"
+                    android:maxLines="1"/>
 
             </LinearLayout>
 
@@ -331,7 +350,11 @@
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toEndOf="@id/bottomBarCalendarButton"
-                app:layout_constraintEnd_toStartOf="@+id/bottomBarAddMeterButton"/>
+                app:layout_constraintEnd_toStartOf="@+id/bottomBarAddMeterButton"
+                app:autoSizeTextType="uniform"
+                app:autoSizeMinTextSize="12sp"
+                app:autoSizeMaxTextSize="16sp"
+                android:maxLines="1"/>
 
             <ImageButton
                 android:id="@+id/bottomBarAddMeterButton"
@@ -351,4 +374,3 @@
     </androidx.constraintlayout.widget.ConstraintLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
-
