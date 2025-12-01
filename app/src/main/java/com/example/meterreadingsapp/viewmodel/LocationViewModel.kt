@@ -5,9 +5,9 @@ import android.util.Log
 import androidx.lifecycle.*
 import com.example.meterreadingsapp.data.Building
 import com.example.meterreadingsapp.data.Meter
-import com.example.meterreadingsapp.data.MeterWithObisPoints // NEW IMPORT
+import com.example.meterreadingsapp.data.MeterWithObisPoints
 import com.example.meterreadingsapp.data.NewMeterRequest
-import com.example.meterreadingsapp.data.ObisCode // ADDED: Import
+import com.example.meterreadingsapp.data.ObisCode
 import com.example.meterreadingsapp.data.Project
 import com.example.meterreadingsapp.data.Reading
 import com.example.meterreadingsapp.repository.MeterRepository
@@ -69,18 +69,16 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
     val meterSearchQuery: StateFlow<String> = _meterSearchQuery.asStateFlow()
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val meters: LiveData<List<MeterWithObisPoints>> = selectedBuildingId.flatMapLatest { buildingId -> // CHANGED: Output type
+    val meters: LiveData<List<MeterWithObisPoints>> = selectedBuildingId.flatMapLatest { buildingId ->
         if (buildingId == null) {
             flowOf(emptyList())
         } else {
-            // CHANGED: Call the renamed repository function
             repository.getMetersWithObisByBuildingIdFromDb(buildingId)
         }
     }.combine(_meterSearchQuery) { meterList, query ->
         if (query.isBlank()) {
             meterList
         } else {
-            // CHANGED: Filtering logic now uses the nested 'meter' object
             meterList.filter {
                 it.meter.number.contains(query, ignoreCase = true) ||
                         it.meter.location?.contains(query, ignoreCase = true) == true
@@ -88,22 +86,19 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
         }
     }.asLiveData()
 
-    // ADDED: Property to expose OBIS codes to the MainActivity
     val allObisCodes: LiveData<List<ObisCode>> = repository.getAllObisCodesFromDb().asLiveData()
 
-    // UPDATED: Function signature now accepts a list of OBIS code IDs
     fun addNewMeter(
         newMeterRequest: NewMeterRequest,
         initialReading: Reading,
-        selectedObisCodeIds: List<String> // ADDED
+        selectedObisCodeIds: List<String>
     ) {
         viewModelScope.launch {
             _uiMessage.value = "Creating new meter..."
-            // UPDATED: Pass the list of IDs to the repository
             val success = repository.createNewMeter(newMeterRequest, initialReading, selectedObisCodeIds)
             if (success) {
                 _uiMessage.value = "New meter created successfully!"
-                refreshAllData() // Refresh data to show the new meter
+                refreshAllData()
             } else {
                 _uiMessage.value = "Failed to create new meter. Please try again."
             }
@@ -112,17 +107,17 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
 
     fun exchangeMeter(
         oldMeter: Meter,
-        oldMeterLastReading: Reading,
+        oldMeterReadings: List<Reading>,
         newMeterNumber: String,
-        newMeterInitialReading: Reading
+        newMeterReadingsMap: Map<String, Reading> // Key: ObisCodeId
     ) {
         viewModelScope.launch {
             _uiMessage.value = "Exchanging meter..."
             val success = repository.performMeterExchange(
                 oldMeter,
-                oldMeterLastReading,
+                oldMeterReadings,
                 newMeterNumber,
-                newMeterInitialReading
+                newMeterReadingsMap
             )
             if (success) {
                 _uiMessage.value = "Meter exchanged successfully!"

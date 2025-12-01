@@ -27,7 +27,7 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.OnBackPressedCallback // ADDED: Import for Back Callback
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -53,6 +53,8 @@ import com.example.meterreadingsapp.repository.MeterRepository
 import com.example.meterreadingsapp.viewmodel.LocationViewModel
 import com.example.meterreadingsapp.viewmodel.LocationViewModelFactory
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.io.File
@@ -89,7 +91,6 @@ class MainActivity : AppCompatActivity() {
     private var currentObisKeyForPhoto: String? = null
     private var currentObisCodeForPhoto: String? = null
 
-    // ADDED: Variable to track double back press
     private var backPressedTime: Long = 0
     private val BACK_PRESS_INTERVAL: Long = 2000 // 2 seconds
 
@@ -203,12 +204,10 @@ class MainActivity : AppCompatActivity() {
             Log.d("MainActivity", "Refreshing all data...")
         }
 
-        // UPDATED: Use consolidated navigation logic for the UI Back Button
         binding.backButton.setOnClickListener {
             navigateBack()
         }
 
-        // ADDED: Handle System Back Button using OnBackPressedDispatcher
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 navigateBack()
@@ -224,11 +223,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ADDED: Consolidated navigation logic
     private fun navigateBack() {
         when {
             binding.metersContainer.isVisible -> {
-                // Meters -> Buildings
                 locationViewModel.selectBuilding(null)
                 binding.metersContainer.isVisible = false
                 binding.locationsContainer.isVisible = true
@@ -239,7 +236,6 @@ class MainActivity : AppCompatActivity() {
                 updateToolbarForBuildings(locationViewModel.selectedProjectId.value)
             }
             binding.locationsContainer.isVisible -> {
-                // Buildings -> Projects
                 locationViewModel.selectProject(null)
                 binding.locationsContainer.isVisible = false
                 binding.projectsContainer.isVisible = true
@@ -253,12 +249,10 @@ class MainActivity : AppCompatActivity() {
                 updateToolbarForProjects()
             }
             else -> {
-                // Projects -> Exit App logic (Double back to exit)
                 if (System.currentTimeMillis() - backPressedTime < BACK_PRESS_INTERVAL) {
-                    finish() // Close the activity/app
+                    finish()
                 } else {
                     backPressedTime = System.currentTimeMillis()
-                    // Use string resource for consistency
                     Toast.makeText(this, getString(R.string.press_back_again_to_exit), Toast.LENGTH_SHORT).show()
                 }
             }
@@ -321,8 +315,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // ... (rest of the file remains unchanged, helper methods are standard) ...
-
     private fun showMeterInfoDialog(meter: Meter) {
         val info = """
             Standort: ${meter.location ?: "-"}
@@ -339,6 +331,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showChangeMeterDialog(oldMeter: Meter) {
+        // Find the full MeterWithObisPoints object to get the OBIS codes
+        val meterWithObis = locationViewModel.meters.value?.find { it.meter.id == oldMeter.id }
+        if (meterWithObis == null) {
+            Toast.makeText(this, "Zählerdaten konnten nicht geladen werden.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         val dialogBinding = DialogChangeMeterBinding.inflate(LayoutInflater.from(this))
         val dialog = MaterialAlertDialogBuilder(this)
             .setView(dialogBinding.root)
@@ -346,50 +345,158 @@ class MainActivity : AppCompatActivity() {
             .setNegativeButton("Abbrechen", null)
             .create()
 
+        // --- DYNAMIC FIELDS FOR OLD METER ---
+        val oldMeterInputs = mutableMapOf<String, EditText>() // Key: meterObisId (UUID of the link)
+        val obisCodeList = locationViewModel.allObisCodes.value ?: emptyList()
+
+        if (meterWithObis.obisPoints.isNotEmpty()) {
+            meterWithObis.obisPoints.forEach { meterObis ->
+                val obisCodeDef = obisCodeList.find { it.id == meterObis.obisCodeId }
+                val label = obisCodeDef?.let { "${it.description} [${it.code}]" } ?: "Unbekannter OBIS Code"
+
+                val inputLayout = TextInputLayout(this).apply {
+                    hint = label
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply { topMargin = 16 }
+                }
+                val editText = TextInputEditText(this).apply {
+                    inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+                }
+                inputLayout.addView(editText)
+                dialogBinding.oldMeterReadingsContainer.addView(inputLayout)
+                oldMeterInputs[meterObis.id] = editText
+            }
+        } else {
+            // Fallback for meters without OBIS points (Legacy)
+            val inputLayout = TextInputLayout(this).apply {
+                hint = "Zählerstand (Einfach)"
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            }
+            val editText = TextInputEditText(this).apply {
+                inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+            }
+            inputLayout.addView(editText)
+            dialogBinding.oldMeterReadingsContainer.addView(inputLayout)
+            // Use a dummy key for legacy handling if needed, or handle as null logic later
+            oldMeterInputs["legacy_single"] = editText
+        }
+
+        // --- DYNAMIC FIELDS FOR NEW METER ---
+        // Assumption: New meter will have the SAME OBIS codes as the old one.
+        val newMeterInputs = mutableMapOf<String, EditText>() // Key: obisCodeId (UUID of the ObisCode Definition)
+
+        if (meterWithObis.obisPoints.isNotEmpty()) {
+            meterWithObis.obisPoints.forEach { meterObis ->
+                val obisCodeDef = obisCodeList.find { it.id == meterObis.obisCodeId }
+                val label = obisCodeDef?.let { "${it.description} [${it.code}]" } ?: "Unbekannter OBIS Code"
+
+                val inputLayout = TextInputLayout(this).apply {
+                    hint = label
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply { topMargin = 16 }
+                }
+                val editText = TextInputEditText(this).apply {
+                    inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+                }
+                inputLayout.addView(editText)
+                dialogBinding.newMeterReadingsContainer.addView(inputLayout)
+                newMeterInputs[meterObis.obisCodeId] = editText
+            }
+        } else {
+            // Fallback for legacy
+            val inputLayout = TextInputLayout(this).apply {
+                hint = "Anfangszählerstand (Einfach)"
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                )
+            }
+            val editText = TextInputEditText(this).apply {
+                inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+            }
+            inputLayout.addView(editText)
+            dialogBinding.newMeterReadingsContainer.addView(inputLayout)
+            newMeterInputs["legacy_single"] = editText
+        }
+
         dialog.setOnShowListener {
             val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
             positiveButton.setBackgroundColor(ContextCompat.getColor(this, R.color.bright_orange))
             positiveButton.setTextColor(Color.WHITE)
 
             positiveButton.setOnClickListener {
-                val oldReadingValue = dialogBinding.oldMeterLastReading.text.toString()
                 val newMeterNumber = dialogBinding.newMeterNumber.text.toString()
-                val newReadingValue = dialogBinding.newMeterInitialReading.text.toString()
+
+                // Retrieve Dates - NOW USING ONE DATE FOR BOTH ACTIONS
                 val datePicker = dialogBinding.oldMeterLastReadingDate
-                val calendar = Calendar.getInstance().apply {
+                val dateCalendar = Calendar.getInstance().apply {
                     set(datePicker.year, datePicker.month, datePicker.dayOfMonth)
                 }
-                val oldReadingDate = apiDateFormat.format(calendar.time)
+                val exchangeDate = apiDateFormat.format(dateCalendar.time)
 
-                if (oldReadingValue.isBlank() || newMeterNumber.isBlank() || newReadingValue.isBlank()) {
-                    Toast.makeText(this, "Bitte alle Felder ausfüllen.", Toast.LENGTH_SHORT).show()
+                if (newMeterNumber.isBlank()) {
+                    Toast.makeText(this, "Bitte neue Zählernummer eingeben.", Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
 
-                val oldMeterLastReading = Reading(
-                    id = UUID.randomUUID().toString(),
-                    meter_id = oldMeter.id,
-                    value = oldReadingValue,
-                    date = oldReadingDate,
-                    read_by = "App User",
-                    meterObisId = null, // This is a simple reading
-                    migrationStatus = null
-                )
-                val newMeterInitialReading = Reading(
-                    id = UUID.randomUUID().toString(),
-                    meter_id = "",
-                    value = newReadingValue,
-                    date = oldReadingDate,
-                    read_by = "App User",
-                    meterObisId = null, // This is a simple reading
-                    migrationStatus = null
-                )
+                // Collect Old Readings
+                val oldReadings = mutableListOf<Reading>()
+                var allOldFilled = true
+                oldMeterInputs.forEach { (meterObisId, editText) ->
+                    val value = editText.text.toString()
+                    if (value.isBlank()) {
+                        allOldFilled = false
+                    } else {
+                        oldReadings.add(Reading(
+                            id = UUID.randomUUID().toString(),
+                            meter_id = oldMeter.id,
+                            value = value,
+                            date = exchangeDate, // Use the common exchange date
+                            read_by = "App User",
+                            meterObisId = if (meterObisId == "legacy_single") null else meterObisId,
+                            migrationStatus = null
+                        ))
+                    }
+                }
+
+                // Collect New Readings
+                val newReadingsMap = mutableMapOf<String, Reading>() // ObisCodeId -> Reading Object (without meterObisId yet)
+                var allNewFilled = true
+                newMeterInputs.forEach { (obisCodeId, editText) ->
+                    val value = editText.text.toString()
+                    if (value.isBlank()) {
+                        allNewFilled = false
+                    } else {
+                        // Create a temporary Reading object. We will fix meter_id and meterObisId in the Repository
+                        newReadingsMap[obisCodeId] = Reading(
+                            id = UUID.randomUUID().toString(),
+                            meter_id = "", // Will be set in Repo
+                            value = value,
+                            date = exchangeDate, // Use the common exchange date
+                            read_by = "App User",
+                            meterObisId = null, // Will be set in Repo
+                            migrationStatus = null
+                        )
+                    }
+                }
+
+                if (!allOldFilled || !allNewFilled) {
+                    Toast.makeText(this, "Bitte alle Zählerstände ausfüllen.", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
 
                 locationViewModel.exchangeMeter(
                     oldMeter,
-                    oldMeterLastReading,
+                    oldReadings,
                     newMeterNumber,
-                    newMeterInitialReading
+                    newReadingsMap
                 )
                 dialog.dismiss()
             }
@@ -414,14 +521,12 @@ class MainActivity : AppCompatActivity() {
             .create()
 
         val energyTypes = listOf("Strom", "Wärme", "Gas")
-        // Renamed for clarity
         val stromMeterTypes = listOf("Summenzähler","Wohnung","Gewerbe", "Hausstrom", "Unterzähler",
             "Erzeugungszähler PV", "Eigenbedarf PV", "Eigenbedarf KWK", "Erzeugungszähler KWK",
             "BEA Eigenbedarf", "Elektromobilität", "Zwischenzähler","Abgrenzungszähler","Baustrom",
             "Balkon-PV Einspeisung", "Eigenbedarf WP", "unbekannt")
 
         val energyAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, energyTypes)
-        // Renamed for clarity
         val stromMeterAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, stromMeterTypes)
 
         energyAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
@@ -430,87 +535,54 @@ class MainActivity : AppCompatActivity() {
         dialogBinding.spinnerEnergyType.adapter = energyAdapter
         dialogBinding.spinnerMeterType.adapter = stromMeterAdapter
 
-        // --- UPDATED: DYNAMIC SPINNER/TEXT LOGIC ---
-        // This logic now correctly references the IDs in the new dialog_add_meter.xml
         dialogBinding.spinnerEnergyType.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 try {
                     when (energyTypes[position]) {
                         "Strom" -> {
-                            // Show the spinner and its label
                             dialogBinding.meterTypeSpinnerLabel.visibility = View.VISIBLE
                             dialogBinding.spinnerMeterType.visibility = View.VISIBLE
-                            // Hide the text box
                             dialogBinding.meterTypeDisplayLayout.visibility = View.GONE
                         }
                         "Wärme" -> {
-                            // Hide the spinner and its label
                             dialogBinding.meterTypeSpinnerLabel.visibility = View.GONE
                             dialogBinding.spinnerMeterType.visibility = View.GONE
-                            // Show the text box
                             dialogBinding.meterTypeDisplayLayout.visibility = View.VISIBLE
                             dialogBinding.meterTypeDisplayEditText.setText("Wärmemengenzähler")
                         }
                         "Gas" -> {
-                            // Hide the spinner and its label
                             dialogBinding.meterTypeSpinnerLabel.visibility = View.GONE
                             dialogBinding.spinnerMeterType.visibility = View.GONE
-                            // Show the text box
                             dialogBinding.meterTypeDisplayLayout.visibility = View.VISIBLE
                             dialogBinding.meterTypeDisplayEditText.setText("Gaszähler")
                         }
                     }
                 } catch (e: Exception) {
-                    // This catch block is a safeguard in case of binding errors.
                     Log.e("showAddMeterDialog", "Error toggling view visibility: ${e.message}")
                 }
             }
-            override fun onNothingSelected(parent: AdapterView<*>?) {
-                // By default, show the meter type spinner (as "Strom" is default)
-                try {
-                    dialogBinding.meterTypeSpinnerLabel.visibility = View.VISIBLE
-                    dialogBinding.spinnerMeterType.visibility = View.VISIBLE
-                    dialogBinding.meterTypeDisplayLayout.visibility = View.GONE
-                } catch (_: Exception) {}
-            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
-        // --- END OF UPDATED LOGIC ---
 
-        // START: Added logic to populate OBIS checklist
         val obisCheckBoxes = mutableListOf<CheckBox>()
-        dialogBinding.obisChecklistContainer.removeAllViews() // Clear old views
+        dialogBinding.obisChecklistContainer.removeAllViews()
 
-        // START: Define ColorStateList for checkbox
         val colorStateList = ColorStateList(
-            arrayOf(
-                intArrayOf(android.R.attr.state_checked), // checked
-                intArrayOf(-android.R.attr.state_checked) // unchecked
-            ),
-            intArrayOf(
-                ContextCompat.getColor(this, R.color.bright_orange), // orange when checked
-                ContextCompat.getColor(this, R.color.dark_gray_text)  // gray when unchecked
-            )
+            arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf(-android.R.attr.state_checked)),
+            intArrayOf(ContextCompat.getColor(this, R.color.bright_orange), ContextCompat.getColor(this, R.color.dark_gray_text))
         )
-        // END: Define ColorStateList
 
         locationViewModel.allObisCodes.value?.forEach { obisCode ->
             val checkBox = CheckBox(this).apply {
-                // UPDATED: Changed text format
                 text = "${obisCode.description ?: "N/A"} [${obisCode.code}]"
-                tag = obisCode.id // Store the OBIS Code ID in the tag
-                layoutParams = LinearLayout.LayoutParams( // FIXED
-                    LinearLayout.LayoutParams.MATCH_PARENT, // FIXED
-                    LinearLayout.LayoutParams.WRAP_CONTENT // FIXED
-                )
-                // START: Apply new styling
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f) // Increase text size
-                buttonTintList = colorStateList // Apply orange color when checked
-                // END: Apply new styling
+                tag = obisCode.id
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+                buttonTintList = colorStateList
             }
             dialogBinding.obisChecklistContainer.addView(checkBox)
             obisCheckBoxes.add(checkBox)
         }
-        // END: Added logic
 
         dialog.setOnShowListener {
             val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
@@ -526,18 +598,15 @@ class MainActivity : AppCompatActivity() {
                 }
                 val readingDate = apiDateFormat.format(calendar.time)
 
-                // --- MODIFIED: METER TYPE LOGIC ---
                 val energyType = dialogBinding.spinnerEnergyType.selectedItem.toString()
-                // This logic is already correct from the previous step and handles all cases.
                 val meterType: String = when (energyType) {
                     "Strom" -> dialogBinding.spinnerMeterType.selectedItem.toString()
                     "Wärme" -> "Wärmemengenzähler"
                     "Gas" -> "Gaszähler"
-                    else -> "" // Should not happen, but good for safety
+                    else -> ""
                 }
-                // --- END OF MODIFIED LOGIC ---
 
-                if (newMeterNumber.isBlank() || initialReadingValue.isBlank() || meterType.isBlank()) { // Added check for meterType
+                if (newMeterNumber.isBlank() || initialReadingValue.isBlank() || meterType.isBlank()) {
                     Toast.makeText(this, "Bitte alle Felder ausfüllen.", Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
@@ -547,8 +616,8 @@ class MainActivity : AppCompatActivity() {
                     projectId = currentProjectId,
                     buildingId = currentBuilding.id,
                     energyType = energyType,
-                    type = meterType, // Use the dynamically determined meterType
-                    status = "Aktiv", // CHANGED: "Valid" -> "Aktiv"
+                    type = meterType,
+                    status = "Aktiv",
                     replacedOldMeterId = null,
                     street = currentBuilding.street,
                     postalCode = currentBuilding.postal_code,
@@ -563,17 +632,12 @@ class MainActivity : AppCompatActivity() {
                     value = initialReadingValue,
                     date = readingDate,
                     read_by = "App User",
-                    meterObisId = null, // This is a simple reading
+                    meterObisId = null,
                     migrationStatus = null
                 )
 
-                // START: Get selected OBIS Code IDs
-                val selectedObisCodeIds = obisCheckBoxes
-                    .filter { it.isChecked }
-                    .map { it.tag as String }
-                // END: Get selected OBIS Code IDs
+                val selectedObisCodeIds = obisCheckBoxes.filter { it.isChecked }.map { it.tag as String }
 
-                // UPDATED: Pass the list of IDs to the ViewModel
                 locationViewModel.addNewMeter(newMeterRequest, initialReading, selectedObisCodeIds)
                 dialog.dismiss()
             }

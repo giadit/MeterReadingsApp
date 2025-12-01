@@ -32,7 +32,6 @@ class MeterRepository(
     private val projectDao: ProjectDao,
     private val buildingDao: BuildingDao,
     private val queuedRequestDao: QueuedRequestDao,
-    // ADDED: New DAOs for OBIS tables
     private val obisCodeDao: ObisCodeDao,
     private val meterObisDao: MeterObisDao,
     private val appContext: Context
@@ -43,17 +42,12 @@ class MeterRepository(
 
     fun getAllProjectsFromDb(): Flow<List<Project>> = projectDao.getAllProjects()
     fun getBuildingsByProjectIdFromDb(projectId: String): Flow<List<Building>> = buildingDao.getBuildingsByProjectId(projectId)
-
-    // UPDATED: Renamed function for clarity and to reflect new return type
     fun getMetersWithObisByBuildingIdFromDb(buildingId: String): Flow<List<MeterWithObisPoints>> = meterDao.getMetersWithObisByBuildingId(buildingId)
-
-    // ADDED: Function to expose OBIS codes to the ViewModel
     fun getAllObisCodesFromDb(): Flow<List<ObisCode>> = obisCodeDao.getAllObisCodes()
 
     suspend fun refreshAllData() {
         withContext(Dispatchers.IO) {
             try {
-                // Existing Project and Building Sync
                 Log.d(TAG, "Fetching projects...")
                 val projectsResponse = apiService.getProjects()
                 if (projectsResponse.isSuccessful) {
@@ -79,7 +73,6 @@ class MeterRepository(
                     meterDao.insertAll(meters)
                 }
 
-                // NEW: Fetch and store OBIS Codes
                 Log.d(TAG, "Fetching OBIS codes...")
                 val obisCodesResponse = apiService.getObisCodes()
                 if (obisCodesResponse.isSuccessful) {
@@ -88,7 +81,6 @@ class MeterRepository(
                     obisCodeDao.insertAll(obisCodes)
                 }
 
-                // NEW: Fetch and store Meter OBIS links
                 Log.d(TAG, "Fetching Meter OBIS links...")
                 val meterObisResponse = apiService.getMeterObis()
                 if (meterObisResponse.isSuccessful) {
@@ -103,11 +95,10 @@ class MeterRepository(
         }
     }
 
-    // UPDATED: Function signature now accepts a list of OBIS code IDs
     suspend fun createNewMeter(
         newMeterRequest: NewMeterRequest,
         initialReading: Reading,
-        selectedObisCodeIds: List<String> // ADDED
+        selectedObisCodeIds: List<String>
     ): Boolean {
         return withContext(Dispatchers.IO) {
             try {
@@ -117,7 +108,6 @@ class MeterRepository(
                     ?: throw Exception("Failed to create new meter. Error: ${createMeterResponse.errorBody()?.string()}")
                 Log.d(TAG, "New meter created with ID: ${newMeter.id}")
 
-                // UPDATED: Set meterObisId and migrationStatus to null for manual reading
                 val finalInitialReading = initialReading.copy(
                     meter_id = newMeter.id,
                     meterObisId = null,
@@ -130,7 +120,6 @@ class MeterRepository(
                     throw Exception("Failed to post initial reading. Error: ${postReadingResponse.errorBody()?.string()}")
                 }
 
-                // START: Added Step 3 for creating OBIS links
                 Log.d(TAG, "Step 3: Creating OBIS links for new meter ${newMeter.id}")
                 if (selectedObisCodeIds.isNotEmpty()) {
                     val newObisLinks = selectedObisCodeIds.map { obisId ->
@@ -141,8 +130,6 @@ class MeterRepository(
                     }
                     val createLinksResponse = apiService.createMeterObis(newObisLinks)
                     if (!createLinksResponse.isSuccessful) {
-                        // Log the error, but don't throw an exception,
-                        // as the meter and initial reading were already created.
                         Log.e(TAG, "Failed to create OBIS links. Error: ${createLinksResponse.errorBody()?.string()}")
                     } else {
                         Log.d(TAG, "${newObisLinks.size} OBIS links created successfully.")
@@ -150,10 +137,7 @@ class MeterRepository(
                 } else {
                     Log.d(TAG, "No OBIS codes selected, skipping link creation.")
                 }
-                // END: Added Step 3
-
-                Log.d(TAG, "New meter, initial reading, and OBIS links (if any) created successfully.")
-                true // Return true as the primary operation (meter + reading) succeeded
+                true
             } catch (e: Exception) {
                 Log.e(TAG, "Create new meter sequence failed: ${e.message}", e)
                 false
@@ -163,28 +147,29 @@ class MeterRepository(
 
     suspend fun performMeterExchange(
         oldMeter: Meter,
-        oldMeterLastReading: Reading,
+        oldMeterReadings: List<Reading>,
         newMeterNumber: String,
-        newMeterInitialReading: Reading
+        newMeterReadingsMap: Map<String, Reading> // Key: ObisCodeId, Value: Reading (with temporary ID, no meter_id)
     ): Boolean {
         return withContext(Dispatchers.IO) {
             try {
-                // UPDATED: Set meterObisId and migrationStatus to null for old meter final reading
-                val finalOldReading = oldMeterLastReading.copy(
-                    meterObisId = null,
-                    migrationStatus = null
-                )
+                // Step 1: Post final readings for old meter
+                Log.d(TAG, "Step 1: Posting ${oldMeterReadings.size} final readings for old meter ${oldMeter.id}")
+                oldMeterReadings.forEach { reading ->
+                    val finalReading = reading.copy(migrationStatus = null) // Ensure clean state
+                    val response = apiService.postReading(finalReading)
+                    if (!response.isSuccessful) {
+                        throw Exception("Failed to post final reading for old meter. Error: ${response.errorBody()?.string()}")
+                    }
+                }
 
-                Log.d(TAG, "Step 1: Posting final reading for old meter ${oldMeter.id}")
-                val postOldReadingResponse = apiService.postReading(finalOldReading)
-                if (!postOldReadingResponse.isSuccessful) throw Exception("Failed to post final reading. Error: ${postOldReadingResponse.errorBody()?.string()}")
-
+                // Step 2: Update status for old meter
                 Log.d(TAG, "Step 2: Updating status for old meter ${oldMeter.id}")
-                // CHANGED: "Exchanged" -> "Ausgetauscht"
                 val updateStatusRequest = UpdateMeterRequest(status = "Ausgetauscht")
                 val updateStatusResponse = apiService.updateMeter("eq.${oldMeter.id}", updateStatusRequest)
                 if (!updateStatusResponse.isSuccessful) throw Exception("Failed to update old meter status. Error: ${updateStatusResponse.errorBody()?.string()}")
 
+                // Step 3: Create new meter
                 Log.d(TAG, "Step 3: Creating new meter with number $newMeterNumber")
                 val newMeterRequest = NewMeterRequest(
                     number = newMeterNumber,
@@ -192,7 +177,7 @@ class MeterRepository(
                     buildingId = oldMeter.buildingId,
                     energyType = oldMeter.energyType,
                     type = oldMeter.type,
-                    status = "Aktiv", // CHANGED: "Valid" -> "Aktiv"
+                    status = "Aktiv",
                     replacedOldMeterId = oldMeter.id,
                     street = oldMeter.street,
                     postalCode = oldMeter.postalCode,
@@ -204,43 +189,67 @@ class MeterRepository(
                 val newMeter = createMeterResponse.body()?.firstOrNull() ?: throw Exception("Failed to create new meter. Error: ${createMeterResponse.errorBody()?.string()}")
                 Log.d(TAG, "New meter created with ID: ${newMeter.id}")
 
-                // --- NEW: Step 3a: Get old meter's OBIS links ---
-                Log.d(TAG, "Step 3a: Fetching OBIS links for old meter ${oldMeter.id}")
+                // Step 4: Copy OBIS links from old meter to new meter
+                Log.d(TAG, "Step 4: Handling OBIS links")
                 val oldObisLinksResponse = apiService.getMeterObisByMeterId("eq.${oldMeter.id}")
-                if (!oldObisLinksResponse.isSuccessful) throw Exception("Failed to fetch OBIS links for old meter. Error: ${oldObisLinksResponse.errorBody()?.string()}")
-
                 val oldObisLinks = oldObisLinksResponse.body()
+
                 if (oldObisLinks.isNullOrEmpty()) {
                     Log.d(TAG, "Old meter has no OBIS links to copy.")
+                    // If there were legacy readings passed for the new meter (key "legacy_single"), handle them
+                    val legacyReading = newMeterReadingsMap["legacy_single"]
+                    if (legacyReading != null) {
+                        val finalLegacyReading = legacyReading.copy(meter_id = newMeter.id)
+                        val postResp = apiService.postReading(finalLegacyReading)
+                        if (!postResp.isSuccessful) Log.e(TAG, "Failed to post legacy reading for new meter.")
+                    }
                 } else {
-                    // --- NEW: Step 3b: Create new OBIS links for new meter ---
-                    Log.d(TAG, "Step 3b: Copying ${oldObisLinks.size} OBIS links to new meter ${newMeter.id}")
-                    val newObisLinks = oldObisLinks.map {
+                    Log.d(TAG, "Copying ${oldObisLinks.size} OBIS links to new meter ${newMeter.id}")
+                    val newObisLinkRequests = oldObisLinks.map {
                         NewMeterObisRequest(
                             meterId = newMeter.id,
                             obisCodeId = it.obisCodeId
                         )
                     }
-                    val createLinksResponse = apiService.createMeterObis(newObisLinks)
+                    val createLinksResponse = apiService.createMeterObis(newObisLinkRequests)
                     if (!createLinksResponse.isSuccessful) throw Exception("Failed to create new OBIS links. Error: ${createLinksResponse.errorBody()?.string()}")
-                }
-                // --- END NEW ---
 
-                Log.d(TAG, "Step 4: Linking old meter ${oldMeter.id} to new meter ${newMeter.id}")
+                    // Step 5: Fetch newly created OBIS links to get their IDs
+                    Log.d(TAG, "Step 5: Fetching new OBIS link IDs to map readings")
+                    // Small delay might be needed for consistency, but typically Supabase is fast enough
+                    val newObisLinksResponse = apiService.getMeterObisByMeterId("eq.${newMeter.id}")
+                    if (!newObisLinksResponse.isSuccessful) throw Exception("Failed to fetch new OBIS links. Error: ${newObisLinksResponse.errorBody()?.string()}")
+                    val newObisLinks = newObisLinksResponse.body() ?: emptyList()
+
+                    // Step 6: Map readings to new OBIS links and post them
+                    Log.d(TAG, "Step 6: Posting initial readings for new meter")
+                    newMeterReadingsMap.forEach { (obisCodeId, reading) ->
+                        if (obisCodeId != "legacy_single") {
+                            val matchingLink = newObisLinks.find { it.obisCodeId == obisCodeId }
+                            if (matchingLink != null) {
+                                val finalReading = reading.copy(
+                                    meter_id = newMeter.id,
+                                    meterObisId = matchingLink.id,
+                                    migrationStatus = null
+                                )
+                                val postResp = apiService.postReading(finalReading)
+                                if (!postResp.isSuccessful) {
+                                    Log.e(TAG, "Failed to post initial reading for OBIS $obisCodeId. Error: ${postResp.errorBody()?.string()}")
+                                    // Don't throw, try to continue posting others
+                                }
+                            } else {
+                                Log.e(TAG, "Could not find matching new OBIS link for code ID: $obisCodeId")
+                            }
+                        }
+                    }
+                }
+
+                // Step 7: Link meters
+                Log.d(TAG, "Step 7: Linking old meter to new meter")
                 val linkMetersRequest = UpdateMeterRequest(exchangedWithNewMeterId = newMeter.id)
                 val linkMetersResponse = apiService.updateMeter("eq.${oldMeter.id}", linkMetersRequest)
                 if (!linkMetersResponse.isSuccessful) throw Exception("Failed to link old meter to new meter. Error: ${linkMetersResponse.errorBody()?.string()}")
-                Log.d(TAG, "Step 5: Posting initial reading for new meter ${newMeter.id}")
 
-                // UPDATED: Set meterObisId and migrationStatus to null for new meter initial reading
-                val finalNewMeterReading = newMeterInitialReading.copy(
-                    meter_id = newMeter.id,
-                    meterObisId = null,
-                    migrationStatus = null
-                )
-
-                val postNewReadingResponse = apiService.postReading(finalNewMeterReading)
-                if (!postNewReadingResponse.isSuccessful) throw Exception("Failed to post initial reading for new meter. Error: ${postNewReadingResponse.errorBody()?.string()}")
                 Log.d(TAG, "Meter exchange sequence completed successfully.")
                 true
             } catch (e: Exception) {
@@ -252,8 +261,6 @@ class MeterRepository(
 
     suspend fun postMeterReading(reading: Reading): Response<Unit> {
         return withContext(Dispatchers.IO) {
-            // UPDATED: The reading object now contains the meterObisId (if any),
-            // so we just pass it along directly.
             try {
                 Log.d(TAG, "Attempting to POST new meter reading for meter ID: ${reading.meter_id}")
                 val response = apiService.postReading(reading)
@@ -273,14 +280,12 @@ class MeterRepository(
         return withContext(Dispatchers.IO) {
             var tempFile: File? = null
             try {
-                // --- COMPRESSION LOGIC ---
                 val inputStream = appContext.contentResolver.openInputStream(imageUri)
                     ?: throw IOException("Could not open input stream for URI: $imageUri")
 
                 val originalBitmap = BitmapFactory.decodeStream(inputStream)
                 inputStream.close()
 
-                // Resize logic
                 val maxHeight = 1280.0
                 val maxWidth = 1280.0
                 val width = originalBitmap.width
@@ -294,13 +299,11 @@ class MeterRepository(
                 val newHeight = (height * ratio).roundToInt()
                 val resizedBitmap = Bitmap.createScaledBitmap(originalBitmap, newWidth, newHeight, false)
 
-                // Create a temporary file to hold the compressed image
                 tempFile = File.createTempFile("compressed_", ".jpg", appContext.cacheDir)
                 val outputStream = FileOutputStream(tempFile)
                 resizedBitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream)
                 outputStream.flush()
                 outputStream.close()
-                // --- END COMPRESSION LOGIC ---
 
                 val s3Client = S3Client.getInstance()
 
@@ -322,7 +325,6 @@ class MeterRepository(
                 Log.e(TAG, "Failed to upload file to Minio S3: ${e.message}", e)
                 false
             } finally {
-                // Clean up the temporary file
                 tempFile?.delete()
             }
         }
@@ -361,7 +363,6 @@ class MeterRepository(
                 when (request.type) {
                     "reading" -> {
                         val reading = gson.fromJson(request.body, Reading::class.java)
-                        // Note: The deserialized 'reading' already has the correct OBIS fields (or null)
                         apiService.postReading(reading).isSuccessful
                     }
                     "file_metadata" -> {
