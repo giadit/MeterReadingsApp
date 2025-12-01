@@ -45,7 +45,9 @@ class MeterRepository(
     fun getMetersWithObisByBuildingIdFromDb(buildingId: String): Flow<List<MeterWithObisPoints>> = meterDao.getMetersWithObisByBuildingId(buildingId)
     fun getAllObisCodesFromDb(): Flow<List<ObisCode>> = obisCodeDao.getAllObisCodes()
 
-    suspend fun refreshAllData() {
+    // UPDATED: Now only fetches Projects and global Metadata (OBIS codes).
+    // It NO LONGER fetches all buildings or all meters.
+    suspend fun refreshProjectsAndMetadata() {
         withContext(Dispatchers.IO) {
             try {
                 Log.d(TAG, "Fetching projects...")
@@ -54,23 +56,6 @@ class MeterRepository(
                     val projects = projectsResponse.body() ?: emptyList()
                     projectDao.deleteAllProjects()
                     projectDao.insertAll(projects)
-                    buildingDao.deleteAllBuildings()
-                    for (project in projects) {
-                        val buildingsResponse = apiService.getBuildings("eq.${project.id}")
-                        if (buildingsResponse.isSuccessful) {
-                            val buildings = buildingsResponse.body() ?: emptyList()
-                            if (buildings.isNotEmpty()) {
-                                buildingDao.insertAll(buildings)
-                            }
-                        }
-                    }
-                }
-                Log.d(TAG, "Fetching all meters...")
-                val metersResponse = apiService.getAllMeters()
-                if (metersResponse.isSuccessful) {
-                    val meters = metersResponse.body() ?: emptyList()
-                    meterDao.deleteAllMeters()
-                    meterDao.insertAll(meters)
                 }
 
                 Log.d(TAG, "Fetching OBIS codes...")
@@ -81,7 +66,9 @@ class MeterRepository(
                     obisCodeDao.insertAll(obisCodes)
                 }
 
-                Log.d(TAG, "Fetching Meter OBIS links...")
+                Log.d(TAG, "Fetching Meter OBIS links (Global)...")
+                // We keep this global for now to ensure links work when meters are loaded.
+                // If this is too heavy, it can also be moved to lazy loading.
                 val meterObisResponse = apiService.getMeterObis()
                 if (meterObisResponse.isSuccessful) {
                     val meterObis = meterObisResponse.body() ?: emptyList()
@@ -90,7 +77,54 @@ class MeterRepository(
                 }
 
             } catch (e: Exception) {
-                Log.e(TAG, "Error during full data refresh: ${e.message}", e)
+                Log.e(TAG, "Error during project/metadata refresh: ${e.message}", e)
+                throw e // Re-throw to let ViewModel know
+            }
+        }
+    }
+
+    // ADDED: Fetches buildings only for the selected project
+    suspend fun refreshBuildingsForProject(projectId: String) {
+        withContext(Dispatchers.IO) {
+            try {
+                Log.d(TAG, "Fetching buildings for project: $projectId")
+                // Supabase syntax: "eq.VALUE"
+                val response = apiService.getBuildings("eq.$projectId")
+                if (response.isSuccessful) {
+                    val buildings = response.body() ?: emptyList()
+                    // Note: We don't delete *all* buildings here, just update/insert the ones for this project.
+                    // Ideally, we might want to clean up old ones for this project, but insertAll with Replace is safe.
+                    if (buildings.isNotEmpty()) {
+                        buildingDao.insertAll(buildings)
+                    }
+                } else {
+                    throw Exception("Failed to load buildings: ${response.errorBody()?.string()}")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error refreshing buildings: ${e.message}", e)
+                throw e
+            }
+        }
+    }
+
+    // ADDED: Fetches meters only for the selected building
+    suspend fun refreshMetersForBuilding(buildingId: String) {
+        withContext(Dispatchers.IO) {
+            try {
+                Log.d(TAG, "Fetching meters for building: $buildingId")
+                // Supabase syntax: "eq.VALUE"
+                val response = apiService.getMetersByBuildingId("eq.$buildingId")
+                if (response.isSuccessful) {
+                    val meters = response.body() ?: emptyList()
+                    if (meters.isNotEmpty()) {
+                        meterDao.insertAll(meters)
+                    }
+                } else {
+                    throw Exception("Failed to load meters: ${response.errorBody()?.string()}")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error refreshing meters: ${e.message}", e)
+                throw e
             }
         }
     }
@@ -155,6 +189,11 @@ class MeterRepository(
                 }
 
                 Log.d(TAG, "New meter creation sequence completed.")
+
+                // IMPORTANT: Insert the new meter into the local database so it appears immediately
+                // without needing a full refresh.
+                meterDao.insertAll(listOf(newMeter))
+
                 true
             } catch (e: Exception) {
                 Log.e(TAG, "Create new meter sequence failed: ${e.message}", e)
@@ -234,7 +273,6 @@ class MeterRepository(
 
                     // Step 5: Fetch newly created OBIS links to get their IDs
                     Log.d(TAG, "Step 5: Fetching new OBIS link IDs to map readings")
-                    // Small delay might be needed for consistency, but typically Supabase is fast enough
                     val newObisLinksResponse = apiService.getMeterObisByMeterId("eq.${newMeter.id}")
                     if (!newObisLinksResponse.isSuccessful) throw Exception("Failed to fetch new OBIS links. Error: ${newObisLinksResponse.errorBody()?.string()}")
                     val newObisLinks = newObisLinksResponse.body() ?: emptyList()
@@ -253,7 +291,6 @@ class MeterRepository(
                                 val postResp = apiService.postReading(finalReading)
                                 if (!postResp.isSuccessful) {
                                     Log.e(TAG, "Failed to post initial reading for OBIS $obisCodeId. Error: ${postResp.errorBody()?.string()}")
-                                    // Don't throw, try to continue posting others
                                 }
                             } else {
                                 Log.e(TAG, "Could not find matching new OBIS link for code ID: $obisCodeId")
@@ -267,6 +304,9 @@ class MeterRepository(
                 val linkMetersRequest = UpdateMeterRequest(exchangedWithNewMeterId = newMeter.id)
                 val linkMetersResponse = apiService.updateMeter("eq.${oldMeter.id}", linkMetersRequest)
                 if (!linkMetersResponse.isSuccessful) throw Exception("Failed to link old meter to new meter. Error: ${linkMetersResponse.errorBody()?.string()}")
+
+                // Insert the new meter locally
+                meterDao.insertAll(listOf(newMeter))
 
                 Log.d(TAG, "Meter exchange sequence completed successfully.")
                 true

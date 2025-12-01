@@ -97,7 +97,9 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
             val success = repository.createNewMeter(newMeterRequest, initialReadingsMap)
             if (success) {
                 _uiMessage.value = "New meter created successfully!"
-                refreshAllData()
+                // We don't need a full refresh here anymore since createNewMeter inserts locally
+                // but we might want to refresh current view if needed.
+                // refreshAllData() call removed to stay consistent with lazy loading
             } else {
                 _uiMessage.value = "Failed to create new meter. Please try again."
             }
@@ -120,7 +122,8 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
             )
             if (success) {
                 _uiMessage.value = "Meter exchanged successfully!"
-                refreshAllData()
+                // Refresh local meter list for current building
+                oldMeter.buildingId?.let { repository.refreshMetersForBuilding(it) }
             } else {
                 _uiMessage.value = "Meter exchange failed. Please try again."
             }
@@ -128,11 +131,57 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
     }
 
     fun setProjectSearchQuery(query: String) { _projectSearchQuery.value = query }
-    fun selectProject(project: Project?) { selectedProjectId.value = project?.id; selectedBuildingId.value = null }
+
+    // UPDATED: Trigger building fetch when project is selected
+    fun selectProject(project: Project?) {
+        selectedProjectId.value = project?.id
+        selectedBuildingId.value = null
+        project?.id?.let { projectId ->
+            viewModelScope.launch {
+                try {
+                    // _uiMessage.value = "Loading buildings..." // Optional: show loading feedback
+                    repository.refreshBuildingsForProject(projectId)
+                } catch (e: Exception) {
+                    _uiMessage.value = "Error loading buildings: ${e.message}"
+                }
+            }
+        }
+    }
+
     fun setBuildingSearchQuery(query: String) { _buildingSearchQuery.value = query }
-    fun selectBuilding(building: Building?) { selectedBuildingId.value = building?.id }
+
+    // UPDATED: Trigger meter fetch when building is selected
+    fun selectBuilding(building: Building?) {
+        selectedBuildingId.value = building?.id
+        building?.id?.let { buildingId ->
+            viewModelScope.launch {
+                try {
+                    _uiMessage.value = "Loading meters..."
+                    repository.refreshMetersForBuilding(buildingId)
+                    _uiMessage.value = null // Clear loading message on success
+                } catch (e: Exception) {
+                    _uiMessage.value = "Error loading meters: ${e.message}"
+                }
+            }
+        }
+    }
+
     fun setMeterSearchQuery(query: String) { _meterSearchQuery.value = query }
-    fun refreshAllData() { viewModelScope.launch { Log.d(TAG, "Initiating full data refresh from ViewModel."); try { repository.refreshAllData(); _uiMessage.value = "All data refreshed successfully!" } catch (e: Exception) { _uiMessage.value = "Error refreshing data: ${e.message}"; Log.e(TAG, "Error during data refresh: ${e.message}", e) } } }
+
+    // UPDATED: Now only calls the lighter refresh function
+    fun refreshAllData() {
+        viewModelScope.launch {
+            Log.d(TAG, "Initiating project and metadata refresh.")
+            try {
+                repository.refreshProjectsAndMetadata()
+                _uiMessage.value = "Projects and metadata refreshed!"
+            } catch (e: Exception) {
+                _uiMessage.value = "Error refreshing data: ${e.message}"
+                Log.e(TAG, "Error during data refresh: ${e.message}", e)
+            }
+        }
+    }
+
     fun postMeterReading(reading: Reading) { viewModelScope.launch { repository.postMeterReading(reading) } }
     fun queueImageUpload(imageUri: Uri, fullStoragePath: String, projectId: String, meterId: String) { repository.queueImageUpload(imageUri, fullStoragePath, projectId, meterId) }
 }
