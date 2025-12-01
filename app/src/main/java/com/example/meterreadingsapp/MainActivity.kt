@@ -536,7 +536,7 @@ class MainActivity : AppCompatActivity() {
                     buildingId = currentBuilding.id,
                     energyType = energyType,
                     type = meterType, // Use the dynamically determined meterType
-                    status = "Valid",
+                    status = "Aktiv", // CHANGED: "Valid" -> "Aktiv"
                     replacedOldMeterId = null,
                     street = currentBuilding.street,
                     postalCode = currentBuilding.postal_code,
@@ -822,10 +822,12 @@ class MainActivity : AppCompatActivity() {
     private fun applyMeterFilter(meters: List<MeterWithObisPoints>) {
         val statusFilteredMeters = if (showExchangedMeters) {
             // Access the nested 'meter' property
-            meters.filter { it.meter.status.equals("Exchanged", ignoreCase = true) }
+            // CHANGED: "Exchanged" -> "Ausgetauscht"
+            meters.filter { it.meter.status.equals("Ausgetauscht", ignoreCase = true) }
         } else {
             // Access the nested 'meter' property
-            meters.filter { it.meter.status.equals("Valid", ignoreCase = true) }
+            // CHANGED: "Valid" -> "Aktiv"
+            meters.filter { it.meter.status.equals("Aktiv", ignoreCase = true) }
         }
         val finalFilteredMeters = if ("All" in selectedMeterTypesFilter) {
             statusFilteredMeters
@@ -1032,4 +1034,3 @@ class MainActivity : AppCompatActivity() {
         EDITING
     }
 }
-

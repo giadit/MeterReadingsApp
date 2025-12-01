@@ -55,9 +55,11 @@ data class Meter(
     @SerializedName("msb")
     val msb: String?,
 
-    @ColumnInfo(name = "last_reading")
-    @SerializedName("last_reading")
-    val lastReading: String?,
+    // CHANGED: 'Any' -> 'Any?' to match the MapConverter signature.
+    // This ensures Room can find the correct TypeConverter.
+    @ColumnInfo(name = "last_readings")
+    @SerializedName("last_readings")
+    val lastReadings: Map<String, Any?>?,
 
     @ColumnInfo(name = "last_reading_date")
     @SerializedName("last_reading_date")
@@ -98,21 +100,9 @@ data class Meter(
     @SerializedName("updated_at")
     val updatedAt: String?,
 
-    @ColumnInfo(name = "obis_1_8_0")
-    @SerializedName("obis_1_8_0")
-    val obis180: Boolean?,
-
-    @ColumnInfo(name = "obis_2_8_0")
-    @SerializedName("obis_2_8_0")
-    val obis280: Boolean?,
-
     @ColumnInfo(name = "energy_type")
     @SerializedName("energy_type")
     val energyType: String?,
-
-    @ColumnInfo(name = "last_reading_2")
-    @SerializedName("last_reading_2")
-    val lastReading2: String?,
 
     @ColumnInfo(name = "meter_type_id")
     @SerializedName("meter_type_id")

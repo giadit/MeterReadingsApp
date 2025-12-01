@@ -178,10 +178,13 @@ class MeterRepository(
                 Log.d(TAG, "Step 1: Posting final reading for old meter ${oldMeter.id}")
                 val postOldReadingResponse = apiService.postReading(finalOldReading)
                 if (!postOldReadingResponse.isSuccessful) throw Exception("Failed to post final reading. Error: ${postOldReadingResponse.errorBody()?.string()}")
+
                 Log.d(TAG, "Step 2: Updating status for old meter ${oldMeter.id}")
-                val updateStatusRequest = UpdateMeterRequest(status = "Exchanged")
+                // CHANGED: "Exchanged" -> "Ausgetauscht"
+                val updateStatusRequest = UpdateMeterRequest(status = "Ausgetauscht")
                 val updateStatusResponse = apiService.updateMeter("eq.${oldMeter.id}", updateStatusRequest)
                 if (!updateStatusResponse.isSuccessful) throw Exception("Failed to update old meter status. Error: ${updateStatusResponse.errorBody()?.string()}")
+
                 Log.d(TAG, "Step 3: Creating new meter with number $newMeterNumber")
                 val newMeterRequest = NewMeterRequest(
                     number = newMeterNumber,
@@ -189,7 +192,7 @@ class MeterRepository(
                     buildingId = oldMeter.buildingId,
                     energyType = oldMeter.energyType,
                     type = oldMeter.type,
-                    status = "Valid", // <-- THIS IS THE ADDED LINE
+                    status = "Aktiv", // CHANGED: "Valid" -> "Aktiv"
                     replacedOldMeterId = oldMeter.id,
                     street = oldMeter.street,
                     postalCode = oldMeter.postalCode,
