@@ -271,20 +271,21 @@ class MeterAdapter(
             }
 
             // NEW: TextView for Last Reading
-            if (lastReading != null) {
-                val lastReadingTextView = TextView(context).apply {
-                    val dateStr = if (lastReadingDate != null) " ($lastReadingDate)" else ""
-                    text = "Ltz. Stand: $lastReading$dateStr"
-                    textSize = 12f // Small text
-                    try {
-                        setTextColor(ContextCompat.getColor(context, R.color.dark_gray_text))
-                    } catch (e: Exception) {
-                        setTextColor(android.graphics.Color.GRAY)
-                    }
-                    setPadding(0, 0, 0, 4) // Padding bottom
+            // CHANGED: Always display the TextView. Use "N/A" if lastReading is null.
+            val displayReading = lastReading ?: "N/A"
+            val displayDate = if (lastReadingDate != null) " ($lastReadingDate)" else ""
+
+            val lastReadingTextView = TextView(context).apply {
+                text = "Ltz. Stand: $displayReading$displayDate"
+                textSize = 12f // Small text
+                try {
+                    setTextColor(ContextCompat.getColor(context, R.color.dark_gray_text))
+                } catch (e: Exception) {
+                    setTextColor(android.graphics.Color.GRAY)
                 }
-                inputWrapper.addView(lastReadingTextView)
+                setPadding(0, 0, 0, 4) // Padding bottom
             }
+            inputWrapper.addView(lastReadingTextView)
 
             val textInputLayout = TextInputLayout(context).apply {
                 layoutParams = LinearLayout.LayoutParams(
