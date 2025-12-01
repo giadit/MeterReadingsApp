@@ -23,7 +23,7 @@ import com.example.meterreadingsapp.converters.MapConverter
         ObisCode::class,
         MeterObis::class
     ],
-    version = 20, // INCREMENTED VERSION (from 19) to trigger migration
+    version = 21, // INCREMENTED VERSION (from 19) to trigger migration
     exportSchema = false
 )
 @TypeConverters(MapConverter::class, ListConverter::class)
