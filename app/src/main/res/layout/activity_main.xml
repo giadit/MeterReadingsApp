@@ -171,7 +171,7 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent">
 
-            <!-- UPDATED: Filter Buttons Layout for better scaling -->
+            <!-- Filter Buttons Layout -->
             <LinearLayout
                 android:id="@+id/filterButtonsLayout"
                 android:layout_width="match_parent"
@@ -182,7 +182,6 @@
                 android:paddingStart="4dp"
                 android:paddingEnd="4dp">
 
-                <!-- Added autoSize attributes to all filter buttons -->
                 <TextView
                     android:id="@+id/filterAll"
                     android:layout_width="0dp"
@@ -322,10 +321,11 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent">
 
+            <!-- Set fixed height 50dp -->
             <ImageButton
                 android:id="@+id/bottomBarCalendarButton"
                 android:layout_width="wrap_content"
-                android:layout_height="0dp"
+                android:layout_height="50dp"
                 android:src="@drawable/ic_calendar"
                 android:background="@drawable/button_white_background"
                 android:contentDescription="@string/select_date_button_description"
@@ -335,31 +335,58 @@
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent" />
 
-            <com.google.android.material.button.MaterialButton
+            <!-- Replaced MaterialButton with ConstraintLayout to fix thickness and alignment issues -->
+            <androidx.constraintlayout.widget.ConstraintLayout
                 android:id="@+id/bottomBarSendButton"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:text="@string/send_button_text"
-                android:textColor="@color/bright_orange"
-                app:icon="@drawable/ic_send"
-                app:iconTint="@color/bright_orange"
-                app:backgroundTint="@android:color/white"
-                app:cornerRadius="8dp"
+                android:layout_height="50dp"
+                android:background="@drawable/button_white_background"
+                android:clickable="true"
+                android:focusable="true"
                 android:layout_marginStart="16dp"
                 android:layout_marginEnd="16dp"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toEndOf="@id/bottomBarCalendarButton"
-                app:layout_constraintEnd_toStartOf="@+id/bottomBarAddMeterButton"
-                app:autoSizeTextType="uniform"
-                app:autoSizeMinTextSize="12sp"
-                app:autoSizeMaxTextSize="16sp"
-                android:maxLines="1"/>
+                app:layout_constraintEnd_toStartOf="@+id/bottomBarAddMeterButton">
 
+                <ImageView
+                    android:id="@+id/sendIcon"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:src="@drawable/ic_send"
+                    app:tint="@color/bright_orange"
+                    android:layout_marginStart="16dp"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent"/>
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-smallcaps"
+                    android:gravity="center"
+                    android:maxLines="1"
+                    android:text="@string/send_button_text"
+                    android:textColor="@color/bright_orange"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    app:autoSizeMaxTextSize="20sp"
+                    app:autoSizeMinTextSize="16sp"
+                    app:autoSizeTextType="uniform"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    tools:text="Senden" />
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+            <!-- Set fixed height 50dp -->
             <ImageButton
                 android:id="@+id/bottomBarAddMeterButton"
                 android:layout_width="wrap_content"
-                android:layout_height="0dp"
+                android:layout_height="50dp"
                 android:src="@drawable/ic_add"
                 android:background="@drawable/button_white_background"
                 android:contentDescription="Add New Meter"

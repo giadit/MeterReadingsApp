@@ -37,9 +37,9 @@ class ProjectAdapter(private val onItemClicked: (Project) -> Unit) :
             binding.projectNameTextView.text = project.name ?: "Unknown Project"
             // REMOVED: binding.projectAddressTextView.text = project.address ?: "No Address Provided"
             // REMOVED: binding.projectStatusTextView.text = "Status: ${project.status ?: "N/A"}"
-            binding.projectResponsibleTextView.text = "Responsible: ${project.responsible ?: "N/A"}"
-            binding.projectMeterCountTextView.text = "Meters: ${project.metersCount ?: 0}"
-            binding.projectBuildingCountTextView.text = "Buildings: ${project.buildingsCount ?: 0}" // This now uses the calculated count from ViewModel
+            binding.projectResponsibleTextView.text = "Betriebsführer: ${project.responsible ?: "N/A"}"
+            binding.projectMeterCountTextView.text = "Zähler: ${project.metersCount ?: 0}"
+            binding.projectBuildingCountTextView.text = "Gebäude: ${project.buildingsCount ?: 0}" // This now uses the calculated count from ViewModel
 
             // Set up click listener for the entire item view
             binding.root.setOnClickListener {
