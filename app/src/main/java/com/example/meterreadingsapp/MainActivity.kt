@@ -21,12 +21,13 @@ import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
-import android.widget.CheckBox // IMPORTED CheckBox
+import android.widget.CheckBox
 import android.widget.DatePicker
 import android.widget.EditText
-import android.widget.LinearLayout // ADDED THIS IMPORT
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback // ADDED: Import for Back Callback
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
@@ -44,7 +45,7 @@ import com.example.meterreadingsapp.adapter.MeterAdapter
 import com.example.meterreadingsapp.adapter.ProjectAdapter
 import com.example.meterreadingsapp.api.ApiService
 import com.example.meterreadingsapp.api.RetrofitClient
-import com.example.meterreadingsapp.data.* // Ensure all DAOs and Entities are imported
+import com.example.meterreadingsapp.data.*
 import com.example.meterreadingsapp.databinding.ActivityMainBinding
 import com.example.meterreadingsapp.databinding.DialogAddMeterBinding
 import com.example.meterreadingsapp.databinding.DialogChangeMeterBinding
@@ -85,45 +86,42 @@ class MainActivity : AppCompatActivity() {
 
     private var currentPhotoUri: Uri? = null
     private var currentMeterForPhoto: Meter? = null
-    // UPDATED: Add a variable to store the specific OBIS key for the photo
     private var currentObisKeyForPhoto: String? = null
-    // UPDATED: Add a variable to store the OBIS code string (e.g., "1.8.0")
     private var currentObisCodeForPhoto: String? = null
+
+    // ADDED: Variable to track double back press
+    private var backPressedTime: Long = 0
+    private val BACK_PRESS_INTERVAL: Long = 2000 // 2 seconds
 
     private val requestCameraPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
             if (isGranted) {
-                // UPDATED: Check for all properties
                 if (currentMeterForPhoto != null && currentObisKeyForPhoto != null) {
-                    // UPDATED: Pass the code string to launchCamera
                     launchCamera(currentMeterForPhoto!!, currentObisCodeForPhoto)
                 }
             } else {
                 Toast.makeText(this, "Camera permission denied", Toast.LENGTH_LONG).show()
                 currentMeterForPhoto = null
                 currentPhotoUri = null
-                currentObisKeyForPhoto = null // UPDATED
-                currentObisCodeForPhoto = null // UPDATED
+                currentObisKeyForPhoto = null
+                currentObisCodeForPhoto = null
             }
         }
 
     private val takePictureLauncher: ActivityResultLauncher<Intent> =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == RESULT_OK) {
-                // UPDATED: Check for all three properties
                 if (currentPhotoUri != null && currentMeterForPhoto != null && currentObisKeyForPhoto != null) {
-                    // UPDATED: Use the obisKey (UUID) to update the adapter's map
                     meterAdapter.updateMeterImageUri(currentMeterForPhoto!!.id, currentObisKeyForPhoto!!, currentPhotoUri!!)
-                    Toast.makeText(this, "Picture saved: ${currentPhotoUri!!.lastPathSegment}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, getString(R.string.picture_saved_success, currentPhotoUri!!.lastPathSegment), Toast.LENGTH_SHORT).show()
                 }
             } else {
-                Toast.makeText(this, "Picture capture failed", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, getString(R.string.picture_capture_failed), Toast.LENGTH_SHORT).show()
             }
-            // UPDATED: Always clear all properties
             currentPhotoUri = null
             currentMeterForPhoto = null
             currentObisKeyForPhoto = null
-            currentObisCodeForPhoto = null // UPDATED
+            currentObisCodeForPhoto = null
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -154,10 +152,8 @@ class MainActivity : AppCompatActivity() {
         val meterDao = database.meterDao()
         val readingDao = database.readingDao()
         val queuedRequestDao = database.queuedRequestDao()
-        // START NEW DAO DECLARATIONS
         val obisCodeDao = database.obisCodeDao()
         val meterObisDao = database.meterObisDao()
-        // END NEW DAO DECLARATIONS
 
         val repository = MeterRepository(
             apiService,
@@ -166,10 +162,8 @@ class MainActivity : AppCompatActivity() {
             projectDao,
             buildingDao,
             queuedRequestDao,
-            // START REPOSITORY CONSTRUCTOR UPDATE
             obisCodeDao,
             meterObisDao,
-            // END REPOSITORY CONSTRUCTOR UPDATE
             applicationContext
         )
 
@@ -190,7 +184,6 @@ class MainActivity : AppCompatActivity() {
         observeMeters()
         observeUiMessages()
 
-        // ADDED: Observe OBIS codes and pass them to the adapter
         locationViewModel.allObisCodes.observe(this) { codes ->
             if (codes != null) {
                 meterAdapter.setObisCodes(codes)
@@ -210,34 +203,17 @@ class MainActivity : AppCompatActivity() {
             Log.d("MainActivity", "Refreshing all data...")
         }
 
+        // UPDATED: Use consolidated navigation logic for the UI Back Button
         binding.backButton.setOnClickListener {
-            when {
-                binding.metersContainer.isVisible -> {
-                    locationViewModel.selectBuilding(null)
-                    binding.metersContainer.isVisible = false
-                    binding.locationsContainer.isVisible = true
-                    binding.bottomBar.isVisible = false
-                    binding.backButton.isVisible = true
-                    binding.meterSearchView.setQuery("", false)
-                    locationViewModel.setMeterSearchQuery("")
-                    updateToolbarForBuildings(locationViewModel.selectedProjectId.value)
-                }
-                binding.locationsContainer.isVisible -> {
-                    locationViewModel.selectProject(null)
-                    binding.locationsContainer.isVisible = false
-                    binding.projectsContainer.isVisible = true
-                    binding.backButton.isVisible = false
-                    binding.bottomBar.isVisible = false
-                    binding.searchView.setQuery("", false)
-                    binding.searchView.isIconified = true
-                    locationViewModel.setProjectSearchQuery("")
-                    binding.meterSearchView.setQuery("", false)
-                    locationViewModel.setMeterSearchQuery("")
-                    updateToolbarForProjects()
-                }
-            }
-            binding.noDataTextView.isVisible = false
+            navigateBack()
         }
+
+        // ADDED: Handle System Back Button using OnBackPressedDispatcher
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                navigateBack()
+            }
+        })
 
         binding.logoutButton.setOnClickListener {
             performLogout()
@@ -246,6 +222,48 @@ class MainActivity : AppCompatActivity() {
         binding.bottomBarAddMeterButton.setOnClickListener {
             showAddMeterDialog()
         }
+    }
+
+    // ADDED: Consolidated navigation logic
+    private fun navigateBack() {
+        when {
+            binding.metersContainer.isVisible -> {
+                // Meters -> Buildings
+                locationViewModel.selectBuilding(null)
+                binding.metersContainer.isVisible = false
+                binding.locationsContainer.isVisible = true
+                binding.bottomBar.isVisible = false
+                binding.backButton.isVisible = true
+                binding.meterSearchView.setQuery("", false)
+                locationViewModel.setMeterSearchQuery("")
+                updateToolbarForBuildings(locationViewModel.selectedProjectId.value)
+            }
+            binding.locationsContainer.isVisible -> {
+                // Buildings -> Projects
+                locationViewModel.selectProject(null)
+                binding.locationsContainer.isVisible = false
+                binding.projectsContainer.isVisible = true
+                binding.backButton.isVisible = false
+                binding.bottomBar.isVisible = false
+                binding.searchView.setQuery("", false)
+                binding.searchView.isIconified = true
+                locationViewModel.setProjectSearchQuery("")
+                binding.meterSearchView.setQuery("", false)
+                locationViewModel.setMeterSearchQuery("")
+                updateToolbarForProjects()
+            }
+            else -> {
+                // Projects -> Exit App logic (Double back to exit)
+                if (System.currentTimeMillis() - backPressedTime < BACK_PRESS_INTERVAL) {
+                    finish() // Close the activity/app
+                } else {
+                    backPressedTime = System.currentTimeMillis()
+                    // Use string resource for consistency
+                    Toast.makeText(this, getString(R.string.press_back_again_to_exit), Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        binding.noDataTextView.isVisible = false
     }
 
     private fun setupProjectRecyclerView() {
@@ -279,25 +297,21 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupMeterRecyclerView() {
         meterAdapter = MeterAdapter(
-            // UPDATED: Adapter now sends (meter, obisKey, obisCodeString, currentUri)
             onCameraClicked = { meter, obisKey, obisCodeString, _ ->
                 currentMeterForPhoto = meter
-                currentObisKeyForPhoto = obisKey // UPDATED: Store the key (UUID)
-                currentObisCodeForPhoto = obisCodeString // UPDATED: Store the code string ("1.8.0")
+                currentObisKeyForPhoto = obisKey
+                currentObisCodeForPhoto = obisCodeString
                 if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-                    launchCamera(meter, obisCodeString) // UPDATED: Pass code string
+                    launchCamera(meter, obisCodeString)
                 } else {
                     requestCameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
                 }
             },
-            // UPDATED: Adapter now sends (meter, obisKey, uri)
-            onViewImageClicked = { _, _, imageUri -> viewImage(imageUri) }, // obisKey not needed here
-            // UPDATED: Adapter now sends (meter, obisKey, obisCodeString, uri)
+            onViewImageClicked = { _, _, imageUri -> viewImage(imageUri) },
             onDeleteImageClicked = { meter, obisKey, obisCodeString, imageUri -> confirmAndDeleteImage(meter, obisKey, obisCodeString, imageUri) },
             onEditMeterClicked = { meter -> Toast.makeText(this, "Edit meter: ${meter.number}", Toast.LENGTH_SHORT).show() },
             onDeleteMeterClicked = { meter -> Toast.makeText(this, "Delete meter: ${meter.number}", Toast.LENGTH_SHORT).show() },
             onExchangeMeterClicked = { meter -> showChangeMeterDialog(meter) },
-            // ADDED: New callback for the info button
             onInfoClicked = { meter -> showMeterInfoDialog(meter) },
             currentMode = { AppMode.READINGS }
         )
@@ -307,11 +321,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Shows a dialog displaying key information from the Meter data object.
-     */
+    // ... (rest of the file remains unchanged, helper methods are standard) ...
+
     private fun showMeterInfoDialog(meter: Meter) {
-        // Construct the information string based on user's requirements
         val info = """
             Standort: ${meter.location ?: "-"}
             Verbraucher: ${meter.consumer ?: "-"}
@@ -605,9 +617,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // UPDATED: Signature now requires obisCode string
     private fun launchCamera(meter: Meter, obisCode: String?) {
-        currentPhotoUri = createImageFileForMeter(meter, obisCode) // UPDATED
+        currentPhotoUri = createImageFileForMeter(meter, obisCode)
         currentPhotoUri?.let { uri ->
             val cameraIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
                 putExtra(MediaStore.EXTRA_OUTPUT, uri)
@@ -615,16 +626,14 @@ class MainActivity : AppCompatActivity() {
             }
             takePictureLauncher.launch(cameraIntent)
         } ?: run {
-            Toast.makeText(this, "Error creating image file.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.error_creating_image_file), Toast.LENGTH_SHORT).show()
         }
     }
 
     @Throws(IOException::class)
-    // UPDATED: Signature now requires obisCode string
     private fun createImageFileForMeter(meter: Meter, obisCode: String?): Uri {
         val timeStamp: String = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-        // UPDATED: Make filename unique using obisCode string
-        val safeObisKey = obisCode?.replace(Regex("[^a-zA-Z0-9.-]"), "_") ?: "reading" // Allow dots in code
+        val safeObisKey = obisCode?.replace(Regex("[^a-zA-Z0-9.-]"), "_") ?: "reading"
         val imageFileName = "${timeStamp}_${meter.number.replace("/", "_").replace(".", "_")}_$safeObisKey"
         val storageDir: File? = getExternalFilesDir(Environment.DIRECTORY_PICTURES)
         val imageFile = File.createTempFile(imageFileName, ".jpg", storageDir)
@@ -641,34 +650,32 @@ class MainActivity : AppCompatActivity() {
             startActivity(intent)
         } catch (e: Exception) {
             Log.e("MainActivity", "Error viewing image: ${e.message}", e)
-            Toast.makeText(this, "Error viewing image.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.error_viewing_image), Toast.LENGTH_SHORT).show()
         }
     }
 
-    // UPDATED: Signature now requires obisKey (UUID) and obisCode (string)
     private fun confirmAndDeleteImage(meter: Meter, obisKey: String, obisCode: String?, imageUri: Uri) {
         MaterialAlertDialogBuilder(this)
-            .setTitle("Delete Image?")
-            // UPDATED: Show the human-readable obisCode in the message
-            .setMessage("Are you sure you want to delete the image for meter ${meter.number} (Reading: ${obisCode ?: "N/A"})?")
-            .setPositiveButton("Delete") { dialog, _ ->
+            .setTitle(getString(R.string.confirm_delete_image_title))
+            .setMessage(getString(R.string.confirm_delete_image_message, "${meter.number} (${obisCode ?: "N/A"})"))
+            .setPositiveButton(getString(R.string.delete_button_text)) { dialog, _ ->
                 imageUri.path?.let { path ->
                     val file = File(path)
                     if (file.exists()) {
                         if (file.delete()) {
-                            meterAdapter.removeMeterImageUri(meter.id, obisKey) // UPDATED: Use obisKey (UUID)
-                            Toast.makeText(this, "Image deleted.", Toast.LENGTH_SHORT).show()
+                            meterAdapter.removeMeterImageUri(meter.id, obisKey)
+                            Toast.makeText(this, getString(R.string.image_deleted_success), Toast.LENGTH_SHORT).show()
                         } else {
-                            Toast.makeText(this, "Failed to delete image file.", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(this, getString(R.string.image_deleted_failed), Toast.LENGTH_SHORT).show()
                         }
                     } else {
-                        Toast.makeText(this, "Image file not found.", Toast.LENGTH_SHORT).show()
-                        meterAdapter.removeMeterImageUri(meter.id, obisKey) // UPDATED: Use obisKey (UUID)
+                        Toast.makeText(this, getString(R.string.image_file_not_found), Toast.LENGTH_SHORT).show()
+                        meterAdapter.removeMeterImageUri(meter.id, obisKey)
                     }
                 }
                 dialog.dismiss()
             }
-            .setNegativeButton("Cancel") { dialog, _ ->
+            .setNegativeButton(getString(R.string.cancel_button_text)) { dialog, _ ->
                 dialog.cancel()
             }
             .show()
@@ -738,7 +745,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
         updateFilterUI()
-        // UPDATED: Check for null before filtering
         locationViewModel.meters.value?.let { applyMeterFilter(it) }
     }
 
@@ -784,7 +790,7 @@ class MainActivity : AppCompatActivity() {
             binding.loadingProgressBar.isVisible = false
             binding.noDataTextView.isVisible = projects.isNullOrEmpty()
             if (projects.isNullOrEmpty()) {
-                binding.noDataTextView.text = "No projects found."
+                binding.noDataTextView.text = getString(R.string.no_projects_found)
             } else {
                 projectAdapter.submitList(projects)
             }
@@ -796,7 +802,7 @@ class MainActivity : AppCompatActivity() {
             binding.loadingProgressBar.isVisible = false
             binding.noDataTextView.isVisible = buildings.isNullOrEmpty()
             if (buildings.isNullOrEmpty()) {
-                binding.noDataTextView.text = "No buildings found for this project."
+                binding.noDataTextView.text = getString(R.string.no_locations_for_project)
                 buildingAdapter.submitList(emptyList())
             } else {
                 buildingAdapter.submitList(buildings)
@@ -805,28 +811,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun observeMeters() {
-        // The 'meters' list is now of type List<MeterWithObisPoints>
         locationViewModel.meters.observe(this) { meters ->
             binding.loadingProgressBar.isVisible = false
             if (meters != null) {
-                applyMeterFilter(meters) // Pass the new list type
+                applyMeterFilter(meters)
             } else {
-                binding.noDataTextView.text = "No meters found for this building."
+                binding.noDataTextView.text = getString(R.string.no_meters_for_location)
                 binding.noDataTextView.isVisible = true
                 meterAdapter.submitList(emptyList())
             }
         }
     }
 
-    // UPDATED: Change parameter type to List<MeterWithObisPoints>
     private fun applyMeterFilter(meters: List<MeterWithObisPoints>) {
         val statusFilteredMeters = if (showExchangedMeters) {
-            // Access the nested 'meter' property
-            // CHANGED: "Exchanged" -> "Ausgetauscht"
             meters.filter { it.meter.status.equals("Ausgetauscht", ignoreCase = true) }
         } else {
-            // Access the nested 'meter' property
-            // CHANGED: "Valid" -> "Aktiv"
             meters.filter { it.meter.status.equals("Aktiv", ignoreCase = true) }
         }
         val finalFilteredMeters = if ("All" in selectedMeterTypesFilter) {
@@ -834,7 +834,6 @@ class MainActivity : AppCompatActivity() {
         } else {
             statusFilteredMeters.filter { meterWithObis ->
                 selectedMeterTypesFilter.any {
-                    // Access the nested 'meter' property
                     it.equals(meterWithObis.meter.energyType, ignoreCase = true)
                 }
             }
@@ -842,46 +841,39 @@ class MainActivity : AppCompatActivity() {
         meterAdapter.submitList(finalFilteredMeters)
         binding.noDataTextView.isVisible = finalFilteredMeters.isEmpty()
         if (finalFilteredMeters.isEmpty()) {
-            binding.noDataTextView.text = "No meters match the current filters."
+            binding.noDataTextView.text = getString(R.string.no_data_found)
         }
     }
 
     private fun sendAllMeterReadingsAndPictures() {
         val readingsToSend = mutableListOf<Reading>()
-        // UPDATED: Get the new nested map structure from the adapter
         val enteredValues = meterAdapter.getEnteredReadings()
         val readingDateString = apiDateFormat.format(selectedReadingDate.time)
-        // UPDATED: Get the List<MeterWithObisPoints>
         val allMetersWithObis = locationViewModel.meters.value ?: emptyList()
 
-        // --- VALIDATION LOGIC (UPDATED) ---
         var invalidInputFound = false
         for ((meterId, readingsMap) in enteredValues) {
             for ((_, readingValue) in readingsMap) {
                 if (readingValue.isNotBlank()) {
                     if (readingValue == "." || readingValue.startsWith(".") || readingValue.endsWith(".")) {
-                        // UPDATED: Access meter number correctly
                         val meterNumber = allMetersWithObis.find { it.meter.id == meterId }?.meter?.number ?: "Unknown"
                         Toast.makeText(this, "Ungültige Eingabe für Zähler $meterNumber: '$readingValue'", Toast.LENGTH_LONG).show()
                         invalidInputFound = true
-                        break // Stop checking this meter
+                        break
                     }
                 }
             }
-            if (invalidInputFound) break // Stop checking all meters
+            if (invalidInputFound) break
         }
-        if (invalidInputFound) return // Stop the sending process
-        // --- END VALIDATION ---
+        if (invalidInputFound) return
 
-        // UPDATED: Loop through the new nested map structure
         enteredValues.forEach { (meterId, readingsMap) ->
             readingsMap.forEach { (obisOrKey, readingValue) ->
                 if (readingValue.isNotBlank()) {
-                    // Check if the key is our special key for simple readings
                     val meterObisId = if (obisOrKey == MeterAdapter.SINGLE_READING_KEY) {
-                        null // This is a simple reading
+                        null
                     } else {
-                        obisOrKey // This is a meter_obis_id (the UUID)
+                        obisOrKey
                     }
 
                     readingsToSend.add(
@@ -891,7 +883,7 @@ class MainActivity : AppCompatActivity() {
                             value = readingValue,
                             date = readingDateString,
                             read_by = "App User",
-                            meterObisId = meterObisId, // <-- CRUCIAL CHANGE
+                            meterObisId = meterObisId,
                             migrationStatus = null
                         )
                     )
@@ -899,47 +891,37 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // UPDATED: Get the new nested map structure
         val imagesToUpload = meterAdapter.getMeterImages()
-        // UPDATED: Calculate total number of images
         val totalImageCount = imagesToUpload.values.sumOf { it.size }
 
         if (readingsToSend.isEmpty() && totalImageCount == 0) {
-            Toast.makeText(this, "No readings or pictures entered.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.no_readings_or_pictures_entered), Toast.LENGTH_SHORT).show()
             return
         }
         MaterialAlertDialogBuilder(this)
-            .setTitle("Daten Senden Bestätigen")
-            // UPDATED: Show correct image count
-            .setMessage("Sollen ${readingsToSend.size} Zählerstände und $totalImageCount Bilder für das Datum ${uiDateFormat.format(selectedReadingDate.time)} gesendet werden?")
-            .setPositiveButton("Senden") { dialog, _ ->
+            .setTitle(getString(R.string.confirm_send_data_title))
+            .setMessage(getString(R.string.confirm_send_data_message, readingsToSend.size, totalImageCount, uiDateFormat.format(selectedReadingDate.time)))
+            .setPositiveButton(getString(R.string.send_button_text)) { dialog, _ ->
                 readingsToSend.forEach { locationViewModel.postMeterReading(it) }
 
-                // UPDATED: Loop through the new nested map structure
                 imagesToUpload.forEach { (meterId, obisMap) ->
-                    // UPDATED: Loop through inner map (obisKey is the UUID)
                     obisMap.forEach { (obisKey, imageUri) ->
-                        // UPDATED: Access the nested 'meter' property
                         val meter = allMetersWithObis.find { it.meter.id == meterId }?.meter
                         if (meter != null) {
                             val projectId = meter.projectId
                             val currentTime = timeFormat.format(Date())
 
-                            // UPDATED: Create a unique name including the OBIS code string
                             val obisSuffix: String
                             if (obisKey == MeterAdapter.SINGLE_READING_KEY) {
                                 obisSuffix = "main"
                             } else {
-                                // Find the obisCode.code from the obisKey (which is meter_obis.id)
                                 val meterWithObis = allMetersWithObis.find { it.meter.id == meterId }
                                 val meterObisPoint = meterWithObis?.obisPoints?.find { it.id == obisKey }
-                                // Use the full list of obis codes from the viewmodel
                                 val obisCode = meterObisPoint?.let { locationViewModel.allObisCodes.value?.find { c -> c.id == it.obisCodeId } }
-                                val obisCodeString = obisCode?.code // This is "1.8.0", etc.
+                                val obisCodeString = obisCode?.code
 
-                                // Use the code string, clean it, or fallback to the obisKey (UUID)
-                                obisSuffix = obisCodeString?.replace(Regex("[^a-zA-Z0-9.-]"), "_") // Allow dots
-                                    ?: obisKey.substring(0, 8) // Fallback to part of the UUID
+                                obisSuffix = obisCodeString?.replace(Regex("[^a-zA-Z0-9.-]"), "_")
+                                    ?: obisKey.substring(0, 8)
                             }
                             val fileName = "${s3KeyDateFormat.format(selectedReadingDate.time)}_${currentTime}_${meter.number.replace("/", "_").replace(".", "_")}_$obisSuffix.jpg"
                             val fullStoragePath = "meter-documents/meter/${meter.id}/$fileName"
@@ -948,14 +930,14 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
 
-                // UPDATED: Call the renamed clear function
                 meterAdapter.clearEnteredObisReadings()
                 meterAdapter.clearMeterImages()
-                // UPDATED: Show correct image count
-                Toast.makeText(this, "${readingsToSend.size} readings and $totalImageCount pictures have been queued for sending.", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, getString(R.string.data_sent_queued, readingsToSend.size, totalImageCount), Toast.LENGTH_LONG).show()
                 dialog.dismiss()
             }
-            .setNegativeButton("Abbrechen", null)
+            .setNegativeButton(getString(R.string.cancel_button_text)) { dialog, _ ->
+                dialog.cancel()
+            }
             .show()
     }
 
@@ -985,7 +967,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateToolbarForProjects() {
         binding.toolbarTitle.text = "Projects"
-        binding.searchView.queryHint = "Search Projects..."
+        binding.searchView.queryHint = getString(R.string.search_project_hint)
         binding.toolbarTitle.isVisible = true
         binding.searchView.isVisible = true
         binding.logoutButton.isVisible = true
@@ -996,15 +978,13 @@ class MainActivity : AppCompatActivity() {
     private fun updateToolbarForBuildings(projectId: String?) {
         val projectName = locationViewModel.projects.value?.find { it.id == projectId }?.name ?: "Buildings"
         binding.toolbarTitle.text = projectName
-        binding.searchView.queryHint = "Search Buildings..."
+        binding.searchView.queryHint = getString(R.string.search_location_hint)
         binding.toolbarTitle.isVisible = true
         binding.searchView.isVisible = true
         binding.logoutButton.isVisible = false
         binding.meterSearchView.isVisible = false
         binding.toolbarDateTextView.isVisible = false
     }
-
-
 
     private fun updateToolbarForMeters(building: Building) {
         binding.toolbarTitle.text = building.name

@@ -76,4 +76,7 @@
     <string name="login_error_generic">Login failed with code: %1$d</string>
     <string name="pictures_will_be_uploaded">Pictures will be uploaded in the background.</string>
     <string name="no_readings_or_pictures_entered">No readings or pictures entered.</string>
+
+    <!-- ADDED: Double back to exit string -->
+    <string name="press_back_again_to_exit">Press back again to exit</string>
 </resources>

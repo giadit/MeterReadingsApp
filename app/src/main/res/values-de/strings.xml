@@ -75,4 +75,7 @@
     <string name="login_error_generic">Anmeldung fehlgeschlagen mit Code: %1$d</string>
     <string name="pictures_will_be_uploaded">Bilder werden im Hintergrund hochgeladen.</string>
     <string name="no_readings_or_pictures_entered">Keine Messwerte oder Bilder eingegeben.</string> <!-- FIX: Added missing string -->
+
+    <!-- ADDED: Double back to exit string -->
+    <string name="press_back_again_to_exit">Zum Beenden erneut zurück drücken</string>
 </resources>
