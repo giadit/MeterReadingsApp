@@ -97,32 +97,23 @@ class MeterRepository(
 
     suspend fun createNewMeter(
         newMeterRequest: NewMeterRequest,
-        initialReading: Reading,
-        selectedObisCodeIds: List<String>
+        initialReadingsMap: Map<String, Reading>
     ): Boolean {
         return withContext(Dispatchers.IO) {
             try {
+                // Step 1: Create Meter
                 Log.d(TAG, "Step 1: Creating new meter with number ${newMeterRequest.number}")
                 val createMeterResponse = apiService.createMeter(newMeterRequest)
                 val newMeter = createMeterResponse.body()?.firstOrNull()
                     ?: throw Exception("Failed to create new meter. Error: ${createMeterResponse.errorBody()?.string()}")
                 Log.d(TAG, "New meter created with ID: ${newMeter.id}")
 
-                val finalInitialReading = initialReading.copy(
-                    meter_id = newMeter.id,
-                    meterObisId = null,
-                    migrationStatus = null
-                )
+                // Step 2: Create OBIS Links
+                if (initialReadingsMap.isNotEmpty()) {
+                    val obisCodeIds = initialReadingsMap.keys.toList()
+                    Log.d(TAG, "Step 2: Creating ${obisCodeIds.size} OBIS links")
 
-                Log.d(TAG, "Step 2: Posting initial reading for new meter ${newMeter.id}")
-                val postReadingResponse = apiService.postReading(finalInitialReading)
-                if (!postReadingResponse.isSuccessful) {
-                    throw Exception("Failed to post initial reading. Error: ${postReadingResponse.errorBody()?.string()}")
-                }
-
-                Log.d(TAG, "Step 3: Creating OBIS links for new meter ${newMeter.id}")
-                if (selectedObisCodeIds.isNotEmpty()) {
-                    val newObisLinks = selectedObisCodeIds.map { obisId ->
+                    val newObisLinks = obisCodeIds.map { obisId ->
                         NewMeterObisRequest(
                             meterId = newMeter.id,
                             obisCodeId = obisId
@@ -130,13 +121,40 @@ class MeterRepository(
                     }
                     val createLinksResponse = apiService.createMeterObis(newObisLinks)
                     if (!createLinksResponse.isSuccessful) {
-                        Log.e(TAG, "Failed to create OBIS links. Error: ${createLinksResponse.errorBody()?.string()}")
-                    } else {
-                        Log.d(TAG, "${newObisLinks.size} OBIS links created successfully.")
+                        throw Exception("Failed to create OBIS links. Error: ${createLinksResponse.errorBody()?.string()}")
+                    }
+
+                    // Step 3: Fetch new links to get IDs
+                    Log.d(TAG, "Step 3: Fetching new OBIS link IDs")
+                    val fetchedLinksResponse = apiService.getMeterObisByMeterId("eq.${newMeter.id}")
+                    if (!fetchedLinksResponse.isSuccessful) {
+                        throw Exception("Failed to fetch new OBIS links. Error: ${fetchedLinksResponse.errorBody()?.string()}")
+                    }
+                    val fetchedLinks = fetchedLinksResponse.body() ?: emptyList()
+
+                    // Step 4: Post Readings mapped to Link IDs
+                    Log.d(TAG, "Step 4: Posting initial readings")
+                    initialReadingsMap.forEach { (obisCodeId, reading) ->
+                        val link = fetchedLinks.find { it.obisCodeId == obisCodeId }
+                        if (link != null) {
+                            val finalReading = reading.copy(
+                                meter_id = newMeter.id,
+                                meterObisId = link.id,
+                                migrationStatus = null
+                            )
+                            val postResp = apiService.postReading(finalReading)
+                            if (!postResp.isSuccessful) {
+                                Log.e(TAG, "Failed to post reading for OBIS $obisCodeId. Error: ${postResp.errorBody()?.string()}")
+                            }
+                        } else {
+                            Log.e(TAG, "Could not find created link for OBIS Code ID: $obisCodeId")
+                        }
                     }
                 } else {
-                    Log.d(TAG, "No OBIS codes selected, skipping link creation.")
+                    Log.d(TAG, "No OBIS codes selected. Creating legacy reading if available (not supported in UI but handled here).")
                 }
+
+                Log.d(TAG, "New meter creation sequence completed.")
                 true
             } catch (e: Exception) {
                 Log.e(TAG, "Create new meter sequence failed: ${e.message}", e)

@@ -90,12 +90,11 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
 
     fun addNewMeter(
         newMeterRequest: NewMeterRequest,
-        initialReading: Reading,
-        selectedObisCodeIds: List<String>
+        initialReadingsMap: Map<String, Reading>
     ) {
         viewModelScope.launch {
             _uiMessage.value = "Creating new meter..."
-            val success = repository.createNewMeter(newMeterRequest, initialReading, selectedObisCodeIds)
+            val success = repository.createNewMeter(newMeterRequest, initialReadingsMap)
             if (success) {
                 _uiMessage.value = "New meter created successfully!"
                 refreshAllData()

@@ -72,18 +72,7 @@
                 android:textColor="@android:color/darker_gray" />
         </com.google.android.material.textfield.TextInputLayout>
 
-
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:hint="Anfangszählerstand">
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/newMeterInitialReading"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="numberDecimal"/>
-        </com.google.android.material.textfield.TextInputLayout>
+        <!-- REMOVED: Static Initial Reading Input -->
 
         <TextView
             android:layout_width="wrap_content"
@@ -106,7 +95,7 @@
             android:layout_marginTop="20dp"
             android:layout_marginBottom="8dp"/>
 
-        <!-- Container for dynamically added checkboxes -->
+        <!-- Container for dynamically added checkboxes AND input fields -->
         <LinearLayout
             android:id="@+id/obisChecklistContainer"
             android:layout_width="match_parent"
