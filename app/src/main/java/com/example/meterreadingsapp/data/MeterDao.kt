@@ -57,6 +57,13 @@ interface MeterDao {
     fun getMetersWithObisByBuildingId(buildingId: String): Flow<List<MeterWithObisPoints>>
 
     /**
+     * ADDED: Deletes all meters associated with a specific building ID.
+     * This ensures that meters removed from the API are also removed locally during a refresh.
+     */
+    @Query("DELETE FROM meters WHERE building_id = :buildingId")
+    suspend fun deleteMetersByBuildingId(buildingId: String)
+
+    /**
      * Deletes all meters from the database.
      */
     @Query("DELETE FROM meters")

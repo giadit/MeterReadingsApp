@@ -168,13 +168,30 @@ class LocationViewModel(private val repository: MeterRepository) : ViewModel() {
 
     fun setMeterSearchQuery(query: String) { _meterSearchQuery.value = query }
 
-    // UPDATED: Now only calls the lighter refresh function
+    // UPDATED: Now context-aware. Refreshes data based on the current view hierarchy.
     fun refreshAllData() {
         viewModelScope.launch {
-            Log.d(TAG, "Initiating project and metadata refresh.")
+            Log.d(TAG, "Initiating data refresh based on context.")
             try {
-                repository.refreshProjectsAndMetadata()
-                _uiMessage.value = "Projects and metadata refreshed!"
+                val currentBuildingId = selectedBuildingId.value
+                val currentProjectId = selectedProjectId.value
+
+                if (currentBuildingId != null) {
+                    // Case 1: We are inside a Building, looking at Meters
+                    _uiMessage.value = "Refreshing meters..."
+                    repository.refreshMetersForBuilding(currentBuildingId)
+                    _uiMessage.value = "Meters updated!"
+                } else if (currentProjectId != null) {
+                    // Case 2: We are inside a Project, looking at Buildings
+                    _uiMessage.value = "Refreshing buildings..."
+                    repository.refreshBuildingsForProject(currentProjectId)
+                    _uiMessage.value = "Buildings updated!"
+                } else {
+                    // Case 3: We are at the root, looking at Projects
+                    _uiMessage.value = "Refreshing projects..."
+                    repository.refreshProjectsAndMetadata()
+                    _uiMessage.value = "Projects and metadata updated!"
+                }
             } catch (e: Exception) {
                 _uiMessage.value = "Error refreshing data: ${e.message}"
                 Log.e(TAG, "Error during data refresh: ${e.message}", e)

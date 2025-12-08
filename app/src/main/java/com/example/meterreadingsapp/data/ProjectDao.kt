@@ -38,6 +38,7 @@ interface ProjectDao {
 
     /**
      * Deletes all projects from the database.
+     * This is used during a refresh operation to ensure deleted projects are removed locally.
      */
     @Query("DELETE FROM projects")
     suspend fun deleteAllProjects()

@@ -92,8 +92,11 @@ class MeterRepository(
                 val response = apiService.getBuildings("eq.$projectId")
                 if (response.isSuccessful) {
                     val buildings = response.body() ?: emptyList()
-                    // Note: We don't delete *all* buildings here, just update/insert the ones for this project.
-                    // Ideally, we might want to clean up old ones for this project, but insertAll with Replace is safe.
+
+                    // CRITICAL FIX: Delete existing buildings for this project first.
+                    // This ensures that items deleted on the server are removed locally.
+                    buildingDao.deleteBuildingsByProjectId(projectId)
+
                     if (buildings.isNotEmpty()) {
                         buildingDao.insertAll(buildings)
                     }
@@ -116,6 +119,11 @@ class MeterRepository(
                 val response = apiService.getMetersByBuildingId("eq.$buildingId")
                 if (response.isSuccessful) {
                     val meters = response.body() ?: emptyList()
+
+                    // CRITICAL FIX: Delete existing meters for this building first.
+                    // This ensures that items deleted on the server are removed locally.
+                    meterDao.deleteMetersByBuildingId(buildingId)
+
                     if (meters.isNotEmpty()) {
                         meterDao.insertAll(meters)
                     }

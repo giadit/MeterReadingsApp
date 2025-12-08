@@ -26,10 +26,16 @@ interface BuildingDao {
     fun getBuildingsByProjectId(projectId: String): Flow<List<Building>>
 
     /**
+     * ADDED: Deletes all buildings associated with a specific project ID.
+     * This ensures that buildings removed from the API are also removed locally during a refresh.
+     */
+    @Query("DELETE FROM buildings WHERE project_id = :projectId")
+    suspend fun deleteBuildingsByProjectId(projectId: String)
+
+    /**
      * ADDED: Deletes all buildings from the database.
      * This is used during a full data refresh to clear out old data.
      */
     @Query("DELETE FROM buildings")
     suspend fun deleteAllBuildings()
 }
-
