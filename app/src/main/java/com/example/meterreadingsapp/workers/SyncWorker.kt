@@ -1,13 +1,17 @@
 package com.example.meterreadingsapp.workers
 
 import android.content.Context
+import android.content.Intent
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.example.meterreadingsapp.MainActivity
 import com.example.meterreadingsapp.api.ApiService
 import com.example.meterreadingsapp.api.RetrofitClient
+import com.example.meterreadingsapp.api.SessionManager
 import com.example.meterreadingsapp.data.AppDatabase
 import com.example.meterreadingsapp.repository.MeterRepository
+import com.example.meterreadingsapp.repository.QueueProcessResult
 import kotlinx.coroutines.flow.firstOrNull
 
 class SyncWorker(
@@ -23,11 +27,9 @@ class SyncWorker(
         val database = AppDatabase.getDatabase(applicationContext)
         val apiService = RetrofitClient.getService(ApiService::class.java, applicationContext)
 
-        // Fetch new DAOs
         val obisCodeDao = database.obisCodeDao()
         val meterObisDao = database.meterObisDao()
 
-        // CORRECTED: Update constructor to pass all required DAOs
         val repository = MeterRepository(
             apiService = apiService,
             meterDao = database.meterDao(),
@@ -35,7 +37,6 @@ class SyncWorker(
             projectDao = database.projectDao(),
             buildingDao = database.buildingDao(),
             queuedRequestDao = database.queuedRequestDao(),
-            // ADDED NEW DAOs
             obisCodeDao = obisCodeDao,
             meterObisDao = meterObisDao,
             appContext = applicationContext
@@ -51,19 +52,37 @@ class SyncWorker(
         var allSuccessful = true
         for (request in queuedRequests) {
             Log.d(TAG, "Processing queued request: ${request.id}")
-            // Attempt to process the request
-            val success = repository.processQueuedRequest(request)
 
-            if (success) {
-                // If successful, delete from queue
-                database.queuedRequestDao().delete(request.id)
-                Log.d(TAG, "Successfully processed and deleted queued request: ${request.id}")
-            } else {
-                // If failed, update attempt count and mark for retry
-                request.attemptCount++
-                database.queuedRequestDao().update(request)
-                Log.e(TAG, "Failed to process queued request: ${request.id}. Attempt count: ${request.attemptCount}.")
-                allSuccessful = false
+            // UPDATED: Handle different result types from repository
+            when (repository.processQueuedRequest(request)) {
+                is QueueProcessResult.Success -> {
+                    // If successful, delete from queue
+                    database.queuedRequestDao().delete(request.id)
+                    Log.d(TAG, "Successfully processed and deleted queued request: ${request.id}")
+                }
+                is QueueProcessResult.AuthFailure -> {
+                    // If Auth failed (401), clear session and notify UI
+                    Log.e(TAG, "Authentication failed for request: ${request.id}. Clearing session and notifying user.")
+
+                    val sessionManager = SessionManager(applicationContext)
+                    sessionManager.clearAuthToken()
+
+                    // Broadcast to MainActivity to show popup
+                    val intent = Intent(MainActivity.ACTION_AUTH_ERROR)
+                    // Set package to ensure broadcast stays within app
+                    intent.setPackage(applicationContext.packageName)
+                    applicationContext.sendBroadcast(intent)
+
+                    // Fail the worker immediately, do not retry
+                    return Result.failure()
+                }
+                is QueueProcessResult.Retry -> {
+                    // If network error or other server error, mark for retry
+                    request.attemptCount++
+                    database.queuedRequestDao().update(request)
+                    Log.e(TAG, "Failed to process queued request: ${request.id}. Attempt count: ${request.attemptCount}.")
+                    allSuccessful = false
+                }
             }
         }
 

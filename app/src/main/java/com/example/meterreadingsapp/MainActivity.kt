@@ -1,8 +1,10 @@
 package com.example.meterreadingsapp
 
 import android.app.DatePickerDialog
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.graphics.Color
@@ -93,6 +95,19 @@ class MainActivity : AppCompatActivity() {
 
     private var backPressedTime: Long = 0
     private val BACK_PRESS_INTERVAL: Long = 2000 // 2 seconds
+
+    companion object {
+        const val ACTION_AUTH_ERROR = "com.example.meterreadingsapp.ACTION_AUTH_ERROR"
+    }
+
+    // Receiver for Auth Errors broadcast by SyncWorker
+    private val authErrorReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == ACTION_AUTH_ERROR) {
+                showSessionExpiredDialog()
+            }
+        }
+    }
 
     private val requestCameraPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted: Boolean ->
@@ -221,6 +236,50 @@ class MainActivity : AppCompatActivity() {
         binding.bottomBarAddMeterButton.setOnClickListener {
             showAddMeterDialog()
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Register the Auth Error receiver
+        val filter = IntentFilter(ACTION_AUTH_ERROR)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(authErrorReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(authErrorReceiver, filter)
+        }
+
+        // Restore UI State
+        when {
+            binding.projectsContainer.isVisible -> updateToolbarForProjects()
+            binding.locationsContainer.isVisible -> updateToolbarForBuildings(locationViewModel.selectedProjectId.value)
+            binding.metersContainer.isVisible -> locationViewModel.selectedBuildingId.value?.let { buildingId ->
+                locationViewModel.buildings.value?.find { it.id == buildingId }?.let { building ->
+                    updateToolbarForMeters(building)
+                }
+            }
+            else -> updateToolbarForProjects()
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // Unregister to avoid leaks
+        try {
+            unregisterReceiver(authErrorReceiver)
+        } catch (e: IllegalArgumentException) {
+            // Receiver not registered
+        }
+    }
+
+    private fun showSessionExpiredDialog() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Session Expired")
+            .setMessage("Your session has expired. Please log in again to continue.")
+            .setCancelable(false)
+            .setPositiveButton("OK") { _, _ ->
+                performLogout()
+            }
+            .show()
     }
 
     private fun navigateBack() {
@@ -1117,20 +1176,6 @@ class MainActivity : AppCompatActivity() {
         binding.logoutButton.isVisible = false
         binding.toolbarDateTextView.isVisible = true
         updateSelectedDateText()
-    }
-
-    override fun onResume() {
-        super.onResume()
-        when {
-            binding.projectsContainer.isVisible -> updateToolbarForProjects()
-            binding.locationsContainer.isVisible -> updateToolbarForBuildings(locationViewModel.selectedProjectId.value)
-            binding.metersContainer.isVisible -> locationViewModel.selectedBuildingId.value?.let { buildingId ->
-                locationViewModel.buildings.value?.find { it.id == buildingId }?.let { building ->
-                    updateToolbarForMeters(building)
-                }
-            }
-            else -> updateToolbarForProjects()
-        }
     }
 
     enum class AppMode {

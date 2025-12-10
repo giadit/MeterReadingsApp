@@ -25,6 +25,13 @@ import java.io.IOException
 import java.util.*
 import kotlin.math.roundToInt
 
+// Sealed class to define specific results for queue processing
+sealed class QueueProcessResult {
+    object Success : QueueProcessResult()
+    object AuthFailure : QueueProcessResult()
+    object Retry : QueueProcessResult()
+}
+
 class MeterRepository(
     private val apiService: ApiService,
     private val meterDao: MeterDao,
@@ -45,8 +52,6 @@ class MeterRepository(
     fun getMetersWithObisByBuildingIdFromDb(buildingId: String): Flow<List<MeterWithObisPoints>> = meterDao.getMetersWithObisByBuildingId(buildingId)
     fun getAllObisCodesFromDb(): Flow<List<ObisCode>> = obisCodeDao.getAllObisCodes()
 
-    // UPDATED: Now only fetches Projects and global Metadata (OBIS codes).
-    // It NO LONGER fetches all buildings or all meters.
     suspend fun refreshProjectsAndMetadata() {
         withContext(Dispatchers.IO) {
             try {
@@ -56,6 +61,9 @@ class MeterRepository(
                     val projects = projectsResponse.body() ?: emptyList()
                     projectDao.deleteAllProjects()
                     projectDao.insertAll(projects)
+                } else if (projectsResponse.code() == 401) {
+                    // Could throw specific exception here if needed for foreground refresh handling
+                    Log.e(TAG, "Auth failure fetching projects")
                 }
 
                 Log.d(TAG, "Fetching OBIS codes...")
@@ -67,8 +75,6 @@ class MeterRepository(
                 }
 
                 Log.d(TAG, "Fetching Meter OBIS links (Global)...")
-                // We keep this global for now to ensure links work when meters are loaded.
-                // If this is too heavy, it can also be moved to lazy loading.
                 val meterObisResponse = apiService.getMeterObis()
                 if (meterObisResponse.isSuccessful) {
                     val meterObis = meterObisResponse.body() ?: emptyList()
@@ -78,25 +84,19 @@ class MeterRepository(
 
             } catch (e: Exception) {
                 Log.e(TAG, "Error during project/metadata refresh: ${e.message}", e)
-                throw e // Re-throw to let ViewModel know
+                throw e
             }
         }
     }
 
-    // ADDED: Fetches buildings only for the selected project
     suspend fun refreshBuildingsForProject(projectId: String) {
         withContext(Dispatchers.IO) {
             try {
                 Log.d(TAG, "Fetching buildings for project: $projectId")
-                // Supabase syntax: "eq.VALUE"
                 val response = apiService.getBuildings("eq.$projectId")
                 if (response.isSuccessful) {
                     val buildings = response.body() ?: emptyList()
-
-                    // CRITICAL FIX: Delete existing buildings for this project first.
-                    // This ensures that items deleted on the server are removed locally.
                     buildingDao.deleteBuildingsByProjectId(projectId)
-
                     if (buildings.isNotEmpty()) {
                         buildingDao.insertAll(buildings)
                     }
@@ -110,20 +110,14 @@ class MeterRepository(
         }
     }
 
-    // ADDED: Fetches meters only for the selected building
     suspend fun refreshMetersForBuilding(buildingId: String) {
         withContext(Dispatchers.IO) {
             try {
                 Log.d(TAG, "Fetching meters for building: $buildingId")
-                // Supabase syntax: "eq.VALUE"
                 val response = apiService.getMetersByBuildingId("eq.$buildingId")
                 if (response.isSuccessful) {
                     val meters = response.body() ?: emptyList()
-
-                    // CRITICAL FIX: Delete existing meters for this building first.
-                    // This ensures that items deleted on the server are removed locally.
                     meterDao.deleteMetersByBuildingId(buildingId)
-
                     if (meters.isNotEmpty()) {
                         meterDao.insertAll(meters)
                     }
@@ -143,14 +137,12 @@ class MeterRepository(
     ): Boolean {
         return withContext(Dispatchers.IO) {
             try {
-                // Step 1: Create Meter
                 Log.d(TAG, "Step 1: Creating new meter with number ${newMeterRequest.number}")
                 val createMeterResponse = apiService.createMeter(newMeterRequest)
                 val newMeter = createMeterResponse.body()?.firstOrNull()
                     ?: throw Exception("Failed to create new meter. Error: ${createMeterResponse.errorBody()?.string()}")
                 Log.d(TAG, "New meter created with ID: ${newMeter.id}")
 
-                // Step 2: Create OBIS Links
                 if (initialReadingsMap.isNotEmpty()) {
                     val obisCodeIds = initialReadingsMap.keys.toList()
                     Log.d(TAG, "Step 2: Creating ${obisCodeIds.size} OBIS links")
@@ -166,7 +158,6 @@ class MeterRepository(
                         throw Exception("Failed to create OBIS links. Error: ${createLinksResponse.errorBody()?.string()}")
                     }
 
-                    // Step 3: Fetch new links to get IDs
                     Log.d(TAG, "Step 3: Fetching new OBIS link IDs")
                     val fetchedLinksResponse = apiService.getMeterObisByMeterId("eq.${newMeter.id}")
                     if (!fetchedLinksResponse.isSuccessful) {
@@ -174,7 +165,6 @@ class MeterRepository(
                     }
                     val fetchedLinks = fetchedLinksResponse.body() ?: emptyList()
 
-                    // Step 4: Post Readings mapped to Link IDs
                     Log.d(TAG, "Step 4: Posting initial readings")
                     initialReadingsMap.forEach { (obisCodeId, reading) ->
                         val link = fetchedLinks.find { it.obisCodeId == obisCodeId }
@@ -193,15 +183,11 @@ class MeterRepository(
                         }
                     }
                 } else {
-                    Log.d(TAG, "No OBIS codes selected. Creating legacy reading if available (not supported in UI but handled here).")
+                    Log.d(TAG, "No OBIS codes selected.")
                 }
 
                 Log.d(TAG, "New meter creation sequence completed.")
-
-                // IMPORTANT: Insert the new meter into the local database so it appears immediately
-                // without needing a full refresh.
                 meterDao.insertAll(listOf(newMeter))
-
                 true
             } catch (e: Exception) {
                 Log.e(TAG, "Create new meter sequence failed: ${e.message}", e)
@@ -214,27 +200,24 @@ class MeterRepository(
         oldMeter: Meter,
         oldMeterReadings: List<Reading>,
         newMeterNumber: String,
-        newMeterReadingsMap: Map<String, Reading> // Key: ObisCodeId, Value: Reading (with temporary ID, no meter_id)
+        newMeterReadingsMap: Map<String, Reading>
     ): Boolean {
         return withContext(Dispatchers.IO) {
             try {
-                // Step 1: Post final readings for old meter
                 Log.d(TAG, "Step 1: Posting ${oldMeterReadings.size} final readings for old meter ${oldMeter.id}")
                 oldMeterReadings.forEach { reading ->
-                    val finalReading = reading.copy(migrationStatus = null) // Ensure clean state
+                    val finalReading = reading.copy(migrationStatus = null)
                     val response = apiService.postReading(finalReading)
                     if (!response.isSuccessful) {
                         throw Exception("Failed to post final reading for old meter. Error: ${response.errorBody()?.string()}")
                     }
                 }
 
-                // Step 2: Update status for old meter
                 Log.d(TAG, "Step 2: Updating status for old meter ${oldMeter.id}")
                 val updateStatusRequest = UpdateMeterRequest(status = "Ausgetauscht")
                 val updateStatusResponse = apiService.updateMeter("eq.${oldMeter.id}", updateStatusRequest)
                 if (!updateStatusResponse.isSuccessful) throw Exception("Failed to update old meter status. Error: ${updateStatusResponse.errorBody()?.string()}")
 
-                // Step 3: Create new meter
                 Log.d(TAG, "Step 3: Creating new meter with number $newMeterNumber")
                 val newMeterRequest = NewMeterRequest(
                     number = newMeterNumber,
@@ -254,14 +237,12 @@ class MeterRepository(
                 val newMeter = createMeterResponse.body()?.firstOrNull() ?: throw Exception("Failed to create new meter. Error: ${createMeterResponse.errorBody()?.string()}")
                 Log.d(TAG, "New meter created with ID: ${newMeter.id}")
 
-                // Step 4: Copy OBIS links from old meter to new meter
                 Log.d(TAG, "Step 4: Handling OBIS links")
                 val oldObisLinksResponse = apiService.getMeterObisByMeterId("eq.${oldMeter.id}")
                 val oldObisLinks = oldObisLinksResponse.body()
 
                 if (oldObisLinks.isNullOrEmpty()) {
                     Log.d(TAG, "Old meter has no OBIS links to copy.")
-                    // If there were legacy readings passed for the new meter (key "legacy_single"), handle them
                     val legacyReading = newMeterReadingsMap["legacy_single"]
                     if (legacyReading != null) {
                         val finalLegacyReading = legacyReading.copy(meter_id = newMeter.id)
@@ -279,13 +260,11 @@ class MeterRepository(
                     val createLinksResponse = apiService.createMeterObis(newObisLinkRequests)
                     if (!createLinksResponse.isSuccessful) throw Exception("Failed to create new OBIS links. Error: ${createLinksResponse.errorBody()?.string()}")
 
-                    // Step 5: Fetch newly created OBIS links to get their IDs
                     Log.d(TAG, "Step 5: Fetching new OBIS link IDs to map readings")
                     val newObisLinksResponse = apiService.getMeterObisByMeterId("eq.${newMeter.id}")
                     if (!newObisLinksResponse.isSuccessful) throw Exception("Failed to fetch new OBIS links. Error: ${newObisLinksResponse.errorBody()?.string()}")
                     val newObisLinks = newObisLinksResponse.body() ?: emptyList()
 
-                    // Step 6: Map readings to new OBIS links and post them
                     Log.d(TAG, "Step 6: Posting initial readings for new meter")
                     newMeterReadingsMap.forEach { (obisCodeId, reading) ->
                         if (obisCodeId != "legacy_single") {
@@ -307,15 +286,12 @@ class MeterRepository(
                     }
                 }
 
-                // Step 7: Link meters
                 Log.d(TAG, "Step 7: Linking old meter to new meter")
                 val linkMetersRequest = UpdateMeterRequest(exchangedWithNewMeterId = newMeter.id)
                 val linkMetersResponse = apiService.updateMeter("eq.${oldMeter.id}", linkMetersRequest)
                 if (!linkMetersResponse.isSuccessful) throw Exception("Failed to link old meter to new meter. Error: ${linkMetersResponse.errorBody()?.string()}")
 
-                // Insert the new meter locally
                 meterDao.insertAll(listOf(newMeter))
-
                 Log.d(TAG, "Meter exchange sequence completed successfully.")
                 true
             } catch (e: Exception) {
@@ -423,23 +399,43 @@ class MeterRepository(
         }
     }
 
-    suspend fun processQueuedRequest(request: QueuedRequest): Boolean {
+    // UPDATED: Now returns a QueueProcessResult to detect Auth Failure (401)
+    suspend fun processQueuedRequest(request: QueuedRequest): QueueProcessResult {
         return withContext(Dispatchers.IO) {
             try {
                 when (request.type) {
                     "reading" -> {
                         val reading = gson.fromJson(request.body, Reading::class.java)
-                        apiService.postReading(reading).isSuccessful
+                        val response = apiService.postReading(reading)
+                        if (response.isSuccessful) {
+                            QueueProcessResult.Success
+                        } else if (response.code() == 401) {
+                            QueueProcessResult.AuthFailure
+                        } else {
+                            Log.w(TAG, "Post reading failed with code ${response.code()}")
+                            QueueProcessResult.Retry
+                        }
                     }
                     "file_metadata" -> {
                         val fileMetadata = gson.fromJson(request.body, FileMetadata::class.java)
-                        apiService.postFileMetadata(fileMetadata).isSuccessful
+                        val response = apiService.postFileMetadata(fileMetadata)
+                        if (response.isSuccessful) {
+                            QueueProcessResult.Success
+                        } else if (response.code() == 401) {
+                            QueueProcessResult.AuthFailure
+                        } else {
+                            Log.w(TAG, "Post metadata failed with code ${response.code()}")
+                            QueueProcessResult.Retry
+                        }
                     }
-                    else -> false
+                    else -> {
+                        Log.e(TAG, "Unknown request type: ${request.type}")
+                        QueueProcessResult.Success // Treat unknown as success to remove it from queue
+                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error processing queued request ${request.id}: ${e.message}", e)
-                false
+                QueueProcessResult.Retry
             }
         }
     }
