@@ -14,7 +14,7 @@ android {
         minSdk = 24
         targetSdk = 35
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -26,19 +26,19 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            buildConfigField("String", "SUPABASE_API_KEY", "\"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc1NjQ1ODY2MCwiZXhwIjo0OTEyMTMyMjYwLCJyb2xlIjoiYW5vbiJ9.yIY7ONDFIdlRFwa2Q-ksaGbTkB7z2iIPi7F-_FHKJKQ\"")
+            buildConfigField("String", "SUPABASE_API_KEY", "\"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY1NTM1NjE5LCJleHAiOjIwODA4OTU2MTl9.30_HLx6nh1vcEb4swJXCD9L17AwC2upGi_GrhyxXS1g\"")
             // UPDATED with real credentials
-            buildConfigField("String", "AWS_ACCESS_KEY_ID", "\"YGGegwAD6rGrqMka\"")
-            buildConfigField("String", "AWS_SECRET_ACCESS_KEY", "\"Sij7GyLLXQMPBnMzf4Jqp3MavnYCgUs6\"")
+            buildConfigField("String", "AWS_ACCESS_KEY_ID", "\"u25Q8ztsRSEAAHkn1YIC\"")
+            buildConfigField("String", "AWS_SECRET_ACCESS_KEY", "\"xmcSJaH5mvHqHxwh0YVLWcU4aVQ0bgSglwLAkijk\"")
             buildConfigField("String", "AWS_REGION", "\"eu-central-1\"") // Region can be a placeholder
             buildConfigField("String", "AWS_SERVICE_NAME", "\"s3\"")
         }
         debug {
             isMinifyEnabled = false
-            buildConfigField("String", "SUPABASE_API_KEY", "\"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc1NjQ1ODY2MCwiZXhwIjo0OTEyMTMyMjYwLCJyb2xlIjoiYW5vbiJ9.yIY7ONDFIdlRFwa2Q-ksaGbTkB7z2iIPi7F-_FHKJKQ\"")
+            buildConfigField("String", "SUPABASE_API_KEY", "\"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzY1NTM1NjE5LCJleHAiOjIwODA4OTU2MTl9.30_HLx6nh1vcEb4swJXCD9L17AwC2upGi_GrhyxXS1g\"")
             // UPDATED with real credentials
-            buildConfigField("String", "AWS_ACCESS_KEY_ID", "\"YGGegwAD6rGrqMka\"")
-            buildConfigField("String", "AWS_SECRET_ACCESS_KEY", "\"Sij7GyLLXQMPBnMzf4Jqp3MavnYCgUs6\"")
+            buildConfigField("String", "AWS_ACCESS_KEY_ID", "\"u25Q8ztsRSEAAHkn1YIC\"")
+            buildConfigField("String", "AWS_SECRET_ACCESS_KEY", "\"xmcSJaH5mvHqHxwh0YVLWcU4aVQ0bgSglwLAkijk\"")
             buildConfigField("String", "AWS_REGION", "\"eu-central-1\"") // Region can be a placeholder
             buildConfigField("String", "AWS_SERVICE_NAME", "\"s3\"")
         }
